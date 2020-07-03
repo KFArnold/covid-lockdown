@@ -155,8 +155,11 @@ policies_eur <- policies %>% filter(Country %in% countries) %>% droplevels
 # Determine countries to be analysed
 # ------------------------------------------------------------------------------
 
-# Define European countries with >=1000 total cases by 1 June
-countries_eur <- filter(data_eur, Date == as.Date("2020-06-01"), 
+# Define end date for inclusion
+date_T <- as.Date("2020-06-01")
+
+# Define European countries with >=1000 total cases by date_T
+countries_eur <- filter(data_eur, Date == date_T, 
                         Cumulative_cases_end >= 1000)$Country %>% as.character %>% as.list
 
 # Retain only data from European countries with >=1000 total cases by 1 June
@@ -179,22 +182,30 @@ no policy data available:\n",
 data_eur_final <- data_eur %>% filter(Country %in% countries_eur_final) %>% droplevels
 policies_eur_final <- policies_eur %>% filter(Country %in% countries_eur_final) %>% droplevels
 
+# Create copy of dataframe where cumulative cases >= 100 and up to date_T
+#data_eur_final_100 <- data_eur_final %>% filter(Date >= Date_100 & Date <= date_T)
+
+# Remove all non-final dataframes and lists
+rm(countries, countries_eur)
+rm(data_all, data_eur, policies, policies_eur)
+
 # ------------------------------------------------------------------------------
 # Summarise countries 
 # ------------------------------------------------------------------------------
 
 # Create summary table which defines first date at which cases first exceeded 100 (Date_100)
 summary_eur_final <- data_eur_final %>% filter(Date == Date_100) %>% 
-  select(-c(Date_0, Date_100, Days_since_100, Cumulative_cases_end, Cumulative_deaths_end)) %>%
-  rename_at(vars(-Country), .funs = list(~ paste0(., "_100"))) 
+  select(-c(Date_100, Days_since_100, Cumulative_cases_end, Cumulative_deaths_end)) %>%
+  rename_at(vars(-c(Country, Date_0)), .funs = list(~ paste0(., "_100"))) %>%
+  relocate(Date_0, .before = Date_100)
 
 # Create empty summary tables to store:
 # (1) Date of first restriction (including cases and deaths)
-summary_first_restriction <- data_eur %>% select(Country, Date, contains(c("Cumulative", "Daily"))) %>%
+summary_first_restriction <- data_eur_final %>% select(Country, Date, contains(c("Cumulative", "Daily"))) %>%
   rename_at(vars(-Country), .funs = list(~ paste0(., "_first_restriction"))) 
 summary_first_restriction <- summary_first_restriction[0, ]
 # (2) Date of lockdown (including cases and deaths)
-summary_lockdown <- data_eur %>% select(Country, Date, contains(c("Cumulative", "Daily"))) %>%
+summary_lockdown <- data_eur_final %>% select(Country, Date, contains(c("Cumulative", "Daily"))) %>%
   rename_at(vars(-Country), .funs = list(~ paste0(., "_lockdown"))) 
 summary_lockdown <- summary_lockdown[0, ]
 
@@ -274,21 +285,23 @@ for (i in 1:nrow(summary_eur_final)) {
   }
   
 }
-# Remove loop variables
-rm(data_eur_i, policies_eur_i, summary_first_restriction_i, summary_lockdown_i, 
+# Remove measures/cutoffs, loop objects
+rm(measures_lockdown, measures_lockdown_alt, measures_any_restriction,
+   cutoffs_lockdown, cutoffs_lockdown_alt, cutoffs_any_restriction)
+rm(i, data_eur_i, policies_eur_i, summary_first_restriction_i, summary_lockdown_i, 
    index, country, date_lockdown, date_first_restriction)
 
 # Combine all summary datasets; remove separate dataframes
 summary_eur_final <- full_join(summary_eur_final, summary_first_restriction, by = "Country") %>%
-  full_join(., summary_lockdown, by = "Country")
+  full_join(., summary_lockdown, by = "Country") %>% ungroup
 rm(summary_first_restriction, summary_lockdown)
 
 # Export summary table
-write_csv(summary_eur_final, path = paste0(out, "Country summaries.csv"))
+#write_csv(summary_eur_final, path = paste0(out, "Country summaries.csv"))
 
 ## Figures ---------------------------------------------------------------------
 
-# Import data and set output storave directory if required
+# Import data and set output storage directory if required
 # summary_eur_final <- read_csv("./Results/Country summaries.csv") %>% mutate_if(is.character, as.factor)
 # out <- paste0("./Results/")
 
@@ -334,44 +347,46 @@ plot_1 <- ggplot(data = summary_eur_final, aes(y = Country)) +
                expand = expansion(mult = c(0, 0))) +
   scale_y_discrete(name = "",
                    limits = rev(countries_ordered)) 
-plot_1
+#plot_1
 
 # Save plot
-ggsave(paste0(out, "Figure - Important dates.png"),
-       plot = plot_1, width = 9, height = 8)
+#ggsave(paste0(out, "Figure - Important dates.png"),
+#       plot = plot_1, width = 9, height = 8)
 
-## (1) Figure - with dates of first restriction, lockdown, and cases >= 100 ----
+## (2) Figure - including first case and cases >= 100 --------------------------
 
 # Get min and max dates
 date_min <- summary_eur_final %>% ungroup %>% 
-  summarise(Date_min = min(Date_100, Date_first_restriction, Date_lockdown, na.rm = TRUE)) %>% pull
+  summarise(Date_min = min(Date_0, Date_100, Date_first_restriction, Date_lockdown, na.rm = TRUE)) %>% pull
 date_max <- summary_eur_final %>% ungroup %>% 
-  summarise(Date_min = max(Date_100, Date_first_restriction, Date_lockdown, na.rm = TRUE)) %>% pull
+  summarise(Date_min = max(Date_0, Date_100, Date_first_restriction, Date_lockdown, na.rm = TRUE)) %>% pull
 
-# Define colours and shapes (for first restriction lockdown, and cases >= 100)
-cols <- c("col1" = "navyblue", "col2" = "darkorange", "col3" = "grey")
-shapes <- c("sh1" = 15, "sh2" = 18, "sh3" = 1)
+# Define colours and shapes 
+# (for first restriction, lockdown, first case, and cases >= 100)
+cols <- c("col1" = "navyblue", "col2" = "darkorange", "col3" = "grey80", "col4" = "grey50")
+shapes <- c("sh1" = 15, "sh2" = 18, "sh3" = 1, "sh4" = 1)
 
 plot_2 <- ggplot(data = summary_eur_final, aes(y = Country)) + 
   theme_minimal() +
   theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm")) +
   labs(title = "Important dates in COVID-19 European policy responses",
-       subtitle = "Date when: first restriction imposed, lockdown imposed, cases exceed 100",
+       subtitle = "Date when: first restriction imposed, lockdown imposed, first case recorded, 100th case recorded",
        caption = "Data from Oxford Covid-19 Government Response Tracker (https://github.com/OxCGRT/covid-policy-tracker)
        and Johns Hopkins COVID-19 Data Repository (https://github.com/CSSEGISandData/COVID-19).") +
   theme(plot.caption = element_text(size = 7),
         plot.subtitle = element_text(size = 10)) +
   geom_point(aes(x = Date_first_restriction, color = "col1", shape = "sh1"), size = 3) +
   geom_point(aes(x = Date_lockdown, color = "col2", shape = "sh2"), size = 3) +
-  geom_point(aes(x = Date_100, color = "col3", shape = "sh3"), size = 3) +
+  geom_point(aes(x = Date_0, color = "col3", shape = "sh3"), size = 3) +
+  geom_point(aes(x = Date_100 - 1, color = "col4", shape = "sh4"), size = 3) +
   scale_color_manual(name = "Date of...",
-                     breaks = c("col1", "col2", "col3"),
+                     breaks = c("col1", "col2", "col3", "col4"),
                      values = cols,
-                     labels = c("first restriction", "lockdown", "100 confirmed cases")) +
+                     labels = c("first restriction", "lockdown", "first confirmed case", "100th confirmed case")) +
   scale_shape_manual(name = "Date of...",
-                     breaks = c("sh1", "sh2", "sh3"),
+                     breaks = c("sh1", "sh2", "sh3", "sh4"),
                      values = shapes,
-                     labels = c("first restriction", "lockdown", "100 confirmed cases")) +
+                     labels = c("first restriction", "lockdown", "first confirmed case", "100th confirmed case")) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
   scale_x_date(name = "", 
                limits = c(date_min - 4, date_max + 4), 
@@ -380,9 +395,11 @@ plot_2 <- ggplot(data = summary_eur_final, aes(y = Country)) +
                expand = expansion(mult = c(0, 0))) +
   scale_y_discrete(name = "",
                    limits = rev(countries_ordered)) 
-plot_2
+#plot_2
 
 # Save plot
-ggsave(paste0(out, "Figure - Important dates (including 100 cases).png"),
-       plot = plot_2, width = 9, height = 8)
+#ggsave(paste0(out, "Figure - Important dates (including first and 100th cases).png"),
+#       plot = plot_2, width = 12, height = 8)
 
+# Remove plotting objects from environment
+rm(countries_ordered, date_min, date_max, cols, shapes, plot_1, plot_2)
