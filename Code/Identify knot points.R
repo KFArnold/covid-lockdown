@@ -171,22 +171,25 @@ plot_exp_growth_cases <- ggplot(data = filter(data_eur_final, Date <= date_T),
 #plot_exp_growth_cases
 
 # Save plot
-ggsave(paste0(out, "Figure - Cumulative vs incident cases - ALL.png"),
+ggsave(paste0(out, "Figure - Cumulative vs incident cases - combined.png"),
        plot = plot_exp_growth_cases, width = 12, height = 8)
 
 # ------------------------------------------------------------------------------
 # Estimate when exponential growth changed 
 # ------------------------------------------------------------------------------
 
+# Create list to store best knots for each country
+knots_best <- list()
+
 # Set seed
 set.seed(72)
 
 # (1) Iterate through countries
 start <- Sys.time()
-for (i in 1:nrow(summary_eur_final)) {
+for (i in countries_eur_final) {
   
   # Define country
-  country <- summary_eur_final[[i, "Country"]] %>% as.character
+  country <- i
   
   # Filter cases/deaths dataframe by country
   data_eur_final_i <- data_eur_final %>% filter(Country == country)
@@ -195,24 +198,30 @@ for (i in 1:nrow(summary_eur_final)) {
   data_eur_final_100_i <- data_eur_final_i %>% filter(Date >= Date_100 & Date <= date_T)
   
   # Record important dates
-  date_100 <- summary_eur_final[[i, "Date_100"]]  # (first date where cumulative cases >= 100)
-  date_first_restriction <- summary_eur_final[[i, "Date_first_restriction"]]  # (date of first restriction)
-  date_lockdown <- summary_eur_final[[i, "Date_lockdown"]]  # (date of lockdown)
+  date_100 <- summary_eur_final %>% filter(Country == country) %>% pull(Date_100)
+  date_first_restriction <- summary_eur_final %>% filter(Country == country) %>% pull(Date_first_restriction)
+  date_lockdown <- summary_eur_final %>% filter(Country == country) %>% pull(Date_lockdown)
   
   # Define potential knot dates (from dates of first restriction and lockdown to 28 days subsequent),
   # And create grid of all possible combinations of knot dates, with restrictions that...
   # (a) first knot date must be before or at the same time as second knot date, and
   # (b) knot dates must fall within modelling period (i.e. after the first date at which cumulative cases >= 100)
-  if (!is.na(date_lockdown)) {
+  if (is.na(date_lockdown) | date_first_restriction == date_lockdown) {
+    possible_knot_dates_1 <- seq(from = date_first_restriction, to = date_first_restriction + 28, by = 1)
+    grid <- tibble("Knot_date_1" = possible_knot_dates_1) %>% filter(Knot_date_1 >= date_100)
+  } else {
     possible_knot_dates_1 <- seq(from = date_first_restriction, to = date_first_restriction + 28, by = 1)
     possible_knot_dates_2 <- seq(from = date_lockdown, to = date_lockdown + 28, by = 1)
     grid <- tibble(expand.grid(possible_knot_dates_2, possible_knot_dates_1))
     names(grid) <- c("Knot_date_2", "Knot_date_1")
     grid <- grid %>% select("Knot_date_1", "Knot_date_2") %>% 
       filter(Knot_date_1 <= Knot_date_2, Knot_date_1 >= date_100)  
-  } else {
-    possible_knot_dates_1 <- seq(from = date_first_restriction, to = date_first_restriction + 28, by = 1)
-    grid <- tibble("Knot_date_1" = possible_knot_dates_1)
+    # If first knot date equals second knot date, replace second with NA
+    for (g in 1:nrow(grid)) {
+      k_1 <- grid[[g, "Knot_date_1"]]
+      k_2 <- grid[[g, "Knot_date_2"]]
+      if (k_1 == k_2) {grid[[g, "Knot_date_2"]] <- NA}
+    }
   }
   
   # Create dataframe to store summary statistics for all possible combinations of knot dates
@@ -221,6 +230,12 @@ for (i in 1:nrow(summary_eur_final)) {
                             Growth_factor_1 = as.numeric(),
                             Growth_factor_2 = as.numeric(),
                             Growth_factor_3 = as.numeric(),
+                            Growth_factor_sd_1 = as.numeric(),
+                            Growth_factor_sd_2 = as.numeric(),
+                            Growth_factor_sd_3 = as.numeric(),
+                            Intercept_1 = as.numeric(),
+                            Intercept_2 = as.numeric(),
+                            Intercept_3 = as.numeric(),
                             BIC = as.numeric(),
                             RMSE_inc = as.numeric(),
                             RMSE_cum = as.numeric(),
@@ -259,22 +274,28 @@ for (i in 1:nrow(summary_eur_final)) {
     ## OR 2 knots (occurring at knot_date_1 and knot_date_2)
     if (knot_date_1 == date_100) {
       
-      if (is.na(knot_date_2) | knot_date_1 == knot_date_2) {  # NO knot points
+      if (is.na(knot_date_2)) {  # NO knot points
         
         # Set number of knot points
         n_knots <- 0
         
-        # Fit regular Arima model (no intercept)
+        # Fit regular Arima model (with intercept, since this is not technically first segment)
         model <- tryCatch(Arima(data_eur_final_100_i$Daily_cases, order = c(2, 0, 0), 
                                 seasonal = list(order = c(1, 0, 0), period = 7),
                                 xreg = as.matrix(data_eur_final_100_i[, "Cumulative_cases_beg"]), 
-                                include.constant = FALSE, method = "ML"), 
+                                include.constant = TRUE, method = "ML"), 
                           error = function(e) { skip_to_next <<- TRUE } )
         if (skip_to_next) { next }
         
-        # Calculate and record growth factor (model slope + 1)
-        knots[[j, "Growth_factor_1"]] <- growth_factor_1 <- as.numeric(coef(model)["Cumulative_cases_beg"] + 1)
+        # Record model parameters (intercept, slope, and SD of slope)
+        intercept_1 <- as.numeric(coef(model)["intercept"])
+        slope_1 <- as.numeric(coef(model)["Cumulative_cases_beg"])
+        slope_sd_1 <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg"]]
         
+        # Calculate and record growth factor, record model parameters
+        knots[[j, "Growth_factor_1"]] <- growth_factor_1 <- slope_1 + 1
+        knots[[j, "Growth_factor_sd_1"]] <- slope_sd_1
+        knots[[j, "Intercept_1"]] <- intercept_1
         
       } else {  # ONE knot point (at knot_date_2)
         
@@ -289,23 +310,35 @@ for (i in 1:nrow(summary_eur_final)) {
         names(data_j) <- names <- paste0("Cumulative_cases_beg_", 1:2)
         data_j <- bind_cols(Daily_cases = data_eur_final_100_i$Daily_cases, data_j)
         
-        # Fit ARIMA spline model w/ specified knot point (no intercept)
+        # Fit ARIMA spline model w/ specified knot point (with intercept)
         model <- tryCatch(Arima(data_j$Daily_cases, order = c(2, 0, 0), 
                                 seasonal = list(order = c(1, 0, 0), period = 7),
                                 xreg = as.matrix(data_j[, names]), 
-                                include.constant = FALSE, method = "ML"), 
+                                include.constant = TRUE, method = "ML"), 
                           error = function(e) { skip_to_next <<- TRUE } )
         if (skip_to_next) { next }
         
-        # Calculate and record growth factors (model slopes + 1)
-        knots[[j, "Growth_factor_1"]] <- growth_factor_1 <- as.numeric(coef(model)["Cumulative_cases_beg_1"] + 1)
-        knots[[j, "Growth_factor_2"]] <- growth_factor_2 <- as.numeric(coef(model)["Cumulative_cases_beg_2"] + 1)
+        # Record model parameters (intercept, slope, and SD of slope)
+        intercept_1 <- as.numeric(coef(model)["intercept"])
+        slope_1 <- as.numeric(coef(model)["Cumulative_cases_beg_1"])
+        slope_2 <- as.numeric(coef(model)["Cumulative_cases_beg_2"])
+        slope_sd_1 <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_1"]]
+        slope_sd_2 <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_2"]]
+        intercept_2 <- (intercept_1 + slope_1*knot_1) - slope_2*knot_1
+        
+        # Calculate and record growth factor, record model parameters
+        knots[[j, "Growth_factor_1"]] <- growth_factor_1 <- slope_1 + 1
+        knots[[j, "Growth_factor_2"]] <- growth_factor_2 <- slope_2 + 1
+        knots[[j, "Growth_factor_sd_1"]] <- slope_sd_1
+        knots[[j, "Growth_factor_sd_2"]] <- slope_sd_2
+        knots[[j, "Intercept_1"]] <- intercept_1
+        knots[[j, "Intercept_2"]] <- intercept_2
         
       }
       
     } else {
       
-      if (is.na(knot_date_2) | knot_date_1 == knot_date_2) {  # ONE knot point (at knot_date_1 = knot_date_2)
+      if (is.na(knot_date_2)) {  # ONE knot point (at knot_date_1)
         
         # Set number of knot points
         n_knots <- 1
@@ -318,17 +351,29 @@ for (i in 1:nrow(summary_eur_final)) {
         names(data_j) <- names <- paste0("Cumulative_cases_beg_", 1:2)
         data_j <- bind_cols(Daily_cases = data_eur_final_100_i$Daily_cases, data_j)
         
-        # Fit ARIMA spline model w/ specified knot point (no intercept)
+        # Fit ARIMA spline model w/ specified knot point (with intercept)
         model <- tryCatch(Arima(data_j$Daily_cases, order = c(2, 0, 0), 
                                 seasonal = list(order = c(1, 0, 0), period = 7),
                                 xreg = as.matrix(data_j[, names]), 
-                                include.constant = FALSE, method = "ML"), 
+                                include.constant = TRUE, method = "ML"), 
                           error = function(e) { skip_to_next <<- TRUE } )
         if (skip_to_next) { next }
 
-        # Calculate and record growth factors (model slopes + 1)
-        knots[[j, "Growth_factor_1"]] <- growth_factor_1 <- as.numeric(coef(model)["Cumulative_cases_beg_1"] + 1)
-        knots[[j, "Growth_factor_2"]] <- growth_factor_2 <- as.numeric(coef(model)["Cumulative_cases_beg_2"] + 1)
+        # Record model parameters (intercept, slope, and SD of slope)
+        intercept_1 <- as.numeric(coef(model)["intercept"])
+        slope_1 <- as.numeric(coef(model)["Cumulative_cases_beg_1"])
+        slope_2 <- as.numeric(coef(model)["Cumulative_cases_beg_2"])
+        slope_sd_1 <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_1"]]
+        slope_sd_2 <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_2"]]
+        intercept_2 <- (intercept_1 + slope_1*knot_1) - slope_2*knot_1
+        
+        # Calculate and record growth factor, record model parameters
+        knots[[j, "Growth_factor_1"]] <- growth_factor_1 <- slope_1 + 1
+        knots[[j, "Growth_factor_2"]] <- growth_factor_2 <- slope_2 + 1
+        knots[[j, "Growth_factor_sd_1"]] <- slope_sd_1
+        knots[[j, "Growth_factor_sd_2"]] <- slope_sd_2
+        knots[[j, "Intercept_1"]] <- intercept_1
+        knots[[j, "Intercept_2"]] <- intercept_2
         
       } else {  # TWO knot points (at knot_date_1 and knot_date_2)
         
@@ -351,11 +396,28 @@ for (i in 1:nrow(summary_eur_final)) {
                                 include.constant = FALSE, method = "ML"), 
                           error = function(e) { skip_to_next <<- TRUE } )
         if (skip_to_next) { next }
-
-        # Calculate and record growth factors (model slopes + 1)
-        knots[[j, "Growth_factor_1"]] <- growth_factor_1 <- as.numeric(coef(model)["Cumulative_cases_beg_1"] + 1)
-        knots[[j, "Growth_factor_2"]] <- growth_factor_2 <- as.numeric(coef(model)["Cumulative_cases_beg_2"] + 1)
-        knots[[j, "Growth_factor_3"]] <- growth_factor_3 <- as.numeric(coef(model)["Cumulative_cases_beg_3"] + 1)
+        
+        # Record model parameters (intercept, slope, and SD of slope)
+        intercept_1 <- 0
+        slope_1 <- as.numeric(coef(model)["Cumulative_cases_beg_1"])
+        slope_2 <- as.numeric(coef(model)["Cumulative_cases_beg_2"])
+        slope_3 <- as.numeric(coef(model)["Cumulative_cases_beg_3"])
+        slope_sd_1 <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_1"]]
+        slope_sd_2 <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_2"]]
+        slope_sd_3 <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_3"]]
+        intercept_2 <- (intercept_1 + slope_1*knot_1) - slope_2*knot_1
+        intercept_3 <- (intercept_2 + slope_2*knot_2) - slope_3*knot_2
+        
+        # Calculate and record growth factor, record model parameters
+        knots[[j, "Growth_factor_1"]] <- growth_factor_1 <- slope_1 + 1
+        knots[[j, "Growth_factor_2"]] <- growth_factor_2 <- slope_2 + 1
+        knots[[j, "Growth_factor_3"]] <- growth_factor_3 <- slope_3 + 1
+        knots[[j, "Growth_factor_sd_1"]] <- slope_sd_1
+        knots[[j, "Growth_factor_sd_2"]] <- slope_sd_2
+        knots[[j, "Growth_factor_sd_3"]] <- slope_sd_3
+        knots[[j, "Intercept_1"]] <- intercept_1
+        knots[[j, "Intercept_2"]] <- intercept_2
+        knots[[j, "Intercept_3"]] <- intercept_3
         
       }
       
@@ -417,35 +479,29 @@ for (i in 1:nrow(summary_eur_final)) {
     
     # Display progress 
     cat('\r', paste(round((j / nrow(knots) * 100), 0), 
-                    "% done of country", i, "of", length(countries_eur_final), "     ", sep = " "))
+                    "% done of country", grep(country, unlist(countries_eur_final)), "of", 
+                    length(countries_eur_final), "          ", sep = " "))
     
   }  # (close loop 2)
   
   # Find best knot points for each country
   knots_1 <- knots %>% arrange(RMSE_inc) %>% head(10)  # lowest RMSE_inc
   knots_2 <- knots %>% arrange(RMSE_cum) %>% head(10)  # lowest RMSE_cum
-  #knots_3 <- knots %>% arrange(abs(Diff_cum_end)) %>% head(10)  # lowest absolute difference in cumulative cases at end
-  
-  # Keep matches between TWO datsets and label with country
+
+  # Keep matches between two datsets and label with country
   knots_best_i <- knots_1[(knots_1$Knot_date_1 %in% knots_2$Knot_date_1) & 
                             (knots_1$Knot_date_2 %in% knots_2$Knot_date_2), ]
-  #knots_best_i <- knots_1[(knots_1$Knot_date_1 %in% knots_2$Knot_date_1 & knots_1$Knot_date_1 %in% knots_3$Knot_date_1) & 
-  #                          (knots_1$Knot_date_2 %in% knots_2$Knot_date_2 & knots_1$Knot_date_2 %in% knots_3$Knot_date_2), ]
   knots_best_i <- knots_best_i %>% mutate(Country = country) %>% relocate(Country)
   
-  # Add best knots for country i to full dataframe
-  if (i == 1) {
-    knots_best <- knots_best_i
-  } else {
-    knots_best <- bind_rows(knots_best, knots_best_i)
-  }
+  # Add best knots for country i to list of best knots
+  knots_best[[i]] <- knots_best_i
   
 }  # (close loop 1)
 end <- Sys.time()
 end - start  # ~9 mins
 
 # Remove loop variables
-rm(i, j, t, country, data_eur_final_i, data_eur_final_100_i, 
+rm(i, j, t, g, country, data_eur_final_i, data_eur_final_100_i, 
    date_100, date_first_restriction, date_lockdown, 
    possible_knot_dates_1, possible_knot_dates_2, knots, dates, 
    daily_cases_sim, cumulative_cases_end_sim, knot_date_1, knot_date_2,
@@ -454,6 +510,9 @@ rm(i, j, t, country, data_eur_final_i, data_eur_final_100_i,
    inc_tminus1, cum_tminus1, inc_t, cum_t, growth,
    true_inc, pred_inc, true_cum, pred_cum, true_cum_end, pred_cum_end,
    knots_1, knots_2, knots_best_i, start, end)
+
+# Combine best knots from all countries into single dataframe
+knots_best <- bind_rows(knots_best)
 
 # Group dataframe of best knots by country and view
 knots_best <- knots_best %>% group_by(Country); knots_best
@@ -464,9 +523,10 @@ knots_best <- knots_best %>% mutate(Median_growth_factor_1 = median(Growth_facto
                                     Median_growth_factor_3 = median(Growth_factor_3, na.rm = TRUE))
 
 # Select ONE best (set of) knot point(s) by both RMSE_inc and RMSE_cum, and bind into single dataframe
-knots_best_final_inc <- knots_best %>% filter(RMSE_inc == min(RMSE_inc)) %>% 
+# (if multiple knot points are min, select by min BIC)
+knots_best_final_inc <- knots_best %>% filter(RMSE_inc == min(RMSE_inc)) %>% filter(BIC == min(BIC)) %>%
   mutate(Criteria = "min RMSE_inc") %>% select(-contains("Median"))
-knots_best_final_cum <- knots_best %>% filter(RMSE_cum == min(RMSE_cum)) %>% 
+knots_best_final_cum <- knots_best %>% filter(RMSE_cum == min(RMSE_cum)) %>% filter(BIC == min(BIC)) %>% 
   mutate(Criteria = "min RMSE_cum") %>% select(-contains("Median"))
 knots_best_final <- bind_rows(knots_best_final_inc, knots_best_final_cum) %>% 
   relocate(Criteria, .after = Country) %>% arrange(Country)
@@ -478,67 +538,285 @@ write_csv(knots_best, path = paste0(out, "Best knot points - all.csv"))
 write_csv(knots_best_final, path = paste0(out, "Best knot points - final.csv"))
 
 # ------------------------------------------------------------------------------
-# Plot exponential growth
+# Plot exponential growth with fitted splines
 # ------------------------------------------------------------------------------
 
-# don't think necessary to convert to character 
-##summary_eur_final <- summary_eur_final %>% mutate(Country = as.character(Country))
+# Import file containing best knots, if requred
+knots_best_final <- read_csv(paste0(out, "Best knot points - final.csv"))
 
-# Each country on separate grid ------------------------------------------------
+# Best knots by min RMSE incidence ---------------------------------------------
 
-#plot_exp_growth_cases <- list()
+# Filter best knots dataframe by min RMSE incidence
+knots_best_final_inc <- knots_best_final %>% filter(Criteria == "min RMSE_inc")
+
+# Create list for plots
 plot_exp_growth_cases_inc <- list()
 
-
-for (i in 1:nrow(summary_eur_final)) {
+# Create plots
+for (i in countries_eur_final) {
   
   # Define country
-  country <- summary_eur_final[[i, "Country"]]
+  country <- i
   
-  # Filter cases/deaths dataframe by country
+  # Filter cases/deaths, best knots, and summary dataframes by country
   data_eur_final_i <- data_eur_final %>% filter(Country == country)
+  data_eur_final_100_i <- data_eur_final_i %>% filter(Date >= Date_100 & Date <= date_T)
+  knots_best_final_inc_i <- knots_best_final_inc %>% filter(Country == country)
+  summary_eur_final_i <- summary_eur_final %>% filter(Country == country)
   
-  # Define dates of first restriction and lockdown
-  date_first_restriction <- summary_eur_final[[i, "Date_first_restriction"]]
-  date_lockdown <- summary_eur_final[[i, "Date_lockdown"]]
+  # Define dates of first restriction, lockdown, when cases first exceeded 100
+  date_first_restriction <- summary_eur_final_i %>% pull(Date_first_restriction)
+  date_lockdown <- summary_eur_final_i %>% pull(Date_lockdown)
+  date_100 <- summary_eur_final_i %>% pull(Date_100)
   
-  # Knot dates, values at knot dates, slopes and intercepts
+  # Define knot dates
+  knot_date_1 <- knots_best_final_inc_i %>% pull(Knot_date_1) %>% head(1)
+  knot_date_2 <- knots_best_final_inc_i %>% pull(Knot_date_2) %>% head(1)
   
-
-  # Plot
-  p <- ggplot(data = filter(data_eur_final_i, Date <= date_T),
-              aes(x = Cumulative_cases_beg, 
-                  y = Daily_cases)) +
+  # Define values of cumulative cases at knot dates
+  knot_1 <- data_eur_final_i %>% filter(Date == knot_date_1) %>% pull(Cumulative_cases_beg)
+  knot_2 <- data_eur_final_i %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
+  
+  # Calculate min and max values of cumulative cases in modelling period
+  x_min <- min(data_eur_final_100_i$Cumulative_cases_beg)
+  x_max <- max(data_eur_final_100_i$Cumulative_cases_beg)
+  
+  # Define Arima spline parameters
+  slope_1 <- knots_best_final_inc_i %>% pull(Growth_factor_1) %>% head(1) - 1
+  slope_2 <- knots_best_final_inc_i %>% pull(Growth_factor_2) %>% head(1) - 1
+  slope_3 <- knots_best_final_inc_i %>% pull(Growth_factor_3) %>% head(1) - 1
+  intercept_1 <- knots_best_final_inc_i %>% pull(Intercept_1) %>% head(1)
+  intercept_2 <- knots_best_final_inc_i %>% pull(Intercept_2) %>% head(1)
+  intercept_3 <- knots_best_final_inc_i %>% pull(Intercept_3) %>% head(1)
+ 
+  # Create base plot
+  p <- ggplot(data = filter(data_eur_final_100_i, Date <= date_T),
+              aes(x = Cumulative_cases_beg, y = Daily_cases)) +
     theme_minimal() +
     theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
     labs(title = paste0(country)) +
     geom_path() +
+    geom_path(data = filter(data_eur_final_i, Date <= Date_100),
+              aes(x = Cumulative_cases_beg, y = Daily_cases),
+              linetype = "dashed") +
     geom_point(size = 1) +
     geom_point(data = filter(data_eur_final_i, Date == date_first_restriction),
                size = 3, color = "navyblue", shape = 15) +
     geom_text_repel(data = filter(data_eur_final_i, Date == date_first_restriction), color = "blue",
                     label = paste0(as.character(date_first_restriction, format = "%d %b")),
-                    hjust = 0, size = 3) +
+                    hjust = 0, size = 4) +
     geom_point(data = filter(data_eur_final_i, Date == date_lockdown), 
                size = 3, color = "darkorange", shape = 18) +
     geom_text_repel(data = filter(data_eur_final_i, Date == date_lockdown), color = "darkorange",
                     label = paste0(as.character(date_lockdown, format = "%d %b")),
-                    hjust = 0, size = 3) +
+                    hjust = 1, size = 4) +
     scale_x_continuous(name = "Cumulative number of lab-confirmed cases",
                        labels = comma_format(accuracy = 1)) + 
     scale_y_continuous(name = "New daily number of lab-confirmed cases",
                        labels = comma_format(accuracy = 1))
   
+  # Add fitted spline segments to base plot
+  if (knot_date_1 == date_100) {
+    if (is.na(knot_date_2)) {  # NO knot points
+      p <- p +
+        geom_segment(aes_(x = x_min, xend = x_max,
+                          y = intercept_1 + slope_1*x_min, yend = intercept_1 + slope_1*x_max),
+                     color = "deeppink3") +
+        geom_text_repel(data = filter(data_eur_final_i, Date == knot_date_1), 
+                        label = paste0(as.character(knot_date_1, format = "%d %b")),
+                        vjust = 0, size = 4, color = "deeppink3")
+    } else {  # ONE knot point (at knot_date_2)
+      p <- p +
+        geom_segment(aes_(x = x_min, xend = knot_2,
+                          y = intercept_1 + slope_1*x_min, yend = intercept_1 + slope_1*knot_2),
+                     color = "deeppink3") +
+        geom_segment(aes_(x = knot_2, xend = x_max,
+                          y = intercept_2 + slope_2*knot_2, yend = intercept_2 + slope_2*x_max),
+                     color = "deeppink3") +
+        geom_text_repel(data = filter(data_eur_final_i, Date == knot_date_2), 
+                        label = paste0(as.character(knot_date_2, format = "%d %b")),
+                        vjust = 0, size = 4, color = "deeppink3") 
+    }
+  } else {
+    if (is.na(knot_date_2)) {  # ONE knot point (at knot_date_1)
+      p <- p +
+        geom_segment(aes_(x = x_min, xend = knot_1,
+                          y = intercept_1 + slope_1*x_min, yend = intercept_1 + slope_1*knot_1),
+                     color = "deeppink3") +
+        geom_segment(aes_(x = knot_1, xend = x_max,
+                          y = intercept_2 + slope_2*knot_1, yend = intercept_2 + slope_2*x_max),
+                     color = "deeppink3") +
+        geom_text_repel(data = filter(data_eur_final_i, Date == knot_date_1), 
+                        label = paste0(as.character(knot_date_1, format = "%d %b")),
+                        vjust = 0, size = 4, color = "deeppink3") 
+    } else {  # TWO knot points (at knot_date_1 and knot_date_2)
+      p <- p +
+        geom_segment(aes_(x = x_min, xend = knot_1,
+                          y = intercept_1 + slope_1*x_min, yend = intercept_1 + slope_1*knot_1),
+                     color = "deeppink3") +
+        geom_segment(aes_(x = knot_1, xend = knot_2,
+                          y = intercept_2 + slope_2*knot_1, yend = intercept_2 + slope_2*knot_2),
+                     color = "deeppink3") +
+        geom_segment(aes_(x = knot_2, xend = x_max,
+                          y = intercept_3 + slope_3*knot_2, yend = intercept_3 + slope_3*x_max),
+                     color = "deeppink3") +
+        geom_text_repel(data = filter(data_eur_final_i, Date == knot_date_1), 
+                        label = paste0(as.character(knot_date_1, format = "%d %b")),
+                        vjust = 0, size = 4, color = "deeppink3") +
+        geom_text_repel(data = filter(data_eur_final_i, Date == knot_date_2), 
+                        label = paste0(as.character(knot_date_2, format = "%d %b")),
+                        vjust = 0, size = 4, color = "deeppink3") 
+    }
+  }
+  
   # Add plot to list
-  plot_exp_growth_cases[[i]] <- p
+  plot_exp_growth_cases_inc[[i]] <- p
   
 }
 
 # Save plots
 dev.new()  # make very large to avoid bug with saving
-p <- ggarrange(plotlist = plot_exp_growth_cases, nrow = 6, ncol = 6)
+p <- ggarrange(plotlist = plot_exp_growth_cases_inc, nrow = 6, ncol = 6)
 g <- annotate_figure(p, top = text_grob("Exponential growth of Covid-19 cases: Cumulative versus incident cases", size = 16))
-ggsave(paste0(out, "Figure - Cumulative vs incident cases.png"),
+ggsave(paste0(out, "Figure - Cumulative vs incident cases (with fitted splines by min RMSE_inc).png"),
+       plot = g, width = 6*6, height = 6*6, limitsize = FALSE)
+dev.off()
+
+# Best knots by min RMSE cumulative --------------------------------------------
+
+# Filter best knots dataframe by min RMSE cumulative
+knots_best_final_cum <- knots_best_final %>% filter(Criteria == "min RMSE_cum")
+
+# Create list for plots
+plot_exp_growth_cases_cum <- list()
+
+# Create plots
+for (i in countries_eur_final) {
+  
+  # Define country
+  country <- i
+  
+  # Filter cases/deaths, best knots, and summary dataframes by country
+  data_eur_final_i <- data_eur_final %>% filter(Country == country)
+  data_eur_final_100_i <- data_eur_final_i %>% filter(Date >= Date_100 & Date <= date_T)
+  knots_best_final_cum_i <- knots_best_final_cum %>% filter(Country == country)
+  summary_eur_final_i <- summary_eur_final %>% filter(Country == country)
+  
+  # Define dates of first restriction, lockdown, when cases first exceeded 100
+  date_first_restriction <- summary_eur_final_i %>% pull(Date_first_restriction)
+  date_lockdown <- summary_eur_final_i %>% pull(Date_lockdown)
+  date_100 <- summary_eur_final_i %>% pull(Date_100)
+  
+  # Define knot dates
+  knot_date_1 <- knots_best_final_cum_i %>% pull(Knot_date_1) %>% head(1)
+  knot_date_2 <- knots_best_final_cum_i %>% pull(Knot_date_2) %>% head(1)
+  
+  # Define values of cumulative cases at knot dates
+  knot_1 <- data_eur_final_i %>% filter(Date == knot_date_1) %>% pull(Cumulative_cases_beg)
+  knot_2 <- data_eur_final_i %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
+  
+  # Calculate min and max values of cumulative cases in modelling period
+  x_min <- min(data_eur_final_100_i$Cumulative_cases_beg)
+  x_max <- max(data_eur_final_100_i$Cumulative_cases_beg)
+  
+  # Define Arima spline parameters
+  slope_1 <- knots_best_final_cum_i %>% pull(Growth_factor_1) %>% head(1) - 1
+  slope_2 <- knots_best_final_cum_i %>% pull(Growth_factor_2) %>% head(1) - 1
+  slope_3 <- knots_best_final_cum_i %>% pull(Growth_factor_3) %>% head(1) - 1
+  intercept_1 <- knots_best_final_cum_i %>% pull(Intercept_1) %>% head(1)
+  intercept_2 <- knots_best_final_cum_i %>% pull(Intercept_2) %>% head(1)
+  intercept_3 <- knots_best_final_cum_i %>% pull(Intercept_3) %>% head(1)
+  
+  # Create base plot
+  p <- ggplot(data = filter(data_eur_final_100_i, Date <= date_T),
+              aes(x = Cumulative_cases_beg, y = Daily_cases)) +
+    theme_minimal() +
+    theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
+    labs(title = paste0(country)) +
+    geom_path() +
+    geom_path(data = filter(data_eur_final_i, Date <= Date_100),
+              aes(x = Cumulative_cases_beg, y = Daily_cases),
+              linetype = "dashed") +
+    geom_point(size = 1) +
+    geom_point(data = filter(data_eur_final_i, Date == date_first_restriction),
+               size = 3, color = "navyblue", shape = 15) +
+    geom_text_repel(data = filter(data_eur_final_i, Date == date_first_restriction), color = "blue",
+                    label = paste0(as.character(date_first_restriction, format = "%d %b")),
+                    hjust = 0, size = 4) +
+    geom_point(data = filter(data_eur_final_i, Date == date_lockdown), 
+               size = 3, color = "darkorange", shape = 18) +
+    geom_text_repel(data = filter(data_eur_final_i, Date == date_lockdown), color = "darkorange",
+                    label = paste0(as.character(date_lockdown, format = "%d %b")),
+                    hjust = 1, size = 4) +
+    scale_x_continuous(name = "Cumulative number of lab-confirmed cases",
+                       labels = comma_format(accuracy = 1)) + 
+    scale_y_continuous(name = "New daily number of lab-confirmed cases",
+                       labels = comma_format(accuracy = 1))
+  
+  # Add fitted spline segments to base plot
+  if (knot_date_1 == date_100) {
+    if (is.na(knot_date_2)) {  # NO knot points
+      p <- p +
+        geom_segment(aes_(x = x_min, xend = x_max,
+                          y = intercept_1 + slope_1*x_min, yend = intercept_1 + slope_1*x_max),
+                     color = "deeppink3") +
+        geom_text_repel(data = filter(data_eur_final_i, Date == knot_date_1), 
+                        label = paste0(as.character(knot_date_1, format = "%d %b")),
+                        vjust = 0, size = 4, color = "deeppink3")
+    } else {  # ONE knot point (at knot_date_2)
+      p <- p +
+        geom_segment(aes_(x = x_min, xend = knot_2,
+                          y = intercept_1 + slope_1*x_min, yend = intercept_1 + slope_1*knot_2),
+                     color = "deeppink3") +
+        geom_segment(aes_(x = knot_2, xend = x_max,
+                          y = intercept_2 + slope_2*knot_2, yend = intercept_2 + slope_2*x_max),
+                     color = "deeppink3") +
+        geom_text_repel(data = filter(data_eur_final_i, Date == knot_date_2), 
+                        label = paste0(as.character(knot_date_2, format = "%d %b")),
+                        vjust = 0, size = 4, color = "deeppink3") 
+    }
+  } else {
+    if (is.na(knot_date_2)) {  # ONE knot point (at knot_date_1)
+      p <- p +
+        geom_segment(aes_(x = x_min, xend = knot_1,
+                          y = intercept_1 + slope_1*x_min, yend = intercept_1 + slope_1*knot_1),
+                     color = "deeppink3") +
+        geom_segment(aes_(x = knot_1, xend = x_max,
+                          y = intercept_2 + slope_2*knot_1, yend = intercept_2 + slope_2*x_max),
+                     color = "deeppink3") +
+        geom_text_repel(data = filter(data_eur_final_i, Date == knot_date_1), 
+                        label = paste0(as.character(knot_date_1, format = "%d %b")),
+                        vjust = 0, size = 4, color = "deeppink3") 
+    } else {  # TWO knot points (at knot_date_1 and knot_date_2)
+      p <- p +
+        geom_segment(aes_(x = x_min, xend = knot_1,
+                          y = intercept_1 + slope_1*x_min, yend = intercept_1 + slope_1*knot_1),
+                     color = "deeppink3") +
+        geom_segment(aes_(x = knot_1, xend = knot_2,
+                          y = intercept_2 + slope_2*knot_1, yend = intercept_2 + slope_2*knot_2),
+                     color = "deeppink3") +
+        geom_segment(aes_(x = knot_2, xend = x_max,
+                          y = intercept_3 + slope_3*knot_2, yend = intercept_3 + slope_3*x_max),
+                     color = "deeppink3") +
+        geom_text_repel(data = filter(data_eur_final_i, Date == knot_date_1), 
+                        label = paste0(as.character(knot_date_1, format = "%d %b")),
+                        vjust = 0, size = 4, color = "deeppink3") +
+        geom_text_repel(data = filter(data_eur_final_i, Date == knot_date_2), 
+                        label = paste0(as.character(knot_date_2, format = "%d %b")),
+                        vjust = 0, size = 4, color = "deeppink3") 
+    }
+  }
+  
+  # Add plot to list
+  plot_exp_growth_cases_cum[[i]] <- p
+  
+}
+
+# Save plots
+dev.new()  # make very large to avoid bug with saving
+p <- ggarrange(plotlist = plot_exp_growth_cases_cum, nrow = 6, ncol = 6)
+g <- annotate_figure(p, top = text_grob("Exponential growth of Covid-19 cases: Cumulative versus incident cases", size = 16))
+ggsave(paste0(out, "Figure - Cumulative vs incident cases (with fitted splines by min RMSE_cum).png"),
        plot = g, width = 6*6, height = 6*6, limitsize = FALSE)
 dev.off()
 
