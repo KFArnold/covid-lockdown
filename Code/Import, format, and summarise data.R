@@ -17,13 +17,7 @@
 # May have to impute some values (look at Peter's code) - find NA's
 # Need to take into account whether restrictions are targeted or general?
 # don't need beginning and end vars in summaries df?
-
-# will need to deal with countries with no important dates
-# OR with only 1 (because both criteria met on same day, or only 1 criteria met)
-
-# find countries which didn't implement restrictions or lockdowns
-# Create data_eur_100 dataset?
-
+# Lithuania, Portugal, Spain, and UK have negative incidence
 
 # ------------------------------------------------------------------------------
 # Setup
@@ -299,17 +293,21 @@ rm(summary_first_restriction, summary_lockdown)
 # Export summary table
 #write_csv(summary_eur_final, path = paste0(out, "Country summaries.csv"))
 
-## Figures ---------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# Figures
+# ------------------------------------------------------------------------------
 
-# Import data and set output storage directory if required
+# Import data and set output storage directory, if required
 # summary_eur_final <- read_csv("./Results/Country summaries.csv") %>% mutate_if(is.character, as.factor)
 # out <- paste0("./Results/")
+
+# Important dates --------------------------------------------------------------
 
 # Order countries by date of first restriction
 countries_ordered <- summary_eur_final %>% arrange(Date_first_restriction) %>% 
   pull(Country) %>% as.character
 
-## (1) Figure - with dates of first restriction and lockdown -------------------
+## Dates of first restriction and lockdown -------------------------------------
 
 # Get min and max dates from summary table
 date_min <- summary_eur_final %>% ungroup %>% 
@@ -350,10 +348,9 @@ plot_1 <- ggplot(data = summary_eur_final, aes(y = Country)) +
 #plot_1
 
 # Save plot
-#ggsave(paste0(out, "Figure - Important dates.png"),
-#       plot = plot_1, width = 9, height = 8)
+#ggsave(paste0(out, "Figure - Important dates.png"), plot = plot_1, width = 9, height = 8)
 
-## (2) Figure - including first case and cases >= 100 --------------------------
+## Dates of first restriction, lockdown, first case, and cases >= 100 ----------
 
 # Get min and max dates
 date_min <- summary_eur_final %>% ungroup %>% 
@@ -403,3 +400,4 @@ plot_2 <- ggplot(data = summary_eur_final, aes(y = Country)) +
 
 # Remove plotting objects from environment
 rm(countries_ordered, date_min, date_max, cols, shapes, plot_1, plot_2)
+
