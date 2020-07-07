@@ -60,3 +60,5 @@ for (i in filenames) {
             path = paste0(out, filename))
 }
 
+# Remove variables from environment
+rm(data_directory, out, source, filenames)
