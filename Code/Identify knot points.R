@@ -5,10 +5,9 @@
 # This script...
 
 
+# Notes:
 # Lithuania, Portugal, Spain, and UK have negative incidence
-
-# Currently, date_T is global parameter, meaning some countries have few dates for simulating
-
+# date_T is currently a global parameter - should be local, as only want to consider first wave for each country
 # Test whether making stricter criteria as equivalent to lockdown changes best knots identified
 
 # Russia slowing appears to occur nearly 2 months after first restrictions/lockdown,
@@ -19,8 +18,8 @@
 # ------------------------------------------------------------------------------
 
 # Load required packages
-library(tidyverse); library(lspline); library(forecast); library(ggpubr); library(ggrepel); library(scales)
-library(Metrics)
+library(tidyverse); library(lspline); library(forecast); library(ggpubr); 
+library(ggrepel); library(scales); library(Metrics)
 
 # Import country summary data
 #summary_eur_final <- read_csv("./Results/Country summaries.csv") 
@@ -77,9 +76,9 @@ for (i in 1:nrow(summary_eur_final)) {
     geom_text_repel(data = filter(data_eur_final_i, Date == date_lockdown), color = "darkorange",
                     label = paste0(as.character(date_lockdown, format = "%d %b")),
                     hjust = 0, size = 3) +
-    scale_x_continuous(name = "Cumulative number of lab-confirmed cases",
+    scale_x_continuous(name = "Cumulative number of COVID-19 cases",
                        labels = comma_format(accuracy = 1)) + 
-    scale_y_continuous(name = "New daily number of lab-confirmed cases",
+    scale_y_continuous(name = "New daily number of COVID-19 cases",
                        labels = comma_format(accuracy = 1))
   
   # Add plot to list
@@ -130,10 +129,10 @@ for (i in 1:nrow(summary_eur_final)) {
     geom_text_repel(data = filter(data_eur_final_i, Date == date_lockdown), color = "darkorange",
                     label = paste0(as.character(date_lockdown, format = "%d %b")),
                     hjust = 0, size = 3) +
-    scale_x_continuous(name = "Cumulative number of lab-confirmed cases",
+    scale_x_continuous(name = "Cumulative number of COVID-19 cases",
                        labels = comma_format(accuracy = 1),
                        trans = log10_trans()) + 
-    scale_y_continuous(name = "New daily number of lab-confirmed cases",
+    scale_y_continuous(name = "New daily number of COVID-19 cases",
                        labels = comma_format(accuracy = 1),
                        trans = log10_trans())
   
@@ -163,9 +162,9 @@ plot_exp_growth_cases <- ggplot(data = filter(data_eur_final, Date <= date_T),
   labs(title = "Exponential growth of Covid-19 cases",
        subtitle = "Cumulative versus incident cases") +
   geom_path(aes(color = Country), alpha = 0.7) +
-  scale_x_continuous(name = "Cumulative number of lab-confirmed cases",
+  scale_x_continuous(name = "Cumulative number of COVID-19 cases",
                      labels = comma_format(accuracy = 1)) + 
-  scale_y_continuous(name = "New daily number of lab-confirmed cases",
+  scale_y_continuous(name = "New daily number of COVID-19 cases",
                      limits = c(NA, 30000),
                      labels = comma_format(accuracy = 1))
 #plot_exp_growth_cases
@@ -518,9 +517,11 @@ knots_best <- bind_rows(knots_best)
 knots_best <- knots_best %>% group_by(Country); knots_best
 
 # Find median growth factors for each country among best knots
-knots_best <- knots_best %>% mutate(Median_growth_factor_1 = median(Growth_factor_1, na.rm = TRUE),
-                                    Median_growth_factor_2 = median(Growth_factor_2, na.rm = TRUE),
-                                    Median_growth_factor_3 = median(Growth_factor_3, na.rm = TRUE))
+median_growth_factors <- knots_best %>% summarise(Median_growth_factor_1 = median(Growth_factor_1, na.rm = TRUE),
+                                                  Median_growth_factor_2 = median(Growth_factor_2, na.rm = TRUE),
+                                                  Median_growth_factor_3 = median(Growth_factor_3, na.rm = TRUE),
+                                                  .groups = "keep")
+knots_best <- full_join(knots_best, median_growth_factors)
 
 # Select ONE best (set of) knot point(s) by both RMSE_inc and RMSE_cum, and bind into single dataframe
 # (if multiple knot points are min, select by min BIC)
@@ -610,9 +611,9 @@ for (i in countries_eur_final) {
     geom_text_repel(data = filter(data_eur_final_i, Date == date_lockdown), color = "darkorange",
                     label = paste0(as.character(date_lockdown, format = "%d %b")),
                     hjust = 1, size = 4) +
-    scale_x_continuous(name = "Cumulative number of lab-confirmed cases",
+    scale_x_continuous(name = "Cumulative number of COVID-19 cases",
                        labels = comma_format(accuracy = 1)) + 
-    scale_y_continuous(name = "New daily number of lab-confirmed cases",
+    scale_y_continuous(name = "New daily number of COVID-19 cases",
                        labels = comma_format(accuracy = 1))
   
   # Add fitted spline segments to base plot
@@ -748,9 +749,9 @@ for (i in countries_eur_final) {
     geom_text_repel(data = filter(data_eur_final_i, Date == date_lockdown), color = "darkorange",
                     label = paste0(as.character(date_lockdown, format = "%d %b")),
                     hjust = 1, size = 4) +
-    scale_x_continuous(name = "Cumulative number of lab-confirmed cases",
+    scale_x_continuous(name = "Cumulative number of COVID-19 cases",
                        labels = comma_format(accuracy = 1)) + 
-    scale_y_continuous(name = "New daily number of lab-confirmed cases",
+    scale_y_continuous(name = "New daily number of COVID-19 cases",
                        labels = comma_format(accuracy = 1))
   
   # Add fitted spline segments to base plot
@@ -819,5 +820,3 @@ g <- annotate_figure(p, top = text_grob("Exponential growth of Covid-19 cases: C
 ggsave(paste0(out, "Figure - Cumulative vs incident cases (with fitted splines by min RMSE_cum).png"),
        plot = g, width = 6*6, height = 6*6, limitsize = FALSE)
 dev.off()
-
-
