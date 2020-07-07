@@ -15,6 +15,10 @@ library(tidyverse); library(readr); library(dplyr); library(ggplot2)
 # Run source code to import, format, and summarise data
 source("./Code/Import, format, and summarise data.R")
 
+# Import files containing best knots
+knots_best <- read_csv(paste0(out, "Best knot points - all.csv"))
+knots_best_final <- read_csv(paste0(out, "Best knot points - final.csv"))
+
 # Set storage directory for outputs
 out <- paste0("./Results/")
 
@@ -119,4 +123,443 @@ ggsave(paste0(out, "Figure - Important dates (including first and 100th cases).p
 
 # Remove plotting objects from environment
 rm(countries_ordered, date_min, date_max, cols, shapes, plot_1, plot_2)
+
+# ------------------------------------------------------------------------------
+# Exponential growth 
+# ------------------------------------------------------------------------------
+
+# Each country on separate grid ------------------------------------------------
+
+## Normal scale ----------------------------------------------------------------
+
+plot_exp_growth_cases <- list()
+
+for (i in 1:nrow(summary_eur_final)) {
+  
+  # Define country
+  country <- summary_eur_final[[i, "Country"]]
+  
+  # Filter cases/deaths dataframe by country
+  data_eur_final_i <- data_eur_final %>% filter(Country == country)
+  
+  # Define dates of first restriction, lockdown, and 100 cases
+  date_first_restriction <- summary_eur_final[[i, "Date_first_restriction"]]
+  date_lockdown <- summary_eur_final[[i, "Date_lockdown"]]
+  date_100 <- summary_eur_final[[i, "Date_100"]]
+  
+  # Plot
+  p <- ggplot(data = filter(data_eur_final_i, Date <= date_T),
+              aes(x = Cumulative_cases_beg, 
+                  y = Daily_cases)) +
+    theme_minimal() +
+    theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
+    labs(title = paste0(country)) +
+    geom_path() +
+    geom_point(size = 1) +
+    geom_point(data = filter(data_eur_final_i, Date == date_100),
+               size = 3, color = "grey", shape = 15) +
+    geom_text_repel(data = filter(data_eur_final_i, Date == date_100), color = "grey",
+                    label = paste0(as.character(date_100, format = "%d %b")),
+                    hjust = 0, size = 3) +
+    geom_point(data = filter(data_eur_final_i, Date == date_first_restriction),
+               size = 3, color = "navyblue", shape = 15) +
+    geom_text_repel(data = filter(data_eur_final_i, Date == date_first_restriction), color = "blue",
+                    label = paste0(as.character(date_first_restriction, format = "%d %b")),
+                    hjust = 0, size = 3) +
+    geom_point(data = filter(data_eur_final_i, Date == date_lockdown), 
+               size = 3, color = "darkorange", shape = 18) +
+    geom_text_repel(data = filter(data_eur_final_i, Date == date_lockdown), color = "darkorange",
+                    label = paste0(as.character(date_lockdown, format = "%d %b")),
+                    hjust = 0, size = 3) +
+    scale_x_continuous(name = "Cumulative number of COVID-19 cases",
+                       labels = comma_format(accuracy = 1)) + 
+    scale_y_continuous(name = "New daily number of COVID-19 cases",
+                       labels = comma_format(accuracy = 1))
+  
+  # Add plot to list
+  plot_exp_growth_cases[[i]] <- p
+  
+}
+
+# Save plots
+dev.new()  # make very large to avoid bug with saving
+p <- ggarrange(plotlist = plot_exp_growth_cases, nrow = 6, ncol = 6)
+g <- annotate_figure(p, top = text_grob("Exponential growth of Covid-19 cases: Cumulative versus incident cases", size = 16))
+ggsave(paste0(out, "Figure - Cumulative vs incident cases.png"),
+       plot = g, width = 6*6, height = 6*6, limitsize = FALSE)
+dev.off()
+
+## Log scale -------------------------------------------------------------------
+
+plot_exp_growth_cases <- list()
+
+for (i in 1:nrow(summary_eur_final)) {
+  
+  # Define country
+  country <- summary_eur_final[[i, "Country"]]
+  
+  # Filter cases/deaths dataframe by country
+  data_eur_final_i <- data_eur_final %>% filter(Country == country)
+  
+  # Define dates of first restriction and lockdown
+  date_first_restriction <- summary_eur_final[[i, "Date_first_restriction"]]
+  date_lockdown <- summary_eur_final[[i, "Date_lockdown"]]
+  
+  # Plot
+  p <- ggplot(data = filter(data_eur_final_i, Date <= date_T),
+              aes(x = Cumulative_cases_beg, 
+                  y = Daily_cases)) +
+    theme_minimal() +
+    theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
+    labs(title = paste0(country)) +
+    geom_path() +
+    geom_point(size = 1) +
+    geom_point(data = filter(data_eur_final_i, Date == date_first_restriction),
+               size = 3, color = "navyblue", shape = 15) +
+    geom_text_repel(data = filter(data_eur_final_i, Date == date_first_restriction), color = "blue",
+                    label = paste0(as.character(date_first_restriction, format = "%d %b")),
+                    hjust = 0, size = 3) +
+    geom_point(data = filter(data_eur_final_i, Date == date_lockdown), 
+               size = 3, color = "darkorange", shape = 18) +
+    geom_text_repel(data = filter(data_eur_final_i, Date == date_lockdown), color = "darkorange",
+                    label = paste0(as.character(date_lockdown, format = "%d %b")),
+                    hjust = 0, size = 3) +
+    scale_x_continuous(name = "Cumulative number of COVID-19 cases",
+                       labels = comma_format(accuracy = 1),
+                       trans = log10_trans()) + 
+    scale_y_continuous(name = "New daily number of COVID-19 cases",
+                       labels = comma_format(accuracy = 1),
+                       trans = log10_trans())
+  
+  # Add plot to list
+  plot_exp_growth_cases[[i]] <- p
+  
+}
+
+# Save plots
+dev.new()  # make very large to avoid bug with saving
+p <- ggarrange(plotlist = plot_exp_growth_cases, nrow = 6, ncol = 6)
+g <- annotate_figure(p, top = text_grob("Exponential growth of Covid-19 cases: Cumulative versus incident cases", size = 16))
+ggsave(paste0(out, "Figure - Cumulative vs incident cases (log scale).png"),
+       plot = g, width = 6*6, height = 6*6, limitsize = FALSE)
+dev.off()
+
+# All countries on same grid ---------------------------------------------------
+
+plot_exp_growth_cases <- ggplot(data = filter(data_eur_final, Date <= date_T),
+                                aes(x = Cumulative_cases_beg, 
+                                    y = Daily_cases)) +
+  theme_minimal() +
+  theme(legend.title = element_text(size = 10),
+        legend.text = element_text(size = 6),
+        legend.spacing.y = unit(0.05, "cm")) + 
+  theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
+  labs(title = "Exponential growth of Covid-19 cases",
+       subtitle = "Cumulative versus incident cases") +
+  geom_path(aes(color = Country), alpha = 0.7) +
+  scale_x_continuous(name = "Cumulative number of COVID-19 cases",
+                     labels = comma_format(accuracy = 1)) + 
+  scale_y_continuous(name = "New daily number of COVID-19 cases",
+                     limits = c(NA, 30000),
+                     labels = comma_format(accuracy = 1))
+#plot_exp_growth_cases
+
+# Save plot
+ggsave(paste0(out, "Figure - Cumulative vs incident cases - combined.png"),
+       plot = plot_exp_growth_cases, width = 12, height = 8)
+
+# Remove plotting objects from environment
+rm(plot_exp_growth_cases, i, country, 
+   knots_best_final, data_eur_final_i, 
+   date_first_restriction, date_lockdown, date_100)
+
+# ------------------------------------------------------------------------------
+# Exponential growth (with fitted splines)
+# ------------------------------------------------------------------------------
+
+# Best knots by min RMSE incidence ---------------------------------------------
+
+# Filter best knots dataframe by min RMSE incidence
+knots_best_final_inc <- knots_best_final %>% filter(Criteria == "min RMSE_inc")
+
+# Create list for plots
+plot_exp_growth_cases_inc <- list()
+
+# Create plots
+for (i in countries_eur_final) {
+  
+  # Define country
+  country <- i
+  
+  # Filter cases/deaths, best knots, and summary dataframes by country
+  data_eur_final_i <- data_eur_final %>% filter(Country == country)
+  data_eur_final_100_i <- data_eur_final_i %>% filter(Date >= Date_100 & Date <= date_T)
+  knots_best_final_inc_i <- knots_best_final_inc %>% filter(Country == country)
+  summary_eur_final_i <- summary_eur_final %>% filter(Country == country)
+  
+  # Define dates of first restriction, lockdown, when cases first exceeded 100
+  date_first_restriction <- summary_eur_final_i %>% pull(Date_first_restriction)
+  date_lockdown <- summary_eur_final_i %>% pull(Date_lockdown)
+  date_100 <- summary_eur_final_i %>% pull(Date_100)
+  
+  # Define knot dates
+  knot_date_1 <- knots_best_final_inc_i %>% pull(Knot_date_1) %>% head(1)
+  knot_date_2 <- knots_best_final_inc_i %>% pull(Knot_date_2) %>% head(1)
+  
+  # Define values of cumulative cases at knot dates
+  knot_1 <- data_eur_final_i %>% filter(Date == knot_date_1) %>% pull(Cumulative_cases_beg)
+  knot_2 <- data_eur_final_i %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
+  
+  # Calculate min and max values of cumulative cases in modelling period
+  x_min <- min(data_eur_final_100_i$Cumulative_cases_beg)
+  x_max <- max(data_eur_final_100_i$Cumulative_cases_beg)
+  
+  # Define Arima spline parameters
+  slope_1 <- knots_best_final_inc_i %>% pull(Growth_factor_1) %>% head(1) - 1
+  slope_2 <- knots_best_final_inc_i %>% pull(Growth_factor_2) %>% head(1) - 1
+  slope_3 <- knots_best_final_inc_i %>% pull(Growth_factor_3) %>% head(1) - 1
+  intercept_1 <- knots_best_final_inc_i %>% pull(Intercept_1) %>% head(1)
+  intercept_2 <- knots_best_final_inc_i %>% pull(Intercept_2) %>% head(1)
+  intercept_3 <- knots_best_final_inc_i %>% pull(Intercept_3) %>% head(1)
+  
+  # Create base plot
+  p <- ggplot(data = filter(data_eur_final_100_i, Date <= date_T),
+              aes(x = Cumulative_cases_beg, y = Daily_cases)) +
+    theme_minimal() +
+    theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
+    labs(title = paste0(country)) +
+    geom_path() +
+    geom_path(data = filter(data_eur_final_i, Date <= Date_100),
+              aes(x = Cumulative_cases_beg, y = Daily_cases),
+              linetype = "dashed") +
+    geom_point(size = 1) +
+    geom_point(data = filter(data_eur_final_i, Date == date_first_restriction),
+               size = 3, color = "navyblue", shape = 15) +
+    geom_text_repel(data = filter(data_eur_final_i, Date == date_first_restriction), color = "blue",
+                    label = paste0(as.character(date_first_restriction, format = "%d %b")),
+                    hjust = 0, size = 4) +
+    geom_point(data = filter(data_eur_final_i, Date == date_lockdown), 
+               size = 3, color = "darkorange", shape = 18) +
+    geom_text_repel(data = filter(data_eur_final_i, Date == date_lockdown), color = "darkorange",
+                    label = paste0(as.character(date_lockdown, format = "%d %b")),
+                    hjust = 1, size = 4) +
+    scale_x_continuous(name = "Cumulative number of COVID-19 cases",
+                       labels = comma_format(accuracy = 1)) + 
+    scale_y_continuous(name = "New daily number of COVID-19 cases",
+                       labels = comma_format(accuracy = 1))
+  
+  # Add fitted spline segments to base plot
+  if (knot_date_1 == date_100) {
+    if (is.na(knot_date_2)) {  # NO knot points
+      p <- p +
+        geom_segment(aes_(x = x_min, xend = x_max,
+                          y = intercept_1 + slope_1*x_min, yend = intercept_1 + slope_1*x_max),
+                     color = "deeppink3") +
+        geom_text_repel(data = filter(data_eur_final_i, Date == knot_date_1), 
+                        label = paste0(as.character(knot_date_1, format = "%d %b")),
+                        vjust = 0, size = 4, color = "deeppink3")
+    } else {  # ONE knot point (at knot_date_2)
+      p <- p +
+        geom_segment(aes_(x = x_min, xend = knot_2,
+                          y = intercept_1 + slope_1*x_min, yend = intercept_1 + slope_1*knot_2),
+                     color = "deeppink3") +
+        geom_segment(aes_(x = knot_2, xend = x_max,
+                          y = intercept_2 + slope_2*knot_2, yend = intercept_2 + slope_2*x_max),
+                     color = "deeppink3") +
+        geom_text_repel(data = filter(data_eur_final_i, Date == knot_date_2), 
+                        label = paste0(as.character(knot_date_2, format = "%d %b")),
+                        vjust = 0, size = 4, color = "deeppink3") 
+    }
+  } else {
+    if (is.na(knot_date_2)) {  # ONE knot point (at knot_date_1)
+      p <- p +
+        geom_segment(aes_(x = x_min, xend = knot_1,
+                          y = intercept_1 + slope_1*x_min, yend = intercept_1 + slope_1*knot_1),
+                     color = "deeppink3") +
+        geom_segment(aes_(x = knot_1, xend = x_max,
+                          y = intercept_2 + slope_2*knot_1, yend = intercept_2 + slope_2*x_max),
+                     color = "deeppink3") +
+        geom_text_repel(data = filter(data_eur_final_i, Date == knot_date_1), 
+                        label = paste0(as.character(knot_date_1, format = "%d %b")),
+                        vjust = 0, size = 4, color = "deeppink3") 
+    } else {  # TWO knot points (at knot_date_1 and knot_date_2)
+      p <- p +
+        geom_segment(aes_(x = x_min, xend = knot_1,
+                          y = intercept_1 + slope_1*x_min, yend = intercept_1 + slope_1*knot_1),
+                     color = "deeppink3") +
+        geom_segment(aes_(x = knot_1, xend = knot_2,
+                          y = intercept_2 + slope_2*knot_1, yend = intercept_2 + slope_2*knot_2),
+                     color = "deeppink3") +
+        geom_segment(aes_(x = knot_2, xend = x_max,
+                          y = intercept_3 + slope_3*knot_2, yend = intercept_3 + slope_3*x_max),
+                     color = "deeppink3") +
+        geom_text_repel(data = filter(data_eur_final_i, Date == knot_date_1), 
+                        label = paste0(as.character(knot_date_1, format = "%d %b")),
+                        vjust = 0, size = 4, color = "deeppink3") +
+        geom_text_repel(data = filter(data_eur_final_i, Date == knot_date_2), 
+                        label = paste0(as.character(knot_date_2, format = "%d %b")),
+                        vjust = 0, size = 4, color = "deeppink3") 
+    }
+  }
+  
+  # Add plot to list
+  plot_exp_growth_cases_inc[[i]] <- p
+  
+}
+
+# Save plots
+dev.new()  # make very large to avoid bug with saving
+p <- ggarrange(plotlist = plot_exp_growth_cases_inc, nrow = 6, ncol = 6)
+g <- annotate_figure(p, top = text_grob("Exponential growth of Covid-19 cases: Cumulative versus incident cases", size = 16))
+ggsave(paste0(out, "Figure - Cumulative vs incident cases (with fitted splines by min RMSE_inc).png"),
+       plot = g, width = 6*6, height = 6*6, limitsize = FALSE)
+dev.off()
+
+# Best knots by min RMSE cumulative --------------------------------------------
+
+# Filter best knots dataframe by min RMSE cumulative
+knots_best_final_cum <- knots_best_final %>% filter(Criteria == "min RMSE_cum")
+
+# Create list for plots
+plot_exp_growth_cases_cum <- list()
+
+# Create plots
+for (i in countries_eur_final) {
+  
+  # Define country
+  country <- i
+  
+  # Filter cases/deaths, best knots, and summary dataframes by country
+  data_eur_final_i <- data_eur_final %>% filter(Country == country)
+  data_eur_final_100_i <- data_eur_final_i %>% filter(Date >= Date_100 & Date <= date_T)
+  knots_best_final_cum_i <- knots_best_final_cum %>% filter(Country == country)
+  summary_eur_final_i <- summary_eur_final %>% filter(Country == country)
+  
+  # Define dates of first restriction, lockdown, when cases first exceeded 100
+  date_first_restriction <- summary_eur_final_i %>% pull(Date_first_restriction)
+  date_lockdown <- summary_eur_final_i %>% pull(Date_lockdown)
+  date_100 <- summary_eur_final_i %>% pull(Date_100)
+  
+  # Define knot dates
+  knot_date_1 <- knots_best_final_cum_i %>% pull(Knot_date_1) %>% head(1)
+  knot_date_2 <- knots_best_final_cum_i %>% pull(Knot_date_2) %>% head(1)
+  
+  # Define values of cumulative cases at knot dates
+  knot_1 <- data_eur_final_i %>% filter(Date == knot_date_1) %>% pull(Cumulative_cases_beg)
+  knot_2 <- data_eur_final_i %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
+  
+  # Calculate min and max values of cumulative cases in modelling period
+  x_min <- min(data_eur_final_100_i$Cumulative_cases_beg)
+  x_max <- max(data_eur_final_100_i$Cumulative_cases_beg)
+  
+  # Define Arima spline parameters
+  slope_1 <- knots_best_final_cum_i %>% pull(Growth_factor_1) %>% head(1) - 1
+  slope_2 <- knots_best_final_cum_i %>% pull(Growth_factor_2) %>% head(1) - 1
+  slope_3 <- knots_best_final_cum_i %>% pull(Growth_factor_3) %>% head(1) - 1
+  intercept_1 <- knots_best_final_cum_i %>% pull(Intercept_1) %>% head(1)
+  intercept_2 <- knots_best_final_cum_i %>% pull(Intercept_2) %>% head(1)
+  intercept_3 <- knots_best_final_cum_i %>% pull(Intercept_3) %>% head(1)
+  
+  # Create base plot
+  p <- ggplot(data = filter(data_eur_final_100_i, Date <= date_T),
+              aes(x = Cumulative_cases_beg, y = Daily_cases)) +
+    theme_minimal() +
+    theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
+    labs(title = paste0(country)) +
+    geom_path() +
+    geom_path(data = filter(data_eur_final_i, Date <= Date_100),
+              aes(x = Cumulative_cases_beg, y = Daily_cases),
+              linetype = "dashed") +
+    geom_point(size = 1) +
+    geom_point(data = filter(data_eur_final_i, Date == date_first_restriction),
+               size = 3, color = "navyblue", shape = 15) +
+    geom_text_repel(data = filter(data_eur_final_i, Date == date_first_restriction), color = "blue",
+                    label = paste0(as.character(date_first_restriction, format = "%d %b")),
+                    hjust = 0, size = 4) +
+    geom_point(data = filter(data_eur_final_i, Date == date_lockdown), 
+               size = 3, color = "darkorange", shape = 18) +
+    geom_text_repel(data = filter(data_eur_final_i, Date == date_lockdown), color = "darkorange",
+                    label = paste0(as.character(date_lockdown, format = "%d %b")),
+                    hjust = 1, size = 4) +
+    scale_x_continuous(name = "Cumulative number of COVID-19 cases",
+                       labels = comma_format(accuracy = 1)) + 
+    scale_y_continuous(name = "New daily number of COVID-19 cases",
+                       labels = comma_format(accuracy = 1))
+  
+  # Add fitted spline segments to base plot
+  if (knot_date_1 == date_100) {
+    if (is.na(knot_date_2)) {  # NO knot points
+      p <- p +
+        geom_segment(aes_(x = x_min, xend = x_max,
+                          y = intercept_1 + slope_1*x_min, yend = intercept_1 + slope_1*x_max),
+                     color = "deeppink3") +
+        geom_text_repel(data = filter(data_eur_final_i, Date == knot_date_1), 
+                        label = paste0(as.character(knot_date_1, format = "%d %b")),
+                        vjust = 0, size = 4, color = "deeppink3")
+    } else {  # ONE knot point (at knot_date_2)
+      p <- p +
+        geom_segment(aes_(x = x_min, xend = knot_2,
+                          y = intercept_1 + slope_1*x_min, yend = intercept_1 + slope_1*knot_2),
+                     color = "deeppink3") +
+        geom_segment(aes_(x = knot_2, xend = x_max,
+                          y = intercept_2 + slope_2*knot_2, yend = intercept_2 + slope_2*x_max),
+                     color = "deeppink3") +
+        geom_text_repel(data = filter(data_eur_final_i, Date == knot_date_2), 
+                        label = paste0(as.character(knot_date_2, format = "%d %b")),
+                        vjust = 0, size = 4, color = "deeppink3") 
+    }
+  } else {
+    if (is.na(knot_date_2)) {  # ONE knot point (at knot_date_1)
+      p <- p +
+        geom_segment(aes_(x = x_min, xend = knot_1,
+                          y = intercept_1 + slope_1*x_min, yend = intercept_1 + slope_1*knot_1),
+                     color = "deeppink3") +
+        geom_segment(aes_(x = knot_1, xend = x_max,
+                          y = intercept_2 + slope_2*knot_1, yend = intercept_2 + slope_2*x_max),
+                     color = "deeppink3") +
+        geom_text_repel(data = filter(data_eur_final_i, Date == knot_date_1), 
+                        label = paste0(as.character(knot_date_1, format = "%d %b")),
+                        vjust = 0, size = 4, color = "deeppink3") 
+    } else {  # TWO knot points (at knot_date_1 and knot_date_2)
+      p <- p +
+        geom_segment(aes_(x = x_min, xend = knot_1,
+                          y = intercept_1 + slope_1*x_min, yend = intercept_1 + slope_1*knot_1),
+                     color = "deeppink3") +
+        geom_segment(aes_(x = knot_1, xend = knot_2,
+                          y = intercept_2 + slope_2*knot_1, yend = intercept_2 + slope_2*knot_2),
+                     color = "deeppink3") +
+        geom_segment(aes_(x = knot_2, xend = x_max,
+                          y = intercept_3 + slope_3*knot_2, yend = intercept_3 + slope_3*x_max),
+                     color = "deeppink3") +
+        geom_text_repel(data = filter(data_eur_final_i, Date == knot_date_1), 
+                        label = paste0(as.character(knot_date_1, format = "%d %b")),
+                        vjust = 0, size = 4, color = "deeppink3") +
+        geom_text_repel(data = filter(data_eur_final_i, Date == knot_date_2), 
+                        label = paste0(as.character(knot_date_2, format = "%d %b")),
+                        vjust = 0, size = 4, color = "deeppink3") 
+    }
+  }
+  
+  # Add plot to list
+  plot_exp_growth_cases_cum[[i]] <- p
+  
+}
+
+# Save plots
+dev.new()  # make very large to avoid bug with saving
+p <- ggarrange(plotlist = plot_exp_growth_cases_cum, nrow = 6, ncol = 6)
+g <- annotate_figure(p, top = text_grob("Exponential growth of Covid-19 cases: Cumulative versus incident cases", size = 16))
+ggsave(paste0(out, "Figure - Cumulative vs incident cases (with fitted splines by min RMSE_cum).png"),
+       plot = g, width = 6*6, height = 6*6, limitsize = FALSE)
+dev.off()
+
+# Remove plotting objects from environment
+rm(plot_exp_growth_cases_inc, plot_exp_growth_cases_cum, i, country, 
+   knots_best_final_inc, knots_best_final_cum, data_eur_final_i, data_eur_final_100_i, 
+   knots_best_final_inc_i, knots_best_final_cum_i, summary_eur_final_i, 
+   date_first_restriction, date_lockdown, date_100, knot_date_1, knot_date_2,
+   knot_1, knot_2, x_min, x_max, slope_1, slope_2, slope_3,
+   intercept_1, intercept_2, intercept_3, p, g)
+
+
 
