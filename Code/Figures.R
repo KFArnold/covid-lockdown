@@ -10,14 +10,14 @@
 # ------------------------------------------------------------------------------
 
 # Load required packages
-library(tidyverse); library(readr); library(dplyr); library(ggplot2)
+library(tidyverse); library(readr); library(dplyr); library(ggplot2); library(ggrepel); library(scales)
 
 # Run source code to import, format, and summarise data
 source("./Code/Import, format, and summarise data.R")
 
 # Import files containing best knots
-knots_best <- read_csv(paste0(out, "Best knot points - all.csv"))
-knots_best_final <- read_csv(paste0(out, "Best knot points - final.csv"))
+knots_best <- read_csv(paste0(out, "Best knot points - all.csv")) %>% group_by(Country)
+knots_best_final <- read_csv(paste0(out, "Best knot points - final.csv")) %>% group_by(Country)
 
 # Set storage directory for outputs
 out <- paste0("./Results/")
@@ -30,7 +30,7 @@ out <- paste0("./Results/")
 countries_ordered <- summary_eur_final %>% arrange(Date_first_restriction) %>% 
   pull(Country) %>% as.character
 
-# Dates of first restriction and lockdown --------------------------------------
+## Dates of first restriction and lockdown -------------------------------------
 
 # Get min and max dates from summary table
 date_min <- summary_eur_final %>% ungroup %>% 
@@ -73,7 +73,7 @@ plot_1 <- ggplot(data = summary_eur_final, aes(y = Country)) +
 # Save plot
 ggsave(paste0(out, "Figure - Important dates.png"), plot = plot_1, width = 9, height = 8)
 
-# Dates of first restriction, lockdown, first case, and cases >= 100 -----------
+## Dates of first restriction, lockdown, first case, and cases >= 100 ----------
 
 # Get min and max dates
 date_min <- summary_eur_final %>% ungroup %>% 
@@ -128,9 +128,9 @@ rm(countries_ordered, date_min, date_max, cols, shapes, plot_1, plot_2)
 # Exponential growth 
 # ------------------------------------------------------------------------------
 
-# Each country on separate grid ------------------------------------------------
+## Each country on separate grid -----------------------------------------------
 
-## Normal scale ----------------------------------------------------------------
+### Normal scale ---------------------------------------------------------------
 
 plot_exp_growth_cases <- list()
 
@@ -189,7 +189,7 @@ ggsave(paste0(out, "Figure - Cumulative vs incident cases.png"),
        plot = g, width = 6*6, height = 6*6, limitsize = FALSE)
 dev.off()
 
-## Log scale -------------------------------------------------------------------
+### Log scale ------------------------------------------------------------------
 
 plot_exp_growth_cases <- list()
 
@@ -244,7 +244,7 @@ ggsave(paste0(out, "Figure - Cumulative vs incident cases (log scale).png"),
        plot = g, width = 6*6, height = 6*6, limitsize = FALSE)
 dev.off()
 
-# All countries on same grid ---------------------------------------------------
+## All countries on same grid --------------------------------------------------
 
 plot_exp_growth_cases <- ggplot(data = filter(data_eur_final, Date <= date_T),
                                 aes(x = Cumulative_cases_beg, 
@@ -277,7 +277,7 @@ rm(plot_exp_growth_cases, i, country,
 # Exponential growth (with fitted splines)
 # ------------------------------------------------------------------------------
 
-# Best knots by min RMSE incidence ---------------------------------------------
+## Best knots by min RMSE incidence --------------------------------------------
 
 # Filter best knots dataframe by min RMSE incidence
 knots_best_final_inc <- knots_best_final %>% filter(Criteria == "min RMSE_inc")
@@ -415,7 +415,7 @@ ggsave(paste0(out, "Figure - Cumulative vs incident cases (with fitted splines b
        plot = g, width = 6*6, height = 6*6, limitsize = FALSE)
 dev.off()
 
-# Best knots by min RMSE cumulative --------------------------------------------
+## Best knots by min RMSE cumulative -------------------------------------------
 
 # Filter best knots dataframe by min RMSE cumulative
 knots_best_final_cum <- knots_best_final %>% filter(Criteria == "min RMSE_cum")
@@ -561,5 +561,83 @@ rm(plot_exp_growth_cases_inc, plot_exp_growth_cases_cum, i, country,
    knot_1, knot_2, x_min, x_max, slope_1, slope_2, slope_3,
    intercept_1, intercept_2, intercept_3, p, g)
 
+# ------------------------------------------------------------------------------
+# Growth factor under lockdown -------------------------------------------------
+# ------------------------------------------------------------------------------
+
+# (What to do with countries who don't have lockdowns??)
+
+# Calculate median growth factor under lockdown from list of best knots
+median_growth_factor_final <- knots_best %>% select(Country, contains("Median")) %>% 
+  unique %>% summarise(Median_growth_factor_final = ifelse(!is.na(Median_growth_factor_3),
+                                                           Median_growth_factor_3, Median_growth_factor_2),
+                       .groups = "keep")
+
+# Bind median growth factors to summary_eur_final
+summary_eur_final <- full_join(summary_eur_final, median_growth_factor_final)
+
+# Plot relationship between cases on date of lockdown/sd and median growth factor under lockdown
+plot_growth_factor_1 <- ggplot(data = summary_eur_final, 
+       aes(x = Cumulative_cases_beg_lockdown, y = Median_growth_factor_final)) +
+  theme_classic() +
+  theme(axis.text = element_text(size = 6), 
+        axis.title = element_text(size = 8),
+        legend.position = "none",
+        panel.grid.major = element_line(),
+        plot.margin = unit(c(1, 1, 1, 1), "cm"),
+        plot.title = element_text(size = 9)) +
+  labs(title = "Relationship between cumulative number of COVID-19 cases at the date of lockdown \nand growth factor under lockdown") +
+  geom_point() +
+  #geom_smooth(method = "lm", se = FALSE, linetype = "dashed") +
+  geom_text_repel(aes(label = Country), size = 2) +
+  scale_x_continuous(name = "Cumulative number of COVID-19 cases at date of lockdown",
+                     labels = comma_format(accuracy = 1)) +
+  scale_y_continuous(name = "Growth factor under lockdown") 
+#plot_growth_factor_1
+
+# Plot without UK (outlier)
+plot_growth_factor_2 <- ggplot(data = filter(summary_eur_final, Country != "United Kingdom"), 
+                               aes(x = Cumulative_cases_beg_lockdown, y = Median_growth_factor_final)) +
+  theme_classic() +
+  theme(axis.text = element_text(size = 6), 
+        axis.title = element_text(size = 8),
+        legend.position = "none",
+        panel.grid.major = element_line(),
+        plot.margin = unit(c(1, 1, 1, 1), "cm"),
+        plot.title = element_text(size = 9)) +
+  labs(title = "Relationship between cumulative number of COVID-19 cases at the date of lockdown \nand growth factor under lockdown") +
+  geom_point() +
+  #geom_smooth(method = "lm", se = FALSE, linetype = "dashed") +
+  #geom_smooth(data = filter(summary_eur_final, Country != "United Kingdom" & !is.na(Date_lockdown)),
+  #            method = "glm", method.args = list(family = gaussian(link = "log")), se = FALSE,
+  #            aes(x = Cumulative_cases_beg_lockdown, y = Median_growth_factor_final)) +
+  geom_text_repel(aes(label = Country), size = 2) +
+  scale_x_continuous(name = "Cumulative number of COVID-19 cases at date of lockdown",
+                     labels = comma_format(accuracy = 1)) +
+  scale_y_continuous(name = "Growth factor under lockdown")
+#plot_growth_factor_2
+
+# Save plots
+ggsave(paste0(out, "Figure - Cases at lockdown vs growth factor.png"),
+       plot = plot_growth_factor_1, width = 6, height = 6)
+ggsave(paste0(out, "Figure - Cases at lockdown vs growth factor - without UK.png"),
+       plot = plot_growth_factor_2, width = 6, height = 6)
+
+# Remove plotting objects from environment
+rm(plot_growth_factor_1, plot_growth_factor_2)
+
+# ------------------------------------------------------------------------------
+# Incident and cumulative cases ------------------------------------------------
+# ------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+# 3-panel plot for each country with incidence, cumulative cases, and cumulative vs incidence (w/ fitted spline)
 
 
