@@ -24,7 +24,7 @@
 # ------------------------------------------------------------------------------
 
 # Load required packages
-library(tidyverse); library(readr); library(dplyr); library(ggplot2)
+library(tidyverse); library(readr); library(dplyr); library(ggplot2); library(caTools)
 
 # Run source code to update external data
 #source("./Code/Update data.R")
@@ -123,8 +123,16 @@ deaths <- deaths %>% mutate(Cumulative_deaths_beg = lag(Cumulative_deaths_end, n
                             Daily_deaths = Cumulative_deaths_end - Cumulative_deaths_beg) %>%
   relocate(c(Cumulative_deaths_beg, Daily_deaths), .before = Cumulative_deaths_end)
 
+# Calculate 7-day moving averages of daily and cumulative cases and deaths
+cases <- cases %>% mutate(Cumulative_cases_beg_MA7 = round(runmean(Cumulative_cases_beg, k = 7, alg = "C", endrule = "mean"), 3),
+                          Daily_cases_MA7 = round(runmean(Daily_cases, k = 7, alg = "C", endrule = "mean"), 3),
+                          Cumulative_cases_end_MA7 = round(runmean(Cumulative_cases_end, k = 7, alg = "C", endrule = "mean"), 3))
+deaths <- deaths %>% mutate(Cumulative_deaths_beg_MA7 = round(runmean(Cumulative_deaths_beg, k = 7, alg = "C", endrule = "mean"), 3),
+                            Daily_deaths_MA7 = round(runmean(Daily_deaths, k = 7, alg = "C", endrule = "mean"), 3),
+                            Cumulative_deaths_end_MA7 = round(runmean(Cumulative_deaths_end, k = 7, alg = "C", endrule = "mean"), 3))
+
 # Merge cases and deaths datasets into single dataframe
-data_all <- full_join(cases, deaths) 
+data_all <- full_join(cases, deaths) %>% relocate(contains("MA7"), .after = last_col())
 rm(cases, deaths)  # (remove separate datasets)
 
 # Create variables for: date of first case (Date_0), 
@@ -189,17 +197,19 @@ rm(data_all, data_eur, policies, policies_eur)
 
 # Create summary table which defines first date at which cases first exceeded 100 (Date_100)
 summary_eur_final <- data_eur_final %>% filter(Date == Date_100) %>% 
-  select(-c(Date_100, Days_since_100, Cumulative_cases_end, Cumulative_deaths_end)) %>%
+  select(-c(Date_100, Days_since_100, contains(c("end", "MA7")))) %>%
   rename_at(vars(-c(Country, Date_0)), .funs = list(~ paste0(., "_100"))) %>%
   relocate(Date_0, .before = Date_100)
 
 # Create empty summary tables to store:
 # (1) Date of first restriction (including cases and deaths)
-summary_first_restriction <- data_eur_final %>% select(Country, Date, contains(c("Cumulative", "Daily"))) %>%
+summary_first_restriction <- data_eur_final %>% 
+  select(-c(Date_0, Date_100, Days_since_100, contains(c("end", "MA7")))) %>%
   rename_at(vars(-Country), .funs = list(~ paste0(., "_first_restriction"))) 
 summary_first_restriction <- summary_first_restriction[0, ]
 # (2) Date of lockdown (including cases and deaths)
-summary_lockdown <- data_eur_final %>% select(Country, Date, contains(c("Cumulative", "Daily"))) %>%
+summary_lockdown <- data_eur_final %>% 
+  select(-c(Date_0, Date_100, Days_since_100, contains(c("end", "MA7")))) %>%
   rename_at(vars(-Country), .funs = list(~ paste0(., "_lockdown"))) 
 summary_lockdown <- summary_lockdown[0, ]
 
@@ -245,7 +255,7 @@ for (i in 1:nrow(summary_eur_final)) {
     date_first_restriction <- policies_eur_i[[index, "Date"]]
     # Create summary of cases/deaths on date of first restriction
     summary_first_restriction_i <- data_eur_i %>% filter(Date == date_first_restriction) %>% 
-      select(Country, Date, contains(c("Cumulative", "Daily"))) %>%
+      select(-c(Date_0, Date_100, Days_since_100, contains(c("end", "MA7")))) %>%
       rename_at(vars(-Country), .funs = list(~ paste0(., "_first_restriction"))) 
     # Merge with full first restriction summary dataset
     summary_first_restriction <- bind_rows(summary_first_restriction, summary_first_restriction_i)
@@ -272,7 +282,7 @@ for (i in 1:nrow(summary_eur_final)) {
     date_lockdown <- policies_eur_i[[index, "Date"]]
     # Create summary of cases/deaths on date of lockdown
     summary_lockdown_i <- data_eur_i %>% filter(Date == date_lockdown) %>% 
-      select(Country, Date, contains(c("Cumulative", "Daily"))) %>%
+      select(-c(Date_0, Date_100, Days_since_100, contains(c("end", "MA7")))) %>%
       rename_at(vars(-Country), .funs = list(~ paste0(., "_lockdown"))) 
     # Merge with full lockdown summary dataset
     summary_lockdown <- bind_rows(summary_lockdown, summary_lockdown_i)
