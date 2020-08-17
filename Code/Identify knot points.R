@@ -6,7 +6,8 @@
 
 
 # Notes:
-# Lithuania, Portugal, Spain, and UK have negative incidence
+# Lithuania, Portugal, Spain, and UK have negative incidence 
+# (negative incidence creates problems for calculating Poisson deviance - have removed NA's from function for now)
 # date_T is currently a global parameter - should be local, as only want to consider first wave for each country
 # Test whether making stricter criteria as equivalent to lockdown changes best knots identified
 
@@ -25,6 +26,19 @@ library(ggrepel); library(scales); library(Metrics)
 source("./Code/Import, format, and summarise data.R")
 
 #date_T <- as.Date("2020-06-01")  # currently GLOBAL var but can be adapted for each country
+
+## Functions -------------------------------------------------------------------
+
+# Function to calculate Poisson deviance between two vectors
+# from: https://en.wikipedia.org/wiki/Deviance_(statistics)
+# Arguments: obs = vector of observed values, sim = vector of simulated/predicted values
+Calc_Pois_Dev <- function(obs, sim) {
+  
+  #D <- 2 * sum(obs * log(obs / sim) - (obs - sim))
+  D <- 2 * sum(obs * log(obs / sim) - (obs - sim), na.rm = TRUE)
+  return(D)
+  
+}
 
 # ------------------------------------------------------------------------------
 # Estimate when exponential growth changed 
@@ -82,15 +96,14 @@ for (i in countries_eur_final) {
                             Growth_factor_1 = as.numeric(),
                             Growth_factor_2 = as.numeric(),
                             Growth_factor_3 = as.numeric(),
-                            Growth_factor_sd_1 = as.numeric(),
-                            Growth_factor_sd_2 = as.numeric(),
-                            Growth_factor_sd_3 = as.numeric(),
+                            Growth_factor_1_sd = as.numeric(),
+                            Growth_factor_2_sd = as.numeric(),
+                            Growth_factor_3_sd = as.numeric(),
                             Intercept_1 = as.numeric(),
                             Intercept_2 = as.numeric(),
                             Intercept_3 = as.numeric(),
-                            BIC = as.numeric(),
-                            RMSE_inc = as.numeric(),
-                            RMSE_cum = as.numeric(),
+                            Pois_dev_inc = as.numeric(),
+                            Pois_dev_cum = as.numeric(),
                             Diff_cum_end = as.numeric()),
                      grid)
   rm(grid)
@@ -142,11 +155,11 @@ for (i in countries_eur_final) {
         # Record model parameters (intercept, slope, and SD of slope)
         intercept_1 <- as.numeric(coef(model)["intercept"])
         slope_1 <- as.numeric(coef(model)["Cumulative_cases_beg"])
-        slope_sd_1 <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg"]]
+        slope_1_sd <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg"]]
         
         # Calculate and record growth factor, record model parameters
         knots[[j, "Growth_factor_1"]] <- growth_factor_1 <- slope_1 + 1
-        knots[[j, "Growth_factor_sd_1"]] <- slope_sd_1
+        knots[[j, "Growth_factor_1_sd"]] <- slope_1_sd
         knots[[j, "Intercept_1"]] <- intercept_1
         
       } else {  # ONE knot point (at knot_date_2)
@@ -174,15 +187,15 @@ for (i in countries_eur_final) {
         intercept_1 <- as.numeric(coef(model)["intercept"])
         slope_1 <- as.numeric(coef(model)["Cumulative_cases_beg_1"])
         slope_2 <- as.numeric(coef(model)["Cumulative_cases_beg_2"])
-        slope_sd_1 <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_1"]]
-        slope_sd_2 <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_2"]]
+        slope_1_sd <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_1"]]
+        slope_2_sd <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_2"]]
         intercept_2 <- (intercept_1 + slope_1*knot_1) - slope_2*knot_1
         
         # Calculate and record growth factor, record model parameters
         knots[[j, "Growth_factor_1"]] <- growth_factor_1 <- slope_1 + 1
         knots[[j, "Growth_factor_2"]] <- growth_factor_2 <- slope_2 + 1
-        knots[[j, "Growth_factor_sd_1"]] <- slope_sd_1
-        knots[[j, "Growth_factor_sd_2"]] <- slope_sd_2
+        knots[[j, "Growth_factor_1_sd"]] <- slope_1_sd
+        knots[[j, "Growth_factor_2_sd"]] <- slope_2_sd
         knots[[j, "Intercept_1"]] <- intercept_1
         knots[[j, "Intercept_2"]] <- intercept_2
         
@@ -215,15 +228,15 @@ for (i in countries_eur_final) {
         intercept_1 <- as.numeric(coef(model)["intercept"])
         slope_1 <- as.numeric(coef(model)["Cumulative_cases_beg_1"])
         slope_2 <- as.numeric(coef(model)["Cumulative_cases_beg_2"])
-        slope_sd_1 <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_1"]]
-        slope_sd_2 <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_2"]]
+        slope_1_sd <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_1"]]
+        slope_2_sd <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_2"]]
         intercept_2 <- (intercept_1 + slope_1*knot_1) - slope_2*knot_1
         
         # Calculate and record growth factor, record model parameters
         knots[[j, "Growth_factor_1"]] <- growth_factor_1 <- slope_1 + 1
         knots[[j, "Growth_factor_2"]] <- growth_factor_2 <- slope_2 + 1
-        knots[[j, "Growth_factor_sd_1"]] <- slope_sd_1
-        knots[[j, "Growth_factor_sd_2"]] <- slope_sd_2
+        knots[[j, "Growth_factor_1_sd"]] <- slope_1_sd
+        knots[[j, "Growth_factor_2_sd"]] <- slope_2_sd
         knots[[j, "Intercept_1"]] <- intercept_1
         knots[[j, "Intercept_2"]] <- intercept_2
         
@@ -254,9 +267,9 @@ for (i in countries_eur_final) {
         slope_1 <- as.numeric(coef(model)["Cumulative_cases_beg_1"])
         slope_2 <- as.numeric(coef(model)["Cumulative_cases_beg_2"])
         slope_3 <- as.numeric(coef(model)["Cumulative_cases_beg_3"])
-        slope_sd_1 <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_1"]]
-        slope_sd_2 <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_2"]]
-        slope_sd_3 <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_3"]]
+        slope_1_sd <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_1"]]
+        slope_2_sd <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_2"]]
+        slope_3_sd <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_3"]]
         intercept_2 <- (intercept_1 + slope_1*knot_1) - slope_2*knot_1
         intercept_3 <- (intercept_2 + slope_2*knot_2) - slope_3*knot_2
         
@@ -264,9 +277,9 @@ for (i in countries_eur_final) {
         knots[[j, "Growth_factor_1"]] <- growth_factor_1 <- slope_1 + 1
         knots[[j, "Growth_factor_2"]] <- growth_factor_2 <- slope_2 + 1
         knots[[j, "Growth_factor_3"]] <- growth_factor_3 <- slope_3 + 1
-        knots[[j, "Growth_factor_sd_1"]] <- slope_sd_1
-        knots[[j, "Growth_factor_sd_2"]] <- slope_sd_2
-        knots[[j, "Growth_factor_sd_3"]] <- slope_sd_3
+        knots[[j, "Growth_factor_1_sd"]] <- slope_1_sd
+        knots[[j, "Growth_factor_2_sd"]] <- slope_2_sd
+        knots[[j, "Growth_factor_3_sd"]] <- slope_3_sd
         knots[[j, "Intercept_1"]] <- intercept_1
         knots[[j, "Intercept_2"]] <- intercept_2
         knots[[j, "Intercept_3"]] <- intercept_3
@@ -314,15 +327,15 @@ for (i in countries_eur_final) {
       
     }  # (close loop 3)
     
-    # Calculate and record RMSE 
-    ## (1) For true vs predicted incident cases
-    true_inc <- data_eur_final_100_i$Daily_cases
+    # Calculate and record Poisson deviance
+    ## (1) For predicted vs true (7-day moving average) incident cases
+    true_inc <- data_eur_final_100_i$Daily_cases_MA7
     pred_inc <- daily_cases_sim[1, -1]
-    knots[[j, "RMSE_inc"]] <- rmse(true_inc, pred_inc)
+    knots[[j, "Pois_dev_inc"]] <- Calc_Pois_Dev(obs = true_inc, sim = pred_inc)
     ## (2) For true vs predicted cumulative cases
-    true_cum <- data_eur_final_100_i$Cumulative_cases_end
+    true_cum <- data_eur_final_100_i$Cumulative_cases_end_MA7
     pred_cum <- cumulative_cases_end_sim[1, -1]
-    knots[[j, "RMSE_cum"]] <- rmse(true_cum, pred_cum)
+    knots[[j, "Pois_dev_cum"]] <- Calc_Pois_Dev(obs = true_cum, sim = pred_cum)
     
     # Calculate absolute difference between cumulative cases at end of simulation vs true
     true_cum_end <- data_eur_final_100_i %>% filter(Date == date_T) %>% pull(Cumulative_cases_end)
@@ -337,12 +350,11 @@ for (i in countries_eur_final) {
   }  # (close loop 2)
   
   # Find best knot points for each country
-  knots_1 <- knots %>% arrange(RMSE_inc) %>% head(10)  # lowest RMSE_inc
-  knots_2 <- knots %>% arrange(RMSE_cum) %>% head(10)  # lowest RMSE_cum
+  knots_1 <- knots %>% arrange(Pois_dev_inc) %>% head(10)  # lowest Pois_dev_inc
+  knots_2 <- knots %>% arrange(Pois_dev_cum) %>% head(10)  # lowest Pois_dev_cum
 
   # Keep matches between two datsets and label with country
-  knots_best_i <- knots_1[(knots_1$Knot_date_1 %in% knots_2$Knot_date_1) & 
-                            (knots_1$Knot_date_2 %in% knots_2$Knot_date_2), ]
+  knots_best_i <- intersect(knots_1, knots_2)
   knots_best_i <- knots_best_i %>% mutate(Country = country) %>% relocate(Country)
   
   # Add best knots for country i to list of best knots
@@ -366,8 +378,21 @@ rm(i, j, t, g, country, data_eur_final_i, data_eur_final_100_i,
 # Combine best knots from all countries into single dataframe
 knots_best <- bind_rows(knots_best)
 
-# Group dataframe of best knots by country and view
-knots_best <- knots_best %>% group_by(Country); knots_best
+# Group dataframe of best knots by country, arrange by knot dates
+knots_best <- knots_best %>% group_by(Country) %>% arrange(Country, Knot_date_1, Knot_date_2)
+
+# Construct probability of each pair of knot points
+## (1) Equal probability of each knot point pair
+knots_best <- knots_best %>% mutate(n_knots = n(), Prob_equal = 1 / n_knots) %>%
+  select(-n_knots)
+## (2) Unequal probabilities of each knot point pair according to Pois_dev_cum
+### Create inverse of Pois_dev_cum values so that lower values are ranked higher,
+### calculate normaliser for rescaling Pois_dev_cum inverse values, and
+### calculate probability by multiplying Pois_dev_cum inverse values by normaliser
+knots_best <- knots_best %>% mutate(Pois_dev_cum_inv = 1 / Pois_dev_cum,
+                                    Norm = 1 / sum(Pois_dev_cum_inv), 
+                                    Prob_unequal = Pois_dev_cum_inv * Norm) %>%
+  select(-c(Pois_dev_cum_inv, Norm))
 
 # Find median growth factors for each country among best knots
 median_growth_factors <- knots_best %>% summarise(Median_growth_factor_1 = median(Growth_factor_1, na.rm = TRUE),
@@ -376,18 +401,6 @@ median_growth_factors <- knots_best %>% summarise(Median_growth_factor_1 = media
                                                   .groups = "keep")
 knots_best <- full_join(knots_best, median_growth_factors)
 
-# Select ONE best (set of) knot point(s) by both RMSE_inc and RMSE_cum, and bind into single dataframe
-# (if multiple knot points are min, select by min BIC)
-knots_best_final_inc <- knots_best %>% filter(RMSE_inc == min(RMSE_inc)) %>% filter(BIC == min(BIC)) %>%
-  mutate(Criteria = "min RMSE_inc") %>% select(-contains("Median"))
-knots_best_final_cum <- knots_best %>% filter(RMSE_cum == min(RMSE_cum)) %>% filter(BIC == min(BIC)) %>% 
-  mutate(Criteria = "min RMSE_cum") %>% select(-contains("Median"))
-knots_best_final <- bind_rows(knots_best_final_inc, knots_best_final_cum) %>% 
-  relocate(Criteria, .after = Country) %>% arrange(Country)
-rm(knots_best_final_inc, knots_best_final_cum)
-knots_best_final
-
-# Export knots_best and knots_best_final dataframes
-write_csv(knots_best, path = paste0(out, "Best knot points - all.csv"))
-write_csv(knots_best_final, path = paste0(out, "Best knot points - final.csv"))
+# Export knots_best dataframes
+write_csv(knots_best, path = paste0(out, "Best knot points.csv"))
 
