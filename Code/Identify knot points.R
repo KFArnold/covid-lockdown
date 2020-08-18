@@ -401,10 +401,6 @@ median_growth_factors <- knots_best %>% summarise(Median_growth_factor_1 = media
                                                   .groups = "keep")
 knots_best <- full_join(knots_best, median_growth_factors)
 
-<<<<<<< HEAD
 # Export knots_best dataframe
-=======
-# Export knots_best dataframes
->>>>>>> 88ab15156e7c6cd8b6763aaf9e31d9f428e661d7
 write_csv(knots_best, path = paste0(out, "Best knot points.csv"))
 
