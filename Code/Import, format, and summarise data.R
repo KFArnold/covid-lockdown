@@ -47,22 +47,24 @@ out <- paste0("./Results/")
 
 ## Functions -------------------------------------------------------------------
 
-# Function to find the first row (index) for which a group of measures
+# Function to determine the dates for which a group of measures
 # (each with their own cutoffs) exceeds a particular threshold
-# Arguments: DATA = full policies dataframe (i.e. contains all measures) for ONE country;
+# Arguments: 
+# DATA = full policies dataframe (i.e. contains all measures) for ONE country;
 # MEASURES = a list of the measures to evaluate;
 # CUTOFFS = a list of the cutoff points corresponding to each individual measure;
 # THRESHOLD = the total number of measures that must be met/exceeded
-# Returns row number (index) of first instance where threshold is met/exceeded
-Find_Beginning_Index <- function(DATA, MEASURES, CUTOFFS, THRESHOLD) {
+# Returns: 
+# Dataframe with 2 columns: (1) Date; (2) Threshold_exceed (TRUE/FALSE)
+Determine_Dates_Threshold_Exceeded <- function(DATA, MEASURES, CUTOFFS, THRESHOLD) {
   
-  # Print warning of each measure doesn't have its own cutoff point
+  # Print warning if each measure doesn't have its own cutoff point
   if (length(MEASURES) != length(CUTOFFS)) {
     print("Error: Each measure must have its own cutoff point.")
   }
   
   # Subset dataset to include only selected Measures
-  data <- DATA %>% ungroup() %>% select(unlist(MEASURES))
+  data <- DATA %>% ungroup() %>% select(Date, unlist(MEASURES))
   
   # For each measure, determine whether it is greater than or equal to its cutoff
   # If yes, assign 1; if no, assign 0
@@ -71,12 +73,16 @@ Find_Beginning_Index <- function(DATA, MEASURES, CUTOFFS, THRESHOLD) {
     data[, measure] <- ifelse(data[, measure] >= CUTOFFS[[i]], 1, 0)
   }
   
-  # Calculate row sums & find first instance where sum >= THRESHOLD
-  sum <- apply(data[, unlist(MEASURES)], 1, sum)
-  index <- suppressWarnings(min(which(sum >= THRESHOLD), na.rm = TRUE))
+  # Calculate row sums
+  data$Sum <- apply(data[, unlist(MEASURES)], 1, sum, na.rm = TRUE)
+  #data <- data %>% mutate(Sum = eval(parse(text = paste0(unlist(MEASURES), collapse = "+"))))  # can't have na.rm = TRUE
   
-  # Return row index
-  return(index)
+  # Determine whether threshold exceeded for each date
+  data <- data %>% mutate(Threshold_exceeded = ifelse(Sum >= THRESHOLD, TRUE, FALSE)) %>% 
+    select(Date, Threshold_exceeded)
+  
+  # Return dataframe with Date, Threshold_exceeded variables
+  return(data)
   
 }
 
@@ -243,16 +249,20 @@ for (i in 1:nrow(summary_eur_final)) {
   
   # Summarise first restriction --------
   
-  # Find first instance where any measures were recommended
-  index <- Find_Beginning_Index(DATA = policies_eur_i,
-                                MEASURES = measures_any_restriction,
-                                CUTOFFS = cutoffs_any_restriction,
-                                THRESHOLD = 1)
+  # Determine whether any measures were recommended for each date
+  data_first_restriction <- Determine_Dates_Threshold_Exceeded(DATA = policies_eur_i,
+                                                               MEASURES = measures_any_restriction,
+                                                               CUTOFFS = cutoffs_any_restriction,
+                                                               THRESHOLD = 1) 
   
-  # Analyse countries for which any measures were recommended
-  if (index != Inf) {
-    # Find date of first restriction, cumulative cases and deaths at that date
-    date_first_restriction <- policies_eur_i[[index, "Date"]]
+  # Filter by dates where any measures were recommended
+  data_first_restriction <- data_first_restriction %>% filter(Threshold_exceeded == TRUE)
+  
+  # Find first instance where any measures were recommended
+  # and summarise cases/deaths on this date
+  if (nrow(data_first_restriction) > 0) {
+    # Define date of first restriction
+    date_first_restriction <- data_first_restriction %>% pull(Date) %>% min(na.rm = TRUE)
     # Create summary of cases/deaths on date of first restriction
     summary_first_restriction_i <- data_eur_i %>% filter(Date == date_first_restriction) %>% 
       select(-c(Date_0, Date_100, Days_since_100, contains(c("end", "MA7")))) %>%
@@ -263,23 +273,30 @@ for (i in 1:nrow(summary_eur_final)) {
   
   # Summarise lockdown --------
   
-  # Find first instance where either:
-  # (1) lockdown (general or targeted) was required; or
-  # (2) >= 2 alternate lockdown measures were required
-  index <- min(Find_Beginning_Index(DATA = policies_eur_i,
-                                    MEASURES = measures_lockdown,
-                                    CUTOFFS = cutoffs_lockdown,
-                                    THRESHOLD = 1),
-               Find_Beginning_Index(DATA = policies_eur_i,
-                                    MEASURES = measures_lockdown_alt,
-                                    CUTOFFS = cutoffs_lockdown_alt,
-                                    THRESHOLD = 2),
-               na.rm = TRUE)
+  # Determine whether the following measures were required for each date
+  # (1) lockdown (general or targeted)
+  data_lockdown <- Determine_Dates_Threshold_Exceeded(DATA = policies_eur_i,
+                                                      MEASURES = measures_lockdown,
+                                                      CUTOFFS = cutoffs_lockdown,
+                                                      THRESHOLD = 1)
+  # (2) >= 2 alternate lockdown measures
+  data_lockdown_alt <- Determine_Dates_Threshold_Exceeded(DATA = policies_eur_i, 
+                                                          MEASURES = measures_lockdown_alt, 
+                                                          CUTOFFS = cutoffs_lockdown_alt,
+                                                          THRESHOLD = 2)
   
-  # Analyse countries for which any measures were recommended
-  if (index != Inf) {
-    # Find date of lockdown, cumulative cases and deaths at beginning of lockdown
-    date_lockdown <- policies_eur_i[[index, "Date"]]
+  # Merge two dataframes together
+  data_lockdown_all <- full_join(data_lockdown, data_lockdown_alt, by = "Date", suffix = c("_1", "_2"))
+  
+  # Filter by dates where either lockdown or alternate lockdown measures were required
+  data_lockdown_all <- data_lockdown_all %>% filter(Threshold_exceeded_1 == TRUE | 
+                                                      Threshold_exceeded_2 == TRUE)
+  
+  # Find first instance where either lockdown or alternate lockdown measures were required
+  # and summarise cases/deaths on this date
+  if (nrow(data_lockdown_all) > 0) {
+    # Define lockdown date
+    date_lockdown <- data_lockdown_all %>% pull(Date) %>% min(na.rm = TRUE)
     # Create summary of cases/deaths on date of lockdown
     summary_lockdown_i <- data_eur_i %>% filter(Date == date_lockdown) %>% 
       select(-c(Date_0, Date_100, Days_since_100, contains(c("end", "MA7")))) %>%
@@ -292,8 +309,9 @@ for (i in 1:nrow(summary_eur_final)) {
 # Remove measures/cutoffs, loop objects
 rm(measures_lockdown, measures_lockdown_alt, measures_any_restriction,
    cutoffs_lockdown, cutoffs_lockdown_alt, cutoffs_any_restriction)
-rm(i, data_eur_i, policies_eur_i, summary_first_restriction_i, summary_lockdown_i, 
-   index, country, date_lockdown, date_first_restriction)
+rm(i, country, data_eur_i, policies_eur_i, summary_first_restriction_i, summary_lockdown_i, 
+   data_first_restriction, data_lockdown, data_lockdown_alt, data_lockdown_all, 
+   date_lockdown, date_first_restriction)
 
 # Combine all summary datasets; remove separate dataframes
 summary_eur_final <- full_join(summary_eur_final, summary_first_restriction, by = "Country") %>%
