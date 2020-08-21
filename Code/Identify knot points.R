@@ -47,26 +47,28 @@ Calc_Pois_Dev <- function(obs, sim) {
 # Create list to store best knots for each country
 knots_best <- list()
 
-# Set seed
-set.seed(72)
-
 # (1) Iterate through countries
 start <- Sys.time()
-for (i in countries_eur_final) {
+for (i in countries_eur) {
   
   # Define country
   country <- i
   
-  # Filter cases/deaths dataframe by country
-  data_eur_final_i <- data_eur_final %>% filter(Country == country)
-  
-  # Create copy of dataframe where cumulative cases >= 100 and up to date_T
-  data_eur_final_100_i <- data_eur_final_i %>% filter(Date >= Date_100 & Date <= date_T)
+  # Filter cases/deaths, summary dataframes by country
+  data_eur_i <- data_eur %>% filter(Country == country)
+  summary_eur_i <- summary_eur %>% filter(Country == country)
   
   # Record important dates
-  date_100 <- summary_eur_final %>% filter(Country == country) %>% pull(Date_100)
-  date_first_restriction <- summary_eur_final %>% filter(Country == country) %>% pull(Date_first_restriction)
-  date_lockdown <- summary_eur_final %>% filter(Country == country) %>% pull(Date_lockdown)
+  date_100 <- summary_eur_i %>% pull(Date_100)
+  date_first_restriction <- summary_eur_i %>% pull(Date_first_restriction)
+  date_lockdown <- summary_eur_i %>% pull(Date_lockdown)
+  
+  # Calculate date_T (end date of simulation) as either...
+  # date_max or date_lockdown_end, whichever comes first
+  date_T <- min(summary_eur_i$Date_max, summary_eur_i$Date_lockdown_end, na.rm = TRUE)
+  
+  # Create copy of cases/deaths dataframe where cumulative cases >= 100 and up to date_T
+  data_eur_100_i <- data_eur_i %>% filter(Date >= date_100 & Date <= date_T)
   
   # Define potential knot dates (from dates of first restriction and lockdown to 28 days subsequent),
   # And create grid of all possible combinations of knot dates, with restrictions that...
@@ -117,9 +119,9 @@ for (i in countries_eur_final) {
     matrix(nrow = 1, ncol = length(dates) + 1,
            dimnames = list(1, as.character(seq.Date(from = date_100 - 1, to = date_T, by = 1))))
   # Initialise matrices with data at date_100 - 1
-  daily_cases_sim[, 1] <- data_eur_final_i %>% 
+  daily_cases_sim[, 1] <- data_eur_i %>% 
     filter(Date == (date_100 - 1)) %>% pull(Daily_cases)
-  cumulative_cases_end_sim[, 1] <- data_eur_final_i %>% 
+  cumulative_cases_end_sim[, 1] <- data_eur_i %>% 
     filter(Date == (date_100 - 1)) %>% pull(Cumulative_cases_end)
   
   # (2) Iterate through pairs of candidate knot points
@@ -145,7 +147,7 @@ for (i in countries_eur_final) {
         n_knots <- 0
         
         # Fit regular Arima model (with intercept, since this is not technically first segment)
-        model <- tryCatch(Arima(data_eur_final_100_i$Daily_cases, order = c(2, 0, 0), 
+        model <- tryCatch(Arima(data_eur_100_i$Daily_cases, order = c(2, 0, 0), 
                                 seasonal = list(order = c(1, 0, 0), period = 7),
                                 xreg = as.matrix(data_eur_final_100_i[, "Cumulative_cases_beg"]), 
                                 include.constant = TRUE, method = "ML"), 
@@ -168,12 +170,12 @@ for (i in countries_eur_final) {
         n_knots <- 1
         
         # Set knot point
-        knot_1 <- data_eur_final_100_i %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
+        knot_1 <- data_eur_100_i %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
         
         # Create dataframe for fitting manual splines
-        data_j <- data.frame(lspline(data_eur_final_100_i$Cumulative_cases_beg, knots = c(knot_1)))
+        data_j <- data.frame(lspline(data_eur_100_i$Cumulative_cases_beg, knots = c(knot_1)))
         names(data_j) <- names <- paste0("Cumulative_cases_beg_", 1:2)
-        data_j <- bind_cols(Daily_cases = data_eur_final_100_i$Daily_cases, data_j)
+        data_j <- bind_cols(Daily_cases = data_eur_100_i$Daily_cases, data_j)
         
         # Fit ARIMA spline model w/ specified knot point (with intercept)
         model <- tryCatch(Arima(data_j$Daily_cases, order = c(2, 0, 0), 
@@ -209,12 +211,12 @@ for (i in countries_eur_final) {
         n_knots <- 1
         
         # Set knot point
-        knot_1 <- data_eur_final_100_i %>% filter(Date == knot_date_1) %>% pull(Cumulative_cases_beg)
+        knot_1 <- data_eur_100_i %>% filter(Date == knot_date_1) %>% pull(Cumulative_cases_beg)
         
         # Create dataframe for fitting manual splines
-        data_j <- data.frame(lspline(data_eur_final_100_i$Cumulative_cases_beg, knots = c(knot_1)))
+        data_j <- data.frame(lspline(data_eur_100_i$Cumulative_cases_beg, knots = c(knot_1)))
         names(data_j) <- names <- paste0("Cumulative_cases_beg_", 1:2)
-        data_j <- bind_cols(Daily_cases = data_eur_final_100_i$Daily_cases, data_j)
+        data_j <- bind_cols(Daily_cases = data_eur_100_i$Daily_cases, data_j)
         
         # Fit ARIMA spline model w/ specified knot point (with intercept)
         model <- tryCatch(Arima(data_j$Daily_cases, order = c(2, 0, 0), 
@@ -246,13 +248,13 @@ for (i in countries_eur_final) {
         n_knots <- 2
         
         # Set knot points
-        knot_1 <- data_eur_final_100_i %>% filter(Date == knot_date_1) %>% pull(Cumulative_cases_beg)
-        knot_2 <- data_eur_final_100_i %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
+        knot_1 <- data_eur_100_i %>% filter(Date == knot_date_1) %>% pull(Cumulative_cases_beg)
+        knot_2 <- data_eur_100_i %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
         
         # Create dataframe for fitting manual splines
-        data_j <- data.frame(lspline(data_eur_final_100_i$Cumulative_cases_beg, knots = c(knot_1, knot_2)))
+        data_j <- data.frame(lspline(data_eur_100_i$Cumulative_cases_beg, knots = c(knot_1, knot_2)))
         names(data_j) <- names <- paste0("Cumulative_cases_beg_", 1:3)
-        data_j <- bind_cols(Daily_cases = data_eur_final_100_i$Daily_cases, data_j)
+        data_j <- bind_cols(Daily_cases = data_eur_100_i$Daily_cases, data_j)
         
         # Fit ARIMA spline model w/ specified knot points (no intercept)
         model <- tryCatch(Arima(data_j$Daily_cases, order = c(2, 0, 0), 
@@ -329,33 +331,34 @@ for (i in countries_eur_final) {
     
     # Calculate and record Poisson deviance
     ## (1) For predicted vs true (7-day moving average) incident cases
-    true_inc <- data_eur_final_100_i$Daily_cases_MA7
+    true_inc <- data_eur_100_i$Daily_cases_MA7
     pred_inc <- daily_cases_sim[1, -1]
     knots[[j, "Pois_dev_inc"]] <- Calc_Pois_Dev(obs = true_inc, sim = pred_inc)
     ## (2) For true vs predicted cumulative cases
-    true_cum <- data_eur_final_100_i$Cumulative_cases_end_MA7
+    true_cum <- data_eur_100_i$Cumulative_cases_end_MA7
     pred_cum <- cumulative_cases_end_sim[1, -1]
     knots[[j, "Pois_dev_cum"]] <- Calc_Pois_Dev(obs = true_cum, sim = pred_cum)
     
     # Calculate absolute difference between cumulative cases at end of simulation vs true
-    true_cum_end <- data_eur_final_100_i %>% filter(Date == date_T) %>% pull(Cumulative_cases_end)
+    true_cum_end <- data_eur_100_i %>% filter(Date == date_T) %>% pull(Cumulative_cases_end)
     pred_cum_end <- cumulative_cases_end_sim[1, ncol(cumulative_cases_end_sim)]
     knots[[j, "Diff_cum_end"]] <- true_cum_end - pred_cum_end
     
     # Display progress 
     cat('\r', paste(round((j / nrow(knots) * 100), 0), 
-                    "% done of country", grep(country, unlist(countries_eur_final)), "of", 
-                    length(countries_eur_final), "          ", sep = " "))
+                    "% done of country", grep(country, unlist(countries_eur)), "of", 
+                    length(countries_eur), "          ", sep = " "))
     
   }  # (close loop 2)
   
-  # Find best knot points for each country
-  knots_1 <- knots %>% arrange(Pois_dev_inc) %>% head(10)  # lowest Pois_dev_inc
-  knots_2 <- knots %>% arrange(Pois_dev_cum) %>% head(10)  # lowest Pois_dev_cum
-
-  # Keep matches between two datsets and label with country
-  knots_best_i <- intersect(knots_1, knots_2)
-  knots_best_i <- knots_best_i %>% mutate(Country = country) %>% relocate(Country)
+  # Remove from consideration knot date pairs for which growth factor 1 is negative AND growth factor 3 exists 
+  # (i.e. growth factor 1 is positive OR growth factor 3 doesn't exist),
+  # because where there are 3 segments, the first scenario must represent initial uncontrolled growth
+  knots <- knots %>% filter(Growth_factor_1 >= 1 | is.na(Growth_factor_3))
+  
+  # Find best knot points (by lowest Pois_dev_inc) for each country and label 
+  knots_best_i <- knots %>% arrange(Pois_dev_inc) %>% head(10) %>% 
+    mutate(Country = country) %>% relocate(Country)
   
   # Add best knots for country i to list of best knots
   knots_best[[i]] <- knots_best_i
@@ -365,11 +368,13 @@ end <- Sys.time()
 end - start  # ~9 mins
 
 # Remove loop variables
-rm(i, j, t, g, country, data_eur_final_i, data_eur_final_100_i, 
-   date_100, date_first_restriction, date_lockdown, 
-   possible_knot_dates_1, possible_knot_dates_2, knots, dates, 
+rm(i, j, t, g, country, data_eur_i, summary_eur_i, data_eur_100_i, 
+   date_100, date_first_restriction, date_lockdown, date_T,
+   possible_knot_dates_1, possible_knot_dates_2, k_1, k_2, knots, dates, 
    daily_cases_sim, cumulative_cases_end_sim, knot_date_1, knot_date_2,
    skip_to_next, names, n_knots, knot_1, knot_2, data_j, model, 
+   intercept_1, intercept_2, intercept_3,
+   slope_1, slope_2, slope_3, slope_1_sd, slope_2_sd, slope_3_sd,
    growth_factor_1, growth_factor_2, growth_factor_3,
    inc_tminus1, cum_tminus1, inc_t, cum_t, growth,
    true_inc, pred_inc, true_cum, pred_cum, true_cum_end, pred_cum_end,
@@ -400,6 +405,7 @@ median_growth_factors <- knots_best %>% summarise(Median_growth_factor_1 = media
                                                   Median_growth_factor_3 = median(Growth_factor_3, na.rm = TRUE),
                                                   .groups = "keep")
 knots_best <- full_join(knots_best, median_growth_factors)
+rm(median_growth_factors)
 
 # Export knots_best dataframe
 write_csv(knots_best, path = paste0(out, "Best knot points.csv"))
