@@ -4,19 +4,18 @@
 
 # This script imports/formats COVID-19 cases, deaths, and policies data 
 # for countries around the world, and selects a subset of European countries to be analysed 
-# (those with >=1000 cases by 1 June, and for which there is policies data available).
 
 # It then produces a table which summarises the state of the pandemic in each country:
 # (1) First date at which each country exceeded 100 cases (and cases/deaths on this day);
 # (2) First date at which any restriction was imposed (and cases/deaths on this day);
-# (3) Date at which the country entered lockdown (and cases/deaths on this day).
-# This summary table is exported to the project folder
+# (3) Date at which the country entered lockdown (and cases/deaths on this day);
+# (4) Date at which the country came out of lockdown (and cases/deaths on this day).
+# This summary table is exported to the Results folder
 
 
 # Notes:
 # May have to impute some values (look at Peter's code) - find NA's
 # Need to take into account whether restrictions are targeted or general?
-# don't need beginning and end vars in summaries df?
 # Lithuania, Portugal, Spain, and UK have negative incidence
 
 # ------------------------------------------------------------------------------
@@ -161,68 +160,50 @@ data_eur <- data_all %>% filter(Country %in% countries) %>% ungroup(Province_Sta
   filter(is.na(Province_State)) %>% select(-Province_State) %>% droplevels
 policies_eur <- policies %>% filter(Country %in% countries) %>% droplevels
 
-# ------------------------------------------------------------------------------
-# Determine countries to be analysed
-# ------------------------------------------------------------------------------
+# Create list of European countries for which we have both cases/deaths data and policy data
+countries_eur <- as.list(intersect(levels(data_eur$Country), levels(policies_eur$Country)))
+## print note about any countries which both are not avaiable:
+if (length(countries_eur) != length(countries)) {
+  unavail <- setdiff(levels(data_eur$Country), levels(policies_eur$Country))
+  cat(paste0("Note that the following countries do not have both cases/deaths
+  data and policy data available:\n", 
+             paste0(unavail, collapse = ", ")))
+  rm(unavail)
+} 
 
-# Define European countries with >=1000 total cases by Date_max
-countries_eur <- data_eur %>% filter(Date == Date_max, Cumulative_cases_end >= 1000) %>%
-  pull(Country) %>% as.character %>% as.list
-
-# Retain only data from European countries with >=1000 total cases by Date_max
+# Retain data for European countries for which we have both cases/deaths data and policy data
 data_eur <- data_eur %>% filter(Country %in% countries_eur) %>% droplevels
 policies_eur <- policies_eur %>% filter(Country %in% countries_eur) %>% droplevels
 
-# Create list of final European countries for analysis:
-# Countries with >=1000 total cases for which we have policy data
-countries_eur_final <- as.list(intersect(levels(data_eur$Country), levels(policies_eur$Country)))
-if (length(countries_eur_final) != length(countries_eur)) {
-  unavail <- setdiff(levels(data_eur$Country), levels(policies_eur$Country))
-  cat(paste0("Note that the following countries satisfied the inclusion criteria
-but will be excluded from subsequent analyses because there is 
-no policy data available:\n", 
-              unavail))
-  rm(unavail)
-}  # (print note about excluded countries)
-
-# Create dataframes for final list of countries to be analysed
-data_eur_final <- data_eur %>% filter(Country %in% countries_eur_final) %>% droplevels
-policies_eur_final <- policies_eur %>% filter(Country %in% countries_eur_final) %>% droplevels
-
-# Create copy of dataframe where cumulative cases >= 100 and up to date_T
-#data_eur_final_100 <- data_eur_final %>% filter(Date >= Date_100 & Date <= date_T)
-
-# Remove all non-final dataframes and lists
-rm(countries, countries_eur)
-rm(data_all, data_eur, policies, policies_eur)
+# Remove non-European dataframes and lists
+rm(countries, data_all, policies)
 
 # ------------------------------------------------------------------------------
 # Summarise countries 
 # ------------------------------------------------------------------------------
 
 # Create summary table which defines first date at which cases first exceeded 100 (Date_100)
-summary_eur_final <- data_eur_final %>% filter(Date == Date_100) %>% 
+summary_eur <- data_eur %>% filter(Date == Date_100) %>% 
   select(-c(Date_100, Days_since_100, contains(c("end", "MA7")))) %>%
   rename_at(vars(-c(Country, Date_0, Date_max)), .funs = list(~ paste0(., "_100"))) %>%
   relocate(c(Date_0, Date_max), .before = Date_100)
 
 # Create empty summary tables to store:
 # (1) Date of first restriction (including cases and deaths)
-summary_first_restriction <- data_eur_final %>% 
+summary_first_restriction <- data_eur %>% 
   select(-c(Date_0, Date_100, Days_since_100, Date_max, contains(c("end", "MA7")))) %>%
   rename_at(vars(-Country), .funs = list(~ paste0(., "_first_restriction"))) 
 summary_first_restriction <- summary_first_restriction[0, ]
 # (2) Date of lockdown (including cases and deaths)
-summary_lockdown <- data_eur_final %>% 
+summary_lockdown <- data_eur %>% 
   select(-c(Date_0, Date_100, Days_since_100, Date_max, contains(c("end", "MA7")))) %>%
   rename_at(vars(-Country), .funs = list(~ paste0(., "_lockdown"))) 
 summary_lockdown <- summary_lockdown[0, ]
 # (2) Date of lockdown end (including cases and deaths)
-summary_lockdown_end <- data_eur_final %>% 
+summary_lockdown_end <- data_eur %>% 
   select(-c(Date_0, Date_100, Days_since_100, Date_max, contains(c("end", "MA7")))) %>%
   rename_at(vars(-Country), .funs = list(~ paste0(., "_lockdown_end"))) 
 summary_lockdown_end <- summary_lockdown_end[0, ]
-
 
 # Define requirements of interest and cutoff points for whether measures have been implemented
 # [1 corresponds to measure recommended, 2-3 corresponds to measure required]
@@ -246,14 +227,14 @@ threshold_lockdown_alt <- 2
 threshold_any_restriction <- 1
 
 # Record country summary data
-for (i in 1:nrow(summary_eur_final)) {
+for (i in 1:nrow(summary_eur)) {
   
   # Define country
-  country <- summary_eur_final[[i, "Country"]] %>% as.character()
+  country <- summary_eur[[i, "Country"]] %>% as.character()
   
   # Filter cases/deaths and policies datasets by country
-  policies_eur_i <- policies_eur_final %>% filter(Country == country)
-  data_eur_i <- data_eur_final %>% filter(Country == country)
+  policies_eur_i <- policies_eur %>% filter(Country == country)
+  data_eur_i <- data_eur %>% filter(Country == country)
   
   # Define date_max (i.e. last date for which data can be reasonably assumed complete)
   date_max <- data_eur_i %>% pull(Date_max) %>% head(1)
@@ -351,18 +332,44 @@ for (i in 1:nrow(summary_eur_final)) {
 }
 # Remove measures/cutoffs, loop objects
 rm(measures_lockdown, measures_lockdown_alt, measures_any_restriction,
-   cutoffs_lockdown, cutoffs_lockdown_alt, cutoffs_any_restriction)
-rm(i, country, data_eur_i, policies_eur_i, 
+   cutoffs_lockdown, cutoffs_lockdown_alt, cutoffs_any_restriction,
+   threshold_lockdown, threshold_lockdown_alt, threshold_any_restriction)
+rm(i, country, data_eur_i, policies_eur_i, date_max,
    summary_first_restriction_i, summary_lockdown_i, summary_lockdown_end_i,
    data_first_restriction, data_first_restriction_filt, 
    data_lockdown, data_lockdown_alt, data_lockdown_all, data_lockdown_all_filt,
    date_first_restriction, date_lockdown, date_lockdown_end)
 
 # Combine all summary datasets; remove separate dataframes
-summary_eur_final <- full_join(summary_eur_final, summary_first_restriction, by = "Country") %>%
+summary_eur <- full_join(summary_eur, summary_first_restriction, by = "Country") %>%
   full_join(., summary_lockdown, by = "Country") %>% 
   full_join(., summary_lockdown_end, by = "Country") %>% ungroup
 rm(summary_first_restriction, summary_lockdown, summary_lockdown_end)
 
-# Export summary table
-write_csv(summary_eur_final, path = paste0(out, "Country summaries.csv"))
+# Export  summary table
+write_csv(summary_eur, path = paste0(out, "Country summaries.csv"))
+
+# ------------------------------------------------------------------------------
+# Determine countries that entered lockdown
+# ------------------------------------------------------------------------------
+
+# Define European countries which entered lockdown
+countries_eur_lockdown <- summary_eur %>% filter(!is.na(Date_lockdown)) %>% 
+  pull(Country) %>% as.character %>% as.list
+## print note about any countries which did not enter lockdown:
+if (length(countries_eur_lockdown) != length(countries_eur)) {
+  unavail <- setdiff(unlist(countries_eur), unlist(countries_eur_lockdown))
+  cat(paste0("Note that the following countries did not enter lockdown:\n", 
+             paste0(unavail, collapse = ", ")))
+  rm(unavail)
+} 
+# EXCLUDE RUSSIA HERE...?
+
+
+# Create datasets for countries which entered lockdown
+data_eur_lockdown <- data_eur %>% filter(Country %in% countries_eur_lockdown) %>% droplevels
+policies_eur_lockdown <- policies_eur %>% filter(Country %in% countries_eur_lockdown) %>% droplevels
+
+# Create summary table for countries which entered lockdown
+summary_eur_lockdown <- summary_eur %>% filter(Country %in% countries_eur_lockdown)
+
