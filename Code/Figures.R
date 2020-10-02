@@ -34,33 +34,38 @@ countries_ordered <- summary_eur %>% arrange(Date_first_restriction) %>%
 
 # Get min and max dates from summary table
 date_min <- summary_eur %>% ungroup %>% 
-  summarise(Date_min = min(Date_first_restriction, Date_lockdown, Date_lockdown_end, na.rm = TRUE)) %>% pull
+  summarise(Date_min = min(Date_first_restriction, Date_lockdown, 
+                           Date_lockdown_eased, Date_lockdown_end, na.rm = TRUE)) %>% pull
 date_max <- summary_eur %>% ungroup %>% 
-  summarise(Date_max = max(Date_first_restriction, Date_lockdown, Date_lockdown_end, na.rm = TRUE)) %>% pull
+  summarise(Date_max = max(Date_first_restriction, Date_lockdown, 
+                           Date_lockdown_eased, Date_lockdown_end, na.rm = TRUE)) %>% pull
 
 # Define colours and shapes (for first restriction and lockdown)
-cols <- c("col1" = "navyblue", "col2" = "darkorange", "col3" = "forestgreen")
-shapes <- c("sh1" = 15, "sh2" = 18, "sh3" = 17)
+# (unicode shapes: https://jrgraphix.net/r/Unicode/25A0-25FF)
+cols <- c("col1" = "navyblue", "col2" = "darkorange", "col3" = "firebrick", "col4" = "forestgreen")
+shapes <- c("sh1" = "\u25A0", "sh2" = "\u25CF", "sh3" = "\u25BC", "sh4" = "\u25B2")
+sizes <- c(4, 4, 3, 3)
 
 plot_1 <- ggplot(data = summary_eur, aes(y = Country)) + 
   theme_minimal() +
   theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm")) +
   labs(title = "Important dates in COVID-19 European policy responses",
-       subtitle = "Dates when: first restriction imposed, lockdown imposed, and lockdown lifted",
+       subtitle = "Dates when: first restriction imposed, lockdown imposed, lockdown eased, and lockdown lifted",
        caption = "Data from Oxford Covid-19 Government Response Tracker (https://github.com/OxCGRT/covid-policy-tracker).") +
   theme(plot.caption = element_text(size = 7),
         plot.subtitle = element_text(size = 10)) +
-  geom_point(aes(x = Date_first_restriction, color = "col1", shape = "sh1"), size = 3) +
-  geom_point(aes(x = Date_lockdown, color = "col2", shape = "sh2"), size = 3) +
-  geom_point(aes(x = Date_lockdown_end, color = "col3", shape = "sh3"), size = 3) +
-  scale_color_manual(name = "Date of...",
-                     breaks = c("col1", "col2", "col3"),
+  geom_point(aes(x = Date_first_restriction, color = "col1", shape = "sh1"), size = sizes[1]) +
+  geom_point(aes(x = Date_lockdown, color = "col2", shape = "sh2"), size = sizes[2]) +
+  geom_point(aes(x = Date_lockdown_eased, color = "col3", shape = "sh3"), size = sizes[3]) +
+  geom_point(aes(x = Date_lockdown_end, color = "col4", shape = "sh4"), size = sizes[4]) +
+  scale_color_manual(name = "Date:",
+                     breaks = c("col1", "col2", "col3", "col4"),
                      values = cols,
-                     labels = c("first restriction", "lockdown", "lockdown lifted")) +
-  scale_shape_manual(name = "Date of...",
-                     breaks = c("sh1", "sh2", "sh3"),
+                     labels = c("first restriction imposed", "lockdown imposed", "lockdown eased", "lockdown lifted")) +
+  scale_shape_manual(name = "Date:",
+                     breaks = c("sh1", "sh2", "sh3", "sh4"),
                      values = shapes,
-                     labels = c("first restriction", "lockdown", "lockdown lifted")) +
+                     labels = c("first restriction imposed", "lockdown imposed", "lockdown eased", "lockdown lifted")) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
   scale_x_date(name = "", 
                limits = c(date_min - 7, date_max + 7), 
@@ -78,40 +83,45 @@ ggsave(paste0(out, "Figure - Important dates.png"), plot = plot_1, width = 12, h
 
 # Get min and max dates
 date_min <- summary_eur %>% ungroup %>% 
-  summarise(Date_min = min(Date_0, Date_100, Date_first_restriction, Date_lockdown, Date_lockdown_end, na.rm = TRUE)) %>% pull
+  summarise(Date_min = min(Date_0, Date_100, Date_first_restriction, Date_lockdown, 
+                           Date_lockdown_eased, Date_lockdown_end, na.rm = TRUE)) %>% pull
 date_max <- summary_eur %>% ungroup %>% 
-  summarise(Date_max = max(Date_0, Date_100, Date_first_restriction, Date_lockdown, Date_lockdown_end, na.rm = TRUE)) %>% pull
+  summarise(Date_max = max(Date_0, Date_100, Date_first_restriction, Date_lockdown, 
+                           Date_lockdown_eased, Date_lockdown_end, na.rm = TRUE)) %>% pull
 
-# Define colours and shapes 
-# (for first restriction, lockdown, first case, and cases >= 100)
-cols <- c("col1" = "navyblue", "col2" = "darkorange", "col3" = "forestgreen", "col4" = "grey80", "col5" = "grey50")
-shapes <- c("sh1" = 15, "sh2" = 18, "sh3" = 17, "sh4" = 1, "sh5" = 1)
+# Define colours and shapes (for first restriction, lockdown, first case, and cases >= 100)
+# (unicode shapes: https://jrgraphix.net/r/Unicode/25A0-25FF)
+cols <- c("col1" = "grey80", "col2" = "grey50", "col3" = "navyblue", "col4" = "darkorange", "col5" = "firebrick", "col6" = "forestgreen")
+shapes <- c("sh1" = "\u25CB", "sh2" = "\u25CB", "sh3" = "\u25A0", "sh4" = "\u25CF", "sh5" = "\u25BC", "sh6" = "\u25B2")
+sizes <- c(4, 4, 4, 4, 3, 3)
 
 plot_2 <- ggplot(data = summary_eur, aes(y = Country)) + 
   theme_minimal() +
   theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm")) +
   labs(title = "Important dates in COVID-19 European policy responses",
-       subtitle = "Dates when: first restriction imposed, lockdown imposed, lockdown lifted,
-       first case recorded, and 100th case recorded",
+       subtitle = "Dates when: first case recorded, 100th case recorded, first restriction imposed, lockdown imposed, lockdown eased, and lockdown lifted",
        caption = "Data from Oxford Covid-19 Government Response Tracker (https://github.com/OxCGRT/covid-policy-tracker)
        and Johns Hopkins COVID-19 Data Repository (https://github.com/CSSEGISandData/COVID-19).") +
   theme(plot.caption = element_text(size = 7),
         plot.subtitle = element_text(size = 10)) +
-  geom_point(aes(x = Date_first_restriction, color = "col1", shape = "sh1"), size = 3) +
-  geom_point(aes(x = Date_lockdown, color = "col2", shape = "sh2"), size = 3) +
-  geom_point(aes(x = Date_lockdown_end, color = "col3", shape = "sh3"), size = 3) +
-  geom_point(aes(x = Date_0, color = "col4", shape = "sh4"), size = 3) +
-  geom_point(aes(x = Date_100 - 1, color = "col5", shape = "sh5"), size = 3) +
-  scale_color_manual(name = "Date of...",
-                     breaks = c("col1", "col2", "col3", "col4", "col5"),
+  geom_point(aes(x = Date_0, color = "col1", shape = "sh1"), size = sizes[1]) +
+  geom_point(aes(x = Date_100 - 1, color = "col2", shape = "sh2"), size = sizes[2]) +
+  geom_point(aes(x = Date_first_restriction, color = "col3", shape = "sh3"), size = sizes[3]) +
+  geom_point(aes(x = Date_lockdown, color = "col4", shape = "sh4"), size = sizes[4]) +
+  geom_point(aes(x = Date_lockdown_eased, color = "col5", shape = "sh5"), size = sizes[5]) +
+  geom_point(aes(x = Date_lockdown_end, color = "col6", shape = "sh6"), size = sizes[6]) +
+  scale_color_manual(name = "Date:",
+                     breaks = c("col1", "col2", "col3", "col4", "col5", "col6"),
                      values = cols,
-                     labels = c("first restriction", "lockdown", "lockdown lifted", 
-                                "first confirmed case", "100th confirmed case")) +
-  scale_shape_manual(name = "Date of...",
-                     breaks = c("sh1", "sh2", "sh3", "sh4", "sh5"),
+                     labels = c("first confirmed case", "100th confirmed case", 
+                                "first restriction imposed", "lockdown imposed", 
+                                "lockdown eased", "lockdown lifted")) +
+  scale_shape_manual(name = "Date:",
+                     breaks = c("sh1", "sh2", "sh3", "sh4", "sh5", "sh6"),
                      values = shapes,
-                     labels = c("first restriction", "lockdown", "lockdown lifted",
-                                "first confirmed case", "100th confirmed case")) +
+                     labels = c("first confirmed case", "100th confirmed case", 
+                                "first restriction imposed", "lockdown imposed", 
+                                "lockdown eased", "lockdown lifted")) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
   scale_x_date(name = "", 
                limits = c(date_min - 7, date_max + 7), 
@@ -154,8 +164,8 @@ for (i in countries_eur) {
   date_100 <- summary_eur_i %>% pull("Date_100")
   
   # Calculate date_T (end date of simulation) as either...
-  # date_max or date_lockdown_end, whichever comes first
-  date_T <- min(summary_eur_i$Date_max, summary_eur_i$Date_lockdown_end, na.rm = TRUE)
+  # date_max or date_lockdown_eased + 7, whichever comes first
+  date_T <- min(summary_eur_i$Date_max, summary_eur_i$Date_lockdown_eased + 7, na.rm = TRUE)
   
   # Plot
   p <- ggplot(data = filter(data_eur_i, Date <= date_T),
@@ -300,8 +310,8 @@ for (i in countries_eur) {
   date_100 <- summary_eur_i %>% pull("Date_100")
   
   # Calculate date_T (end date of simulation) as either...
-  # date_max or date_lockdown_end, whichever comes first
-  date_T <- min(summary_eur_i$Date_max, summary_eur_i$Date_lockdown_end, na.rm = TRUE)
+  # date_max or date_lockdown_eased + 7, whichever comes first
+  date_T <- min(summary_eur_i$Date_max, summary_eur_i$Date_lockdown_eased + 7, na.rm = TRUE)
   
   # Create copy of cases/deaths dataframe where cumulative cases >= 100 and up to date_T
   data_eur_100_i <- data_eur_i %>% filter(Date >= date_100 & Date <= date_T)
