@@ -56,7 +56,9 @@ filenames <- list("OxCGRT_latest.csv")
 # Download data files and save to repository Data folder
 for (i in filenames) {
   filename <- i
-  write_csv(x = read_csv(url(paste0(source, filename))),
+  write_csv(x = read_csv(url(paste0(source, filename)),
+                         col_types = cols(RegionName = col_character(),
+                                          RegionCode = col_character())),
             path = paste0(out, filename))
 }
 
