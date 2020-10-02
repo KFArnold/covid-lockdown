@@ -25,8 +25,6 @@ library(ggrepel); library(scales); library(Metrics)
 # Run source code to import and format data
 source("./Code/Import, format, and summarise data.R")
 
-#date_T <- as.Date("2020-06-01")  # currently GLOBAL var but can be adapted for each country
-
 ## Functions -------------------------------------------------------------------
 
 # Function to calculate Poisson deviance between two vectors
@@ -64,8 +62,8 @@ for (i in countries_eur) {
   date_lockdown <- summary_eur_i %>% pull(Date_lockdown)
   
   # Calculate date_T (end date of simulation) as either...
-  # date_max or date_lockdown_end, whichever comes first
-  date_T <- min(summary_eur_i$Date_max, summary_eur_i$Date_lockdown_end, na.rm = TRUE)
+  # date_max or date_lockdown_eased + 7, whichever comes first
+  date_T <- min(summary_eur_i$Date_max, summary_eur_i$Date_lockdown_eased + 7, na.rm = TRUE)
   
   # Create copy of cases/deaths dataframe where cumulative cases >= 100 and up to date_T
   data_eur_100_i <- data_eur_i %>% filter(Date >= date_100 & Date <= date_T)
@@ -73,7 +71,8 @@ for (i in countries_eur) {
   # Define potential knot dates (from dates of first restriction and lockdown to 28 days subsequent),
   # And create grid of all possible combinations of knot dates, with restrictions that...
   # (a) first knot date must be before or at the same time as second knot date, and
-  # (b) knot dates must fall within modelling period (i.e. after the first date at which cumulative cases >= 100)
+  # (b) knot dates must fall within modelling period 
+  # (i.e. after the first date at which cumulative cases >= 100 and less than date_T)
   if (is.na(date_lockdown) | date_first_restriction == date_lockdown) {
     possible_knot_dates_1 <- seq(from = date_first_restriction, to = date_first_restriction + 28, by = 1)
     grid <- tibble("Knot_date_1" = possible_knot_dates_1) %>% filter(Knot_date_1 >= date_100)
@@ -83,7 +82,7 @@ for (i in countries_eur) {
     grid <- tibble(expand.grid(possible_knot_dates_2, possible_knot_dates_1))
     names(grid) <- c("Knot_date_2", "Knot_date_1")
     grid <- grid %>% select("Knot_date_1", "Knot_date_2") %>% 
-      filter(Knot_date_1 <= Knot_date_2, Knot_date_1 >= date_100)  
+      filter(Knot_date_1 <= Knot_date_2, Knot_date_1 >= date_100, Knot_date_2 < date_T)  
     # If first knot date equals second knot date, replace second with NA
     for (g in 1:nrow(grid)) {
       k_1 <- grid[[g, "Knot_date_1"]]
@@ -378,7 +377,7 @@ rm(i, j, t, g, country, data_eur_i, summary_eur_i, data_eur_100_i,
    growth_factor_1, growth_factor_2, growth_factor_3,
    inc_tminus1, cum_tminus1, inc_t, cum_t, growth,
    true_inc, pred_inc, true_cum, pred_cum, true_cum_end, pred_cum_end,
-   knots_1, knots_2, knots_best_i, start, end)
+   knots_best_i, start, end)
 
 # Combine best knots from all countries into single dataframe
 knots_best <- bind_rows(knots_best)
