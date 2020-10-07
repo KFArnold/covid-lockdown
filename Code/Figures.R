@@ -287,6 +287,15 @@ rm(i, country, data_eur_i, summary_eur_i,
 # Exponential growth (with fitted splines)
 # ------------------------------------------------------------------------------
 
+# Create folder for storing figures of exponential growth with fitted splines, 
+# if none already exists
+out_folder <- paste0(out, "Figures - cumulative vs incident cases (with fitted splines) by country")
+if(!dir.exists(out_folder)) {
+  dir.create(out_folder)
+} else {
+  print("Folder already exists")
+}
+
 # Create list for plots
 plot_exp_growth_cases <- list()
 
@@ -413,13 +422,16 @@ for (i in countries_eur) {
   # Add plot to list
   plot_exp_growth_cases[[i]] <- p
   
+  # Save plot to subfolder
+  ggsave(paste0(out_folder, "/", country, ".png"), plot = p, width = 6, height = 6)
+  
 }
 
 # Calculate number of rows and columns
 rows <- length(plot_exp_growth_cases) %>% sqrt %>% ceiling
 cols <- length(plot_exp_growth_cases) %>% sqrt %>% floor
 
-# Save plots
+# Save combined plots
 dev.new()  # make very large to avoid bug with saving
 p <- ggarrange(plotlist = plot_exp_growth_cases, nrow = rows, ncol = cols)
 g <- annotate_figure(p, top = text_grob("Exponential growth of Covid-19 cases: Cumulative versus incident cases", size = 30))
@@ -502,9 +514,7 @@ ggsave(paste0(out, "Figure - Cases at lockdown vs growth factor - without UK.png
 # Incident and cumulative cases 
 # ------------------------------------------------------------------------------
 
-
-# Incidence/cumulative up to present, with line indicating date_T
-
+# Incidence/cumulative up to present, with lines indicating important dates
 
 # Create folder for storing figures of incident and cumulative cases by country, 
 # if none already exists
@@ -546,10 +556,6 @@ for (i in countries_eur) {
   
   # Re-filter cases/deaths dataset to only include data up to max_date
   data_eur_i <- data_eur_i %>% filter(Date <= max_date)
-  
-  # Define max daily cases and cumulative cases
-  max_inc <- data_eur_i %>% summarise(max(Daily_cases)) %>% pull()
-  max_cum <- data_eur_i %>% summarise(max(Cumulative_cases_end)) %>% pull()
   
   # Create dataframe which maps colours and linetyples onto important dates
   dates <- data.frame(xint = c(date_first_restriction, date_lockdown, date_lockdown_eased, date_lockdown_end),
@@ -595,11 +601,14 @@ for (i in countries_eur) {
   plot_coutry_cases[[i]] <- p_annotated
   
   # Save plot to subfolder
-  ggsave(paste0(out_folder, "/", country, ".png"),
-         plot = p_annotated, width = 12, height = 6)
+  ggsave(paste0(out_folder, "/", country, ".png"), plot = p_annotated, width = 12, height = 6)
   
 }
 
+# Remove plotting objects from environment
+rm(i, country, data_eur_i, summary_eur_i, 
+   date_first_restriction, date_lockdown, date_lockdown_eased, date_lockdown_end,
+   max_date, dates, plot_inc, plot_cum, p, p_annotated)
 
 # Might be nice of plots were on same scale for each country
 
