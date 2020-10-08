@@ -337,14 +337,19 @@ for (i in countries_eur) {
               linetype = "dashed") +
     geom_point(size = 1) +
     geom_point(data = filter(data_eur_i, Date == date_first_restriction),
-               size = 3, color = "navyblue", shape = 15) +
+               size = 3, color = "navyblue", shape = "\u25A0") +
     geom_text_repel(data = filter(data_eur_i, Date == date_first_restriction), color = "blue",
                     label = paste0(as.character(date_first_restriction, format = "%d %b")),
                     hjust = 0, size = 4) +
     geom_point(data = filter(data_eur_i, Date == date_lockdown), 
-               size = 3, color = "darkorange", shape = 18) +
+               size = 3, color = "darkorange", shape = "\u25CF") +
     geom_text_repel(data = filter(data_eur_i, Date == date_lockdown), color = "darkorange",
                     label = paste0(as.character(date_lockdown, format = "%d %b")),
+                    hjust = 1, size = 4) +
+    geom_point(data = filter(data_eur_i, Date == date_T), 
+               size = 3, color = "purple", shape = "\u25C4") +
+    geom_text_repel(data = filter(data_eur_i, Date == date_T), color = "purple",
+                    label = paste0(as.character(date_T, format = "%d %b")),
                     hjust = 1, size = 4) +
     scale_x_continuous(name = "Cumulative number of COVID-19 cases",
                        labels = comma_format(accuracy = 1)) + 
@@ -514,7 +519,8 @@ ggsave(paste0(out, "Figure - Cases at lockdown vs growth factor - without UK.png
 # Incident and cumulative cases 
 # ------------------------------------------------------------------------------
 
-# Incidence/cumulative up to present, with lines indicating important dates
+# Incident, cumulative, and cumulative vs incident cases up to present, 
+# with lines indicating important dates
 
 # Create folder for storing figures of incident and cumulative cases by country, 
 # if none already exists
@@ -538,12 +544,18 @@ for (i in countries_eur) {
   data_eur_i <- data_eur %>% filter(Country == country) %>% ungroup()
   summary_eur_i <- summary_eur %>% filter(Country == country)
   
-  # Define dates of first restriction, lockdown, when cases first exceeded 100
+  # Define dates of first restriction, lockdown, lockdown eased, and lockdown lifted
   date_first_restriction <- summary_eur_i %>% pull(Date_first_restriction)
   date_lockdown <- summary_eur_i %>% pull(Date_lockdown)
   date_lockdown_eased <- summary_eur_i %>% pull(Date_lockdown_eased)
   date_lockdown_end <- summary_eur_i %>% pull(Date_lockdown_end)
-
+  
+  # Define cumulative cases on dates of first restriction, lockdown, lockdown eased, and lockdown lifted
+  cc_first_restriction <- summary_eur_i %>% pull(Cumulative_cases_beg_first_restriction)
+  cc_lockdown <- summary_eur_i %>% pull(Cumulative_cases_beg_lockdown)
+  cc_lockdown_eased <- summary_eur_i %>% pull(Cumulative_cases_beg_lockdown_eased)
+  cc_lockdown_end <- summary_eur_i %>% pull(Cumulative_cases_beg_lockdown_end)
+  
   # Calculate date_T (end date of simulation) as either...
   # date_max or date_lockdown_eased + 7, whichever comes first
   # date_T <- min(summary_eur_i$Date_max, summary_eur_i$Date_lockdown_eased + 7, na.rm = TRUE)
@@ -551,14 +563,9 @@ for (i in countries_eur) {
   # Re-filter cases/deaths dataset to only include data up to date_T
   # data_eur_i <- data_eur_i %>% filter(Date <= date_T)
   
-  # Calculate max_date (max date to display on plot)
-  max_date <- summary_eur_i$Date_max
-  
-  # Re-filter cases/deaths dataset to only include data up to max_date
-  data_eur_i <- data_eur_i %>% filter(Date <= max_date)
-  
   # Create dataframe which maps colours and linetyples onto important dates
-  dates <- data.frame(xint = c(date_first_restriction, date_lockdown, date_lockdown_eased, date_lockdown_end),
+  dates <- data.frame(xint_date = c(date_first_restriction, date_lockdown, date_lockdown_eased, date_lockdown_end),
+                      xint_cc = c(cc_first_restriction, cc_lockdown, cc_lockdown_eased, cc_lockdown_end), 
                       Date = c("first restriction imposed", "lockdown imposed", "lockdown eased", "lockdown lifted"),
                       col = c("navyblue", "darkorange", "firebrick", "forestgreen"),
                       lty = c("solid", "dashed", "solid", "dashed"))
@@ -570,7 +577,7 @@ for (i in countries_eur) {
     theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
     labs(title = "Incident cases of COVID-19") +
     geom_col(alpha = 0.75) +
-    geom_vline(data = dates, aes(xintercept = xint, color = Date, linetype = Date)) + 
+    geom_vline(data = dates, aes(xintercept = xint_date, color = Date, linetype = Date)) + 
     scale_color_manual(values = dates$col, breaks = dates$Date) +
     scale_linetype_manual(values = dates$lty, breaks = dates$Date) +
     scale_x_date(name = "Date", date_breaks = "1 month", date_labels = "%b") +
@@ -585,7 +592,7 @@ for (i in countries_eur) {
     theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
     labs(title = "Cumulative cases of COVID-19") +
     geom_col(alpha = 0.75) +
-    geom_vline(data = dates, aes(xintercept = xint, color = Date, linetype = Date)) + 
+    geom_vline(data = dates, aes(xintercept = xint_date, color = Date, linetype = Date)) + 
     scale_color_manual(values = dates$col, breaks = dates$Date) +
     scale_linetype_manual(values = dates$lty, breaks = dates$Date) +
     scale_x_date(name = "Date", date_breaks = "1 month", date_labels = "%b") +
@@ -593,22 +600,38 @@ for (i in countries_eur) {
                        limits = c(0, NA),
                        expand = expansion(mult = c(0, 0)))
   
-  # Combine in double panel (with title as country)
-  p <- ggarrange(plotlist = list(plot_inc, plot_cum), nrow = 1, ncol = 2, common.legend = TRUE, legend = "bottom")
+  # Plot incident vs cumulative cases
+  plot_exp <- ggplot(data = data_eur_i,
+                     aes(x = Cumulative_cases_beg, y = Daily_cases)) +
+    theme_minimal() +
+    theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
+    labs(title = "Cumulative vs incident cases of COVID-19") +
+    geom_path(alpha = 0.75) +
+    geom_point(alpha = 0.75, size = 0.5) +
+    geom_vline(data = dates, aes(xintercept = xint_cc, color = Date, linetype = Date)) + 
+    scale_color_manual(values = dates$col, breaks = dates$Date) +
+    scale_linetype_manual(values = dates$lty, breaks = dates$Date) +
+    scale_x_continuous(name = "Cumulative number of COVID-19 cases",
+                       labels = comma_format(accuracy = 1)) + 
+    scale_y_continuous(name = "New daily number of COVID-19 cases",
+                       labels = comma_format(accuracy = 1))
+  
+  # Combine in triple panel (with title as country)
+  p <- ggarrange(plotlist = list(plot_inc, plot_cum, plot_exp), nrow = 1, ncol = 3, common.legend = TRUE, legend = "bottom")
   p_annotated <- annotate_figure(p, top = text_grob(paste0(country),  size = 20))
   
   # Save to list
   plot_coutry_cases[[i]] <- p_annotated
   
   # Save plot to subfolder
-  ggsave(paste0(out_folder, "/", country, ".png"), plot = p_annotated, width = 12, height = 6)
+  ggsave(paste0(out_folder, "/", country, ".png"), plot = p_annotated, width = 6*3, height = 6)
   
 }
 
 # Remove plotting objects from environment
 rm(i, country, data_eur_i, summary_eur_i, 
    date_first_restriction, date_lockdown, date_lockdown_eased, date_lockdown_end,
-   max_date, dates, plot_inc, plot_cum, p, p_annotated)
+   dates, plot_inc, plot_cum, plot_exp, p, p_annotated)
 
 # Might be nice of plots were on same scale for each country
 
