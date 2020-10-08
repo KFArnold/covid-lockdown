@@ -521,6 +521,7 @@ ggsave(paste0(out, "Figure - Cases at lockdown vs growth factor - without UK.png
 
 # Incident, cumulative, and cumulative vs incident cases up to present, 
 # with lines indicating important dates
+# (...might be nice of plots were on same scale for each country??)
 
 # Create folder for storing figures of incident and cumulative cases by country, 
 # if none already exists
@@ -614,6 +615,7 @@ for (i in countries_eur) {
     scale_x_continuous(name = "Cumulative number of COVID-19 cases",
                        labels = comma_format(accuracy = 1)) + 
     scale_y_continuous(name = "New daily number of COVID-19 cases",
+                       limits = c(0, NA),
                        labels = comma_format(accuracy = 1))
   
   # Combine in triple panel (with title as country)
@@ -633,8 +635,5 @@ rm(i, country, data_eur_i, summary_eur_i,
    date_first_restriction, date_lockdown, date_lockdown_eased, date_lockdown_end,
    dates, plot_inc, plot_cum, plot_exp, p, p_annotated)
 
-# Might be nice of plots were on same scale for each country
-
-# 3-panel plot for each country with incidence, cumulative cases, and cumulative vs incidence (w/ fitted spline)?
 
 
