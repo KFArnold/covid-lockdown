@@ -31,14 +31,14 @@ library(tidyverse); library(readr); library(dplyr); library(ggplot2); library(ca
 # Define all European countries
 # (from https://www.worldometers.info/geography/how-many-countries-in-europe/)
 countries <- list("Albania", "Andorra", "Austria", "Belarus", "Belgium", 
-                  "Bosnia and Herzegovina", "Bulgaria", "Croatia", "Czechia",
+                  "Bosnia and Herzegovina", "Bulgaria", "Croatia", "Czech Republic",
                   "Denmark", "Estonia", "Finland", "France", "Germany", 
                   "Greece", "Holy See", "Hungary", "Iceland", "Ireland", 
                   "Italy", "Latvia", "Liechtenstein", "Lithuania", 
                   "Luxembourg", "Malta", "Moldova", "Monaco", "Montenegro",
                   "Netherlands", "North Macedonia", "Norway", "Poland",
                   "Portugal", "Romania", "Russia", "San Marino",
-                  "Serbia", "Slovakia", "Slovenia", "Spain", "Sweden", 
+                  "Serbia", "Slovak Republic", "Slovenia", "Spain", "Sweden", 
                   "Switzerland", "Ukraine", "United Kingdom")
 
 # Set storage directory for outputs
@@ -152,9 +152,9 @@ data_all <- data_all %>% mutate(Date_0 = Date[which(Daily_cases >= 1)[1]],
 # Remove data after Date_max, since this is likely incomplete
 data_all <- data_all %>% filter(Date <= Date_max)
 
-# Rename Czech Republic and Slovak Republic in policies dataset
-policies <- policies %>% mutate(Country = recode(Country, "Czech Republic" = "Czechia"),
-                                Country = recode(Country, "Slovak Republic" = "Slovakia"))
+# Rename Czechia and Slovakia in cases/deaths dataset
+data_all <- data_all %>% mutate(Country = recode(Country, "Czechia" = "Czech Republic"),
+                                Country = recode(Country, "Slovakia" = "Slovak Republic"))
 
 # Retain data for countries in Europe only
 # and remove dependencies (of the Netherlands, UK, France, and Denmark)
