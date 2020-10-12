@@ -94,6 +94,7 @@ for (i in countries_eur) {
   # Create dataframe to store summary statistics for all possible combinations of knot dates
   knots <- bind_rows(tibble(Knot_date_1 = as.Date(character()),
                             Knot_date_2 = as.Date(character()),
+                            N_knots = as.numeric(),
                             Growth_factor_1 = as.numeric(),
                             Growth_factor_2 = as.numeric(),
                             Growth_factor_3 = as.numeric(),
@@ -142,8 +143,9 @@ for (i in countries_eur) {
       
       if (is.na(knot_date_2)) {  # NO knot points
         
-        # Set number of knot points
+        # Set number of knot points and record
         n_knots <- 0
+        knots[[j, "N_knots"]] <- n_knots
         
         # Fit regular Arima model (with intercept, since this is not technically first segment)
         model <- tryCatch(Arima(data_eur_100_i$Daily_cases, order = c(2, 0, 0), 
@@ -165,8 +167,9 @@ for (i in countries_eur) {
         
       } else {  # ONE knot point (at knot_date_2)
         
-        # Set number of knot points
+        # Set number of knot points and record
         n_knots <- 1
+        knots[[j, "N_knots"]] <- n_knots
         
         # Set knot point
         knot_1 <- data_eur_100_i %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
@@ -206,8 +209,9 @@ for (i in countries_eur) {
       
       if (is.na(knot_date_2)) {  # ONE knot point (at knot_date_1)
         
-        # Set number of knot points
+        # Set number of knot points and record
         n_knots <- 1
+        knots[[j, "N_knots"]] <- n_knots
         
         # Set knot point
         knot_1 <- data_eur_100_i %>% filter(Date == knot_date_1) %>% pull(Cumulative_cases_beg)
@@ -243,8 +247,9 @@ for (i in countries_eur) {
         
       } else {  # TWO knot points (at knot_date_1 and knot_date_2)
         
-        # Set number of knot points
+        # Set number of knot points and record
         n_knots <- 2
+        knots[[j, "N_knots"]] <- n_knots
         
         # Set knot points
         knot_1 <- data_eur_100_i %>% filter(Date == knot_date_1) %>% pull(Cumulative_cases_beg)
