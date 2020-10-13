@@ -672,7 +672,8 @@ for (i in countries_eur) {
   
   # Combine in triple panel (with title as country)
   p <- ggarrange(plotlist = list(plot_inc, plot_cum, plot_exp), nrow = 1, ncol = 3, common.legend = TRUE, legend = "bottom")
-  p_annotated <- annotate_figure(p, top = text_grob(paste0(country),  size = 20))
+  p_annotated <- annotate_figure(p, top = text_grob(paste0(country),  size = 20),
+                                 bottom = text_grob("Data from https://github.com/CSSEGISandData/COVID-19", size = 8))
   
   # Save to list
   plot_coutry_cases[[i]] <- p_annotated
