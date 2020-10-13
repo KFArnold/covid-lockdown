@@ -467,8 +467,11 @@ median_growth_factor_lockdown <- knots_best %>% filter(Country %in% countries_eu
 # Bind median growth factors to summary_eur_lockdown
 summary_eur_lockdown <- full_join(summary_eur_lockdown, median_growth_factor_lockdown,
                                   by = "Country")
+rm(median_growth_factor_lockdown)
 
-# Plot relationship between cases on date of lockdown/sd and median growth factor under lockdown
+## Cumulative cases on date of lockdown ----------------------------------------
+
+# Plot relationship between cumulative cases on date of lockdown and median growth factor under lockdown
 plot_growth_factor_1 <- ggplot(data = summary_eur_lockdown, 
        aes(x = Cumulative_cases_beg_lockdown, y = Median_growth_factor_lockdown)) +
   theme_classic() +
@@ -510,10 +513,59 @@ plot_growth_factor_2 <- ggplot(data = filter(summary_eur_lockdown, Country != "U
 #plot_growth_factor_2
 
 # Save plots
-ggsave(paste0(out, "Figure - Cases at lockdown vs growth factor.png"),
+ggsave(paste0(out, "Figure - Cumulative cases at lockdown vs growth factor.png"),
        plot = plot_growth_factor_1, width = 6, height = 6)
-ggsave(paste0(out, "Figure - Cases at lockdown vs growth factor - without UK.png"),
+ggsave(paste0(out, "Figure - Cumulative cases at lockdown vs growth factor - without UK.png"),
        plot = plot_growth_factor_2, width = 6, height = 6)
+
+## Incident cases on date of lockdown ------------------------------------------
+
+# Plot relationship between daily cases on date of lockdown and median growth factor under lockdown
+plot_growth_factor_3 <- ggplot(data = summary_eur_lockdown, 
+                               aes(x = Daily_cases_lockdown, y = Median_growth_factor_lockdown)) +
+  theme_classic() +
+  theme(axis.text = element_text(size = 6), 
+        axis.title = element_text(size = 8),
+        legend.position = "none",
+        panel.grid.major = element_line(),
+        plot.margin = unit(c(1, 1, 1, 1), "cm"),
+        plot.title = element_text(size = 9)) +
+  labs(title = "Relationship between daily number of COVID-19 cases at the date of lockdown \nand growth factor under lockdown") +
+  geom_point() +
+  #geom_smooth(method = "lm", se = FALSE, linetype = "dashed") +
+  geom_text_repel(aes(label = Country), size = 2) +
+  scale_x_continuous(name = "Daily number of COVID-19 cases at date of lockdown",
+                     labels = comma_format(accuracy = 1)) +
+  scale_y_continuous(name = "Growth factor under lockdown") 
+#plot_growth_factor_3
+
+# Plot without UK (outlier)
+plot_growth_factor_4 <- ggplot(data = filter(summary_eur_lockdown, Country != "United Kingdom"), 
+                               aes(x = Daily_cases_lockdown, y = Median_growth_factor_lockdown)) +
+  theme_classic() +
+  theme(axis.text = element_text(size = 6), 
+        axis.title = element_text(size = 8),
+        legend.position = "none",
+        panel.grid.major = element_line(),
+        plot.margin = unit(c(1, 1, 1, 1), "cm"),
+        plot.title = element_text(size = 9)) +
+  labs(title = "Relationship between daily number of COVID-19 cases at the date of lockdown \nand growth factor under lockdown") +
+  geom_point() +
+  #geom_smooth(method = "lm", se = FALSE, linetype = "dashed") +
+  #geom_smooth(data = filter(summary_eur_lockdown, Country != "United Kingdom" & !is.na(Date_lockdown)),
+  #            method = "glm", method.args = list(family = gaussian(link = "log")), se = FALSE,
+  #            aes(x = Daily_cases_lockdown, y = Median_growth_factor_lockdown)) +
+  geom_text_repel(aes(label = Country), size = 2) +
+  scale_x_continuous(name = "Daily number of COVID-19 cases at date of lockdown",
+                     labels = comma_format(accuracy = 1)) +
+  scale_y_continuous(name = "Growth factor under lockdown")
+#plot_growth_factor_4
+
+# Save plots
+ggsave(paste0(out, "Figure - Daily cases at lockdown vs growth factor.png"),
+       plot = plot_growth_factor_3, width = 6, height = 6)
+ggsave(paste0(out, "Figure - Daily cases at lockdown vs growth factor - without UK.png"),
+       plot = plot_growth_factor_4, width = 6, height = 6)
 
 # ------------------------------------------------------------------------------
 # Incident and cumulative cases 
@@ -633,6 +685,7 @@ for (i in countries_eur) {
 # Remove plotting objects from environment
 rm(i, country, data_eur_i, summary_eur_i, 
    date_first_restriction, date_lockdown, date_lockdown_eased, date_lockdown_end,
+   cc_first_restriction, cc_lockdown, cc_lockdown_eased, cc_lockdown_end,
    dates, plot_inc, plot_cum, plot_exp, p, p_annotated)
 
 
