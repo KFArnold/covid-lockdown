@@ -61,7 +61,7 @@ for (i in countries_eur) {
   date_first_restriction <- summary_eur_i %>% pull(Date_first_restriction)
   date_lockdown <- summary_eur_i %>% pull(Date_lockdown)
   
-  # Calculate date_T (end date of simulation) as either...
+  # Calculate date_T (last date to include data from) as either...
   # date_max or date_lockdown_eased + 7, whichever comes first
   date_T <- min(summary_eur_i$Date_max, summary_eur_i$Date_lockdown_eased + 7, na.rm = TRUE)
   
