@@ -2,7 +2,7 @@
 # Notes
 # ------------------------------------------------------------------------------
 
-# This script imports/formats COVID-19 cases, deaths, and policies data 
+# This script imports/formats COVID-19 cases/deaths data, policies data, and World Bank data
 # for countries around the world, and selects a subset of European countries to be analysed 
 
 # It then produces a table which summarises the state of the pandemic in each country:
@@ -23,7 +23,7 @@
 # ------------------------------------------------------------------------------
 
 # Load required packages
-library(tidyverse); library(readr); library(dplyr); library(ggplot2); library(caTools)
+library(wbstats); library(tidyverse); library(readr); library(dplyr); library(ggplot2); library(caTools)
 
 # Run source code to update external data
 #source("./Code/Update data.R")
@@ -95,11 +95,15 @@ policies <- read_csv("./Data/OxCGRT data/OxCGRT_latest.csv",
                      col_types = cols(RegionName = col_character(),
                                       RegionCode = col_character())) %>% 
   mutate(Date = as.Date(as.character(Date), format = "%Y%m%d"))
+## World Bank data (population size, land area (square km))
+worldbank <- wb_data(indicator = c("SP.POP.TOTL", "AG.LND.TOTL.K2"), start_date = 2015, end_date = 2020) %>%
+  rename(Area_sq_km = AG.LND.TOTL.K2, Population = SP.POP.TOTL, Year = date) %>% remove_all_labels()
 
 # Replace slashes and spaces with underscores
 names(cases) <- str_replace_all(names(cases), c("/" = "_", " " = "_"))
 names(deaths) <- str_replace_all(names(deaths), c("/" = "_", " " = "_"))
 names(policies) <- str_replace_all(names(policies), c("/" = "_", " " = "_"))
+names(worldbank) <- str_to_title(names(worldbank))
 
 # Convert datasets to long form, select relevant variables, 
 # rename country variable, convert characters to factors,
@@ -119,6 +123,8 @@ policies <- policies %>% rename(c(Country = CountryName,
   select(-contains("Code"), c(Date, C1_School_closing:C8_International_travel_controls)) %>%
   mutate_if(is.character, as.factor) %>%
   group_by(Province_State, Country) %>% arrange(Country, Date)
+worldbank <- worldbank %>% mutate_if(is.character, as.factor) %>% 
+  group_by(Country) %>% arrange(Country)
 
 # Calculate daily cases and deaths
 cases <- cases %>% mutate(Cumulative_cases_beg = lag(Cumulative_cases_end, n = 1, default = 0),
@@ -152,9 +158,11 @@ data_all <- data_all %>% mutate(Date_0 = Date[which(Daily_cases >= 1)[1]],
 # Remove data after Date_max, since this is likely incomplete
 data_all <- data_all %>% filter(Date <= Date_max)
 
-# Rename Czechia and Slovakia in cases/deaths dataset
+# Rename Czechia and Slovakia in cases/deaths dataset,
+# and Russian Federation in Worldbank data
 data_all <- data_all %>% mutate(Country = recode(Country, "Czechia" = "Czech Republic"),
                                 Country = recode(Country, "Slovakia" = "Slovak Republic"))
+worldbank <- worldbank %>% mutate(Country = recode(Country, "Russian Federation" = "Russia"))
 
 # Retain data for countries in Europe only
 # and remove dependencies (of the Netherlands, UK, France, and Denmark)
@@ -178,9 +186,10 @@ if (length(countries_eur) != length(countries)) {
 # Retain data for European countries for which we have both cases/deaths data and policy data
 data_eur <- data_eur %>% filter(Country %in% countries_eur) %>% droplevels
 policies_eur <- policies_eur %>% filter(Country %in% countries_eur) %>% droplevels
+worldbank_eur <- worldbank %>% filter(Country %in% countries_eur) %>% droplevels
 
 # Remove non-European dataframes and lists
-rm(countries, data_all, policies)
+rm(countries, data_all, policies, worldbank)
 
 # ------------------------------------------------------------------------------
 # Summarise countries 
