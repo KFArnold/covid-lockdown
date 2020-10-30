@@ -412,6 +412,7 @@ for (i in 1:nrow(summary_eur)) {
   }  # (close loop 2 - countries which entered lockdown)
   
 }  # (close loop 1 - all countries)
+
 # Remove measures/cutoffs, loop objects
 rm(measures_lockdown, measures_lockdown_alt, measures_any_restriction,
    cutoffs_lockdown, cutoffs_lockdown_alt, cutoffs_any_restriction,
@@ -433,6 +434,11 @@ summary_eur <- full_join(summary_eur, summary_max_number_restrictions, by = "Cou
   full_join(., summary_lockdown_end, by = "Country") %>% ungroup
 rm(summary_max_number_restrictions, summary_first_restriction, 
    summary_lockdown, summary_lockdown_eased, summary_lockdown_end)
+
+# Calculate date_T (last date to include data from) as either...
+# Date_max or Date_lockdown_eased + 10, whichever comes first
+summary_eur <- summary_eur %>% group_by(Country) %>% 
+  mutate(Date_T = min(Date_max, Date_lockdown_eased + 10, na.rm = TRUE))
 
 # Export  summary table
 write_csv(summary_eur, path = paste0(out, "Country summaries.csv"))

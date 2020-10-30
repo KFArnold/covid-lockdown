@@ -60,10 +60,7 @@ for (i in countries_eur) {
   date_50 <- summary_eur_i %>% pull(Date_50)
   date_first_restriction <- summary_eur_i %>% pull(Date_first_restriction)
   date_lockdown <- summary_eur_i %>% pull(Date_lockdown)
-  
-  # Calculate date_T (last date to include data from) as either...
-  # date_max or date_lockdown_eased + 7, whichever comes first
-  date_T <- min(summary_eur_i$Date_max, summary_eur_i$Date_lockdown_eased + 7, na.rm = TRUE)
+  date_T <- summary_eur_i %>% pull(Date_T)
   
   # Create copy of cases/deaths dataframe where cumulative cases >= 50 and up to date_T
   data_eur_50_i <- data_eur_i %>% filter(Date >= date_50 & Date <= date_T)

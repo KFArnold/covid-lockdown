@@ -164,13 +164,10 @@ for (i in countries_eur) {
   summary_eur_i <- summary_eur %>% filter(Country == country)
   
   # Define dates of first restriction, lockdown, and 50 cases
-  date_first_restriction <- summary_eur_i %>% pull("Date_first_restriction")
-  date_lockdown <- summary_eur_i %>% pull("Date_lockdown")
-  date_50 <- summary_eur_i %>% pull("Date_50")
-  
-  # Calculate date_T (end date of simulation) as either...
-  # date_max or date_lockdown_eased + 7, whichever comes first
-  date_T <- min(summary_eur_i$Date_max, summary_eur_i$Date_lockdown_eased + 7, na.rm = TRUE)
+  date_first_restriction <- summary_eur_i %>% pull(Date_first_restriction)
+  date_lockdown <- summary_eur_i %>% pull(Date_lockdown)
+  date_50 <- summary_eur_i %>% pull(Date_50)
+  date_T <- summary_eur_i %>% pull(Date_T)
   
   # Plot
   p <- ggplot(data = filter(data_eur_i, Date <= date_T),
@@ -211,77 +208,74 @@ rows <- length(plot_exp_growth_cases) %>% sqrt %>% ceiling
 cols <- length(plot_exp_growth_cases) %>% sqrt %>% floor
 
 # Save plots
-dev.new()  # make very large to avoid bug with saving
+#dev.new()  # make very large to avoid bug with saving
 p <- ggarrange(plotlist = plot_exp_growth_cases, nrow = rows, ncol = cols)
 g <- annotate_figure(p, top = text_grob("Exponential growth of Covid-19 cases: Cumulative versus incident cases", size = 30))
 ggsave(paste0(out, "Figure - Cumulative vs incident cases.png"),
        plot = g, width = 6*cols, height = 6*rows, limitsize = FALSE)
-dev.off()
+#dev.off()
 
 ### Log scale ------------------------------------------------------------------
 
-plot_exp_growth_cases <- list()
-
-for (i in countries_eur) {
-  
-  # Define country
-  country <- i
-  
-  # Filter cases/deaths, summary dataframes by country
-  data_eur_i <- data_eur %>% filter(Country == country)
-  summary_eur_i <- summary_eur %>% filter(Country == country)
-  
-  # Define dates of first restriction, lockdown, and 50 cases
-  date_first_restriction <- summary_eur_i %>% pull("Date_first_restriction")
-  date_lockdown <- summary_eur_i %>% pull("Date_lockdown")
-  #date_50 <- summary_eur_i %>% pull("Date_50")
-  
-  # Calculate date_T (end date of simulation) as either...
-  # date_max or date_lockdown_end, whichever comes first
-  date_T <- min(summary_eur_i$Date_max, summary_eur_i$Date_lockdown_end, na.rm = TRUE)
-  
-  # Plot
-  p <- ggplot(data = filter(data_eur_i, Date <= date_T),
-              aes(x = Cumulative_cases_beg, 
-                  y = Daily_cases)) +
-    theme_minimal() +
-    theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
-    labs(title = paste0(country)) +
-    geom_path() +
-    geom_point(size = 1) +
-    geom_point(data = filter(data_eur_i, Date == date_first_restriction),
-               size = 3, color = "navyblue", shape = 15) +
-    geom_text_repel(data = filter(data_eur_i, Date == date_first_restriction), color = "blue",
-                    label = paste0(as.character(date_first_restriction, format = "%d %b")),
-                    hjust = 0, size = 3) +
-    geom_point(data = filter(data_eur_i, Date == date_lockdown), 
-               size = 3, color = "darkorange", shape = 18) +
-    geom_text_repel(data = filter(data_eur_i, Date == date_lockdown), color = "darkorange",
-                    label = paste0(as.character(date_lockdown, format = "%d %b")),
-                    hjust = 0, size = 3) +
-    scale_x_continuous(name = "Cumulative number of COVID-19 cases",
-                       labels = comma_format(accuracy = 1),
-                       trans = log10_trans()) + 
-    scale_y_continuous(name = "New daily number of COVID-19 cases",
-                       labels = comma_format(accuracy = 1),
-                       trans = log10_trans())
-  
-  # Add plot to list
-  plot_exp_growth_cases[[i]] <- p
-  
-}
-
-# Calculate number of rows and columns
-rows <- length(plot_exp_growth_cases) %>% sqrt %>% ceiling
-cols <- length(plot_exp_growth_cases) %>% sqrt %>% floor
-
-# Save plots
-dev.new()  # make very large to avoid bug with saving
-p <- ggarrange(plotlist = plot_exp_growth_cases, nrow = rows, ncol = cols)
-g <- annotate_figure(p, top = text_grob("Exponential growth of Covid-19 cases: Cumulative versus incident cases", size = 30))
-ggsave(paste0(out, "Figure - Cumulative vs incident cases (log scale).png"),
-       plot = g, width = 6*cols, height = 6*rows, limitsize = FALSE)
-dev.off()
+#plot_exp_growth_cases <- list()
+#
+#for (i in countries_eur) {
+#  
+#  # Define country
+#  country <- i
+#  
+#  # Filter cases/deaths, summary dataframes by country
+#  data_eur_i <- data_eur %>% filter(Country == country)
+#  summary_eur_i <- summary_eur %>% filter(Country == country)
+#  
+#  # Define dates of first restriction, lockdown, and 50 cases
+#  date_first_restriction <- summary_eur_i %>% pull(Date_first_restriction)
+#  date_lockdown <- summary_eur_i %>% pull(Date_lockdown)
+#  #date_50 <- summary_eur_i %>% pull(Date_50)
+#  date_T <- summary_eur_i %>% pull(Date_T)
+#  
+#  # Plot
+#  p <- ggplot(data = filter(data_eur_i, Date <= date_T),
+#              aes(x = Cumulative_cases_beg, 
+#                  y = Daily_cases)) +
+#    theme_minimal() +
+#    theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
+#    labs(title = paste0(country)) +
+#    geom_path() +
+#    geom_point(size = 1) +
+#    geom_point(data = filter(data_eur_i, Date == date_first_restriction),
+#               size = 3, color = "navyblue", shape = 15) +
+#    geom_text_repel(data = filter(data_eur_i, Date == date_first_restriction), color = "blue",
+#                    label = paste0(as.character(date_first_restriction, format = "%d %b")),
+#                    hjust = 0, size = 3) +
+#    geom_point(data = filter(data_eur_i, Date == date_lockdown), 
+#               size = 3, color = "darkorange", shape = 18) +
+#    geom_text_repel(data = filter(data_eur_i, Date == date_lockdown), color = "darkorange",
+#                    label = paste0(as.character(date_lockdown, format = "%d %b")),
+#                    hjust = 0, size = 3) +
+#    scale_x_continuous(name = "Cumulative number of COVID-19 cases",
+#                       labels = comma_format(accuracy = 1),
+#                       trans = log10_trans()) + 
+#    scale_y_continuous(name = "New daily number of COVID-19 cases",
+#                       labels = comma_format(accuracy = 1),
+#                       trans = log10_trans())
+#  
+#  # Add plot to list
+#  plot_exp_growth_cases[[i]] <- p
+#  
+#}
+#
+## Calculate number of rows and columns
+#rows <- length(plot_exp_growth_cases) %>% sqrt %>% ceiling
+#cols <- length(plot_exp_growth_cases) %>% sqrt %>% floor
+#
+## Save plots
+#dev.new()  # make very large to avoid bug with saving
+#p <- ggarrange(plotlist = plot_exp_growth_cases, nrow = rows, ncol = cols)
+#g <- annotate_figure(p, top = text_grob("Exponential growth of Covid-19 cases: Cumulative versus incident cases", size = 30))
+#ggsave(paste0(out, "Figure - Cumulative vs incident cases (log scale).png"),
+#       plot = g, width = 6*cols, height = 6*rows, limitsize = FALSE)
+#dev.off()
 
 # Remove plotting objects from environment
 rm(i, country, data_eur_i, summary_eur_i,
@@ -319,13 +313,10 @@ for (i in countries_eur) {
   n_knots_i <- nrow(knots_best_i)
   
   # Define dates of first restriction, lockdown, and 50 cases
-  date_first_restriction <- summary_eur_i %>% pull("Date_first_restriction")
-  date_lockdown <- summary_eur_i %>% pull("Date_lockdown")
-  date_50 <- summary_eur_i %>% pull("Date_50")
-  
-  # Calculate date_T (end date of simulation) as either...
-  # date_max or date_lockdown_eased + 7, whichever comes first
-  date_T <- min(summary_eur_i$Date_max, summary_eur_i$Date_lockdown_eased + 7, na.rm = TRUE)
+  date_first_restriction <- summary_eur_i %>% pull(Date_first_restriction)
+  date_lockdown <- summary_eur_i %>% pull(Date_lockdown)
+  date_50 <- summary_eur_i %>% pull(Date_50)
+  date_T <- summary_eur_i %>% pull(Date_T)
   
   # Create copy of cases/deaths dataframe where cumulative cases >= 50 and up to date_T
   data_eur_50_i <- data_eur_i %>% filter(Date >= date_50 & Date <= date_T)
@@ -442,12 +433,12 @@ rows <- length(plot_exp_growth_cases) %>% sqrt %>% ceiling
 cols <- length(plot_exp_growth_cases) %>% sqrt %>% floor
 
 # Save combined plots
-dev.new()  # make very large to avoid bug with saving
+#dev.new()  # make very large to avoid bug with saving
 p <- ggarrange(plotlist = plot_exp_growth_cases, nrow = rows, ncol = cols)
 g <- annotate_figure(p, top = text_grob("Exponential growth of Covid-19 cases: Cumulative versus incident cases", size = 30))
 ggsave(paste0(out, "Figure - Cumulative vs incident cases (with fitted splines).png"),
        plot = g, width = 6*cols, height = 6*rows, limitsize = FALSE)
-dev.off()
+#dev.off()
 
 # Remove plotting objects from environment
 rm(i, country, data_eur_i, knots_best_i, summary_eur_i, n_knots_i,
@@ -607,16 +598,13 @@ for (i in countries_eur) {
   date_lockdown <- summary_eur_i %>% pull(Date_lockdown)
   date_lockdown_eased <- summary_eur_i %>% pull(Date_lockdown_eased)
   date_lockdown_end <- summary_eur_i %>% pull(Date_lockdown_end)
+  date_T <- summary_eur_i %>% pull(Date_T)
   
   # Define cumulative cases on dates of first restriction, lockdown, lockdown eased, and lockdown lifted
   cc_first_restriction <- summary_eur_i %>% pull(Cumulative_cases_beg_first_restriction)
   cc_lockdown <- summary_eur_i %>% pull(Cumulative_cases_beg_lockdown)
   cc_lockdown_eased <- summary_eur_i %>% pull(Cumulative_cases_beg_lockdown_eased)
   cc_lockdown_end <- summary_eur_i %>% pull(Cumulative_cases_beg_lockdown_end)
-  
-  # Calculate date_T (last date to include real data from) as either...
-  # date_max or date_lockdown_eased + 7, whichever comes first
-  date_T <- min(summary_eur_i$Date_max, summary_eur_i$Date_lockdown_eased + 7, na.rm = TRUE)
   
   # Re-filter cases/deaths dataset to only include data up to date_T
   # (don't do this if you want all data displayed / want to see data up to lockdown)
@@ -737,15 +725,12 @@ for (i in countries_eur_lockdown) {
   date_first_restriction <- summary_eur_lockdown_i %>% pull(Date_first_restriction)
   date_lockdown <- summary_eur_lockdown_i %>% pull(Date_lockdown)
   date_lockdown_eased <- summary_eur_lockdown_i %>% pull(Date_lockdown_eased)
+  date_T <- summary_eur_lockdown_i
   
   # Define cumulative cases on important dates
   cc_first_restriction <- summary_eur_lockdown_i %>% pull(Cumulative_cases_beg_first_restriction)
   cc_lockdown <- summary_eur_lockdown_i %>% pull(Cumulative_cases_beg_lockdown)
   cc_lockdown_eased <- summary_eur_lockdown_i %>% pull(Cumulative_cases_beg_lockdown_eased)
-  
-  # Calculate date_T (last date to include real data from) as either...
-  # date_max or date_lockdown_eased + 7, whichever comes first
-  date_T <- min(summary_eur_lockdown_i$Date_max, summary_eur_lockdown_i$Date_lockdown_eased + 7, na.rm = TRUE)
   
   # Calculate max_date (end date to display) as either...
   # date_max or first date when daily cases equal zero, whichever comes first
