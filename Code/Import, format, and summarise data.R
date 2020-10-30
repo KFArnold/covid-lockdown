@@ -6,7 +6,7 @@
 # for countries around the world, and selects a subset of European countries to be analysed 
 
 # It then produces a table which summarises the state of the pandemic in each country:
-# (1) First date at which each country exceeded 100 cases (and cases/deaths on this day);
+# (1) First date at which each country exceeded 50 cases (and cases/deaths on this day);
 # (2) First date at which any restriction was imposed (and cases/deaths on this day);
 # (3) Date at which the country entered lockdown (and cases/deaths on this day);
 # (4) Date at which the country came out of lockdown (and cases/deaths on this day).
@@ -147,12 +147,12 @@ data_all <- full_join(cases, deaths) %>% relocate(contains("MA7"), .after = last
 rm(cases, deaths)  # (remove separate datasets)
 
 # Create variables for: date of first case (Date_0), 
-# date at which cases first exceeded 100 (Date_100), 
-# number of days since 100 cases (Days_since_100), and
+# date at which cases first exceeded 50 (Date_50), 
+# number of days since 50 cases (Days_since_50), and
 # date for which data can be reasonably assumed complete (Date_max)
 data_all <- data_all %>% mutate(Date_0 = Date[which(Daily_cases >= 1)[1]],
-                                Date_100 = Date[which(Cumulative_cases_beg >= 100)[1]],
-                                Days_since_100 = as.numeric(Date - Date_100),
+                                Date_50 = Date[which(Cumulative_cases_beg >= 50)[1]],
+                                Days_since_50 = as.numeric(Date - Date_50),
                                 Date_max = max(Date) - 7)
 
 # Remove data after Date_max, since this is likely incomplete
@@ -195,11 +195,11 @@ rm(countries, data_all, policies, worldbank)
 # Summarise countries 
 # ------------------------------------------------------------------------------
 
-# Create summary table which defines first date at which cases first exceeded 100 (Date_100)
-summary_eur <- data_eur %>% filter(Date == Date_100) %>% 
-  select(-c(Date_100, Days_since_100, contains(c("end", "MA7")))) %>%
-  rename_at(vars(-c(Country, Date_0, Date_max)), .funs = list(~ paste0(., "_100"))) %>%
-  relocate(c(Date_0, Date_max), .before = Date_100)
+# Create summary table which defines first date at which cases first exceeded 50 (Date_50)
+summary_eur <- data_eur %>% filter(Date == Date_50) %>% 
+  select(-c(Date_50, Days_since_50, contains(c("end", "MA7")))) %>%
+  rename_at(vars(-c(Country, Date_0, Date_max)), .funs = list(~ paste0(., "_50"))) %>%
+  relocate(c(Date_0, Date_max), .before = Date_50)
 
 # Create empty summary tables to store:
 # (1) Max number of restrictions
@@ -208,22 +208,22 @@ summary_max_number_restrictions <- data_eur %>%
 summary_max_number_restrictions <- summary_max_number_restrictions[0, ]
 # (2) Date of first restriction (including cases and deaths)
 summary_first_restriction <- data_eur %>% 
-  select(-c(Date_0, Date_100, Days_since_100, Date_max, contains(c("end", "MA7")))) %>%
+  select(-c(Date_0, Date_50, Days_since_50, Date_max, contains(c("end", "MA7")))) %>%
   rename_at(vars(-Country), .funs = list(~ paste0(., "_first_restriction"))) 
 summary_first_restriction <- summary_first_restriction[0, ]
 # (3) Date of lockdown (including cases and deaths)
 summary_lockdown <- data_eur %>% 
-  select(-c(Date_0, Date_100, Days_since_100, Date_max, contains(c("end", "MA7")))) %>%
+  select(-c(Date_0, Date_50, Days_since_50, Date_max, contains(c("end", "MA7")))) %>%
   rename_at(vars(-Country), .funs = list(~ paste0(., "_lockdown"))) 
 summary_lockdown <- summary_lockdown[0, ]
 # (4) Date of lockdown end (including cases and deaths)
 summary_lockdown_end <- data_eur %>% 
-  select(-c(Date_0, Date_100, Days_since_100, Date_max, contains(c("end", "MA7")))) %>%
+  select(-c(Date_0, Date_50, Days_since_50, Date_max, contains(c("end", "MA7")))) %>%
   rename_at(vars(-Country), .funs = list(~ paste0(., "_lockdown_end"))) 
 summary_lockdown_end <- summary_lockdown_end[0, ]
 # (5) Date of lockdown easing (including cases and deaths)
 summary_lockdown_eased <- data_eur %>% 
-  select(-c(Date_0, Date_100, Days_since_100, Date_max, contains(c("end", "MA7")))) %>%
+  select(-c(Date_0, Date_50, Days_since_50, Date_max, contains(c("end", "MA7")))) %>%
   rename_at(vars(-Country), .funs = list(~ paste0(., "_lockdown_eased"))) 
 summary_lockdown_eased <- summary_lockdown_eased[0, ]
 
@@ -302,7 +302,7 @@ for (i in 1:nrow(summary_eur)) {
     date_first_restriction <- data_any_restriction_filt %>% pull(Date) %>% min(na.rm = TRUE)
     # Create summary of cases/deaths on date of first restriction
     summary_first_restriction_i <- data_eur_i %>% filter(Date == date_first_restriction) %>% 
-      select(-c(Date_0, Date_100, Days_since_100, Date_max, contains(c("end", "MA7")))) %>%
+      select(-c(Date_0, Date_50, Days_since_50, Date_max, contains(c("end", "MA7")))) %>%
       rename_at(vars(-Country), .funs = list(~ paste0(., "_first_restriction"))) 
     # Merge with full first restriction summary dataset
     summary_first_restriction <- bind_rows(summary_first_restriction, summary_first_restriction_i)
@@ -357,7 +357,7 @@ for (i in 1:nrow(summary_eur)) {
     date_lockdown <- data_lockdown_all_filt %>% pull(Date) %>% min(na.rm = TRUE)
     # Create summary of cases/deaths on date of lockdown
     summary_lockdown_i <- data_eur_i %>% filter(Date == date_lockdown) %>% 
-      select(-c(Date_0, Date_100, Days_since_100, Date_max, contains(c("end", "MA7")))) %>%
+      select(-c(Date_0, Date_50, Days_since_50, Date_max, contains(c("end", "MA7")))) %>%
       rename_at(vars(-Country), .funs = list(~ paste0(., "_lockdown"))) 
     # Merge with full lockdown summary dataset
     summary_lockdown <- bind_rows(summary_lockdown, summary_lockdown_i)
@@ -380,7 +380,7 @@ for (i in 1:nrow(summary_eur)) {
       date_lockdown_eased <- data_lockdown_all_filt %>% pull(Date) %>% min(na.rm = TRUE)
       # Create summary of cases/deaths on date lockdown eased
       summary_lockdown_eased_i <- data_eur_i %>% filter(Date == date_lockdown_eased) %>% 
-        select(-c(Date_0, Date_100, Days_since_100, Date_max, contains(c("end", "MA7")))) %>%
+        select(-c(Date_0, Date_50, Days_since_50, Date_max, contains(c("end", "MA7")))) %>%
         rename_at(vars(-Country), .funs = list(~ paste0(., "_lockdown_eased")))
       # Merge with full lockdown easing summary dataset
       summary_lockdown_eased <- bind_rows(summary_lockdown_eased, summary_lockdown_eased_i)
@@ -403,7 +403,7 @@ for (i in 1:nrow(summary_eur)) {
       date_lockdown_end <- data_lockdown_all_filt %>% pull(Date) %>% min(na.rm = TRUE)
       # Create summary of cases/deaths on date of lockdown end
       summary_lockdown_end_i <- data_eur_i %>% filter(Date == date_lockdown_end) %>% 
-        select(-c(Date_0, Date_100, Days_since_100, Date_max, contains(c("end", "MA7")))) %>%
+        select(-c(Date_0, Date_50, Days_since_50, Date_max, contains(c("end", "MA7")))) %>%
         rename_at(vars(-Country), .funs = list(~ paste0(., "_lockdown_end"))) 
       # Merge with full lockdown summary dataset
       summary_lockdown_end <- bind_rows(summary_lockdown_end, summary_lockdown_end_i)

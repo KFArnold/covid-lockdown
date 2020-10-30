@@ -91,18 +91,18 @@ for (i in countries_eur_lockdown) {
   knots_best_i <- knots_best %>% filter(Country == country)
   
   # Record important dates
-  date_100 <- summary_eur_lockdown_i %>% pull(Date_100)  # (starting date of simulation)
-  date_end <- as.Date(date_100 + max_t)  # (end date of simulation) 
+  date_50 <- summary_eur_lockdown_i %>% pull(Date_50)  # (starting date of simulation)
+  date_end <- as.Date(date_50 + max_t)  # (end date of simulation) 
   date_lockdown <- summary_eur_lockdown_i %>% pull(Date_lockdown)  # (date of lockdown)
   
   # Set dates over which to simulate growth
-  dates <- seq.Date(from = date_100, to = date_end, by = 1)
+  dates <- seq.Date(from = date_50, to = date_end, by = 1)
   
   # Create empty matrices for simulated data for given country
   # (1 row per simulation run, 1 col per date)
   daily_cases_sim_i <- cumulative_cases_end_sim_i <- 
     matrix(nrow = 0, ncol = length(dates) + 1,
-           dimnames = list(NULL, as.character(seq.Date(from = date_100 - 1, to = date_end, by = 1))))
+           dimnames = list(NULL, as.character(seq.Date(from = date_50 - 1, to = date_end, by = 1))))
   
   # Calculate number of simulation runs for each pair of knot dates
   prob_knots <- knots_best_i %>% pull(Prob_unequal)
@@ -139,12 +139,12 @@ for (i in countries_eur_lockdown) {
     # (1 row per simulation run, 1 col per date)
     daily_cases_sim_j <- cumulative_cases_end_sim_j <- 
       matrix(nrow = n_runs_j, ncol = length(dates) + 1,
-             dimnames = list(NULL, as.character(seq.Date(from = date_100 - 1, to = date_end, by = 1))))
-    # Initialise matrices with data at date_100 - 1
+             dimnames = list(NULL, as.character(seq.Date(from = date_50 - 1, to = date_end, by = 1))))
+    # Initialise matrices with data at date_50 - 1
     daily_cases_sim_j[, 1] <- data_eur_i %>% 
-      filter(Date == (date_100 - 1)) %>% pull(Daily_cases)
+      filter(Date == (date_50 - 1)) %>% pull(Daily_cases)
     cumulative_cases_end_sim_j[, 1] <- data_eur_i %>% 
-      filter(Date == (date_100 - 1)) %>% pull(Cumulative_cases_end)
+      filter(Date == (date_50 - 1)) %>% pull(Cumulative_cases_end)
     
     # (3) Iterate through dates
     for (t in as.list(dates)) {
@@ -232,7 +232,7 @@ write_csv(summary_cumulative_cases_end_sim, path = paste0(out, "Simulation summa
 
 # Remove loop variables
 rm(i, j, t, country, data_eur_i, summary_eur_lockdown_i, knots_best_i,
-   date_100, date_end, date_lockdown, dates, 
+   date_50, date_end, date_lockdown, dates, 
    daily_cases_sim_i, cumulative_cases_end_sim_i, 
    summary_daily_cases_sim_i, summary_cumulative_cases_end_sim_i, 
    prob_knots, n_knots_best_i,

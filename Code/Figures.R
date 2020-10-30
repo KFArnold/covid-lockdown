@@ -84,17 +84,17 @@ plot_1 <- ggplot(data = summary_eur, aes(y = Country)) +
 # Save plot
 ggsave(paste0(out, "Figure - Important dates.png"), plot = plot_1, width = 12, height = 8)
 
-## Dates of first restriction, lockdown, first case, and cases >= 100 ----------
+## Dates of first restriction, lockdown, first case, and cases >= 50 ----------
 
 # Get min and max dates
 date_min <- summary_eur %>% ungroup %>% 
-  summarise(Date_min = min(Date_0, Date_100, Date_first_restriction, Date_lockdown, 
+  summarise(Date_min = min(Date_0, Date_50, Date_first_restriction, Date_lockdown, 
                            Date_lockdown_eased, Date_lockdown_end, na.rm = TRUE)) %>% pull
 date_max <- summary_eur %>% ungroup %>% 
-  summarise(Date_max = max(Date_0, Date_100, Date_first_restriction, Date_lockdown, 
+  summarise(Date_max = max(Date_0, Date_50, Date_first_restriction, Date_lockdown, 
                            Date_lockdown_eased, Date_lockdown_end, na.rm = TRUE)) %>% pull
 
-# Define colours and shapes (for first restriction, lockdown, first case, and cases >= 100)
+# Define colours and shapes (for first restriction, lockdown, first case, and cases >= 50)
 # (unicode shapes: https://jrgraphix.net/r/Unicode/25A0-25FF)
 cols <- c("col1" = "grey80", "col2" = "grey50", "col3" = "navyblue", "col4" = "darkorange", "col5" = "firebrick", "col6" = "forestgreen")
 shapes <- c("sh1" = "\u25CB", "sh2" = "\u25CB", "sh3" = "\u25A0", "sh4" = "\u25CF", "sh5" = "\u25BC", "sh6" = "\u25B2")
@@ -104,13 +104,13 @@ plot_2 <- ggplot(data = summary_eur, aes(y = Country)) +
   theme_minimal() +
   theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm")) +
   labs(title = "Important dates in COVID-19 European policy responses",
-       subtitle = "Dates when: first case recorded, 100th case recorded, first restriction imposed, lockdown imposed, lockdown eased, and lockdown lifted",
+       subtitle = "Dates when: first case recorded, 50th case recorded, first restriction imposed, lockdown imposed, lockdown eased, and lockdown lifted",
        caption = "Data from Oxford Covid-19 Government Response Tracker (https://github.com/OxCGRT/covid-policy-tracker)
        and Johns Hopkins COVID-19 Data Repository (https://github.com/CSSEGISandData/COVID-19).") +
   theme(plot.caption = element_text(size = 7),
         plot.subtitle = element_text(size = 10)) +
   geom_point(aes(x = Date_0, color = "col1", shape = "sh1"), size = sizes[1]) +
-  geom_point(aes(x = Date_100 - 1, color = "col2", shape = "sh2"), size = sizes[2]) +
+  geom_point(aes(x = Date_50 - 1, color = "col2", shape = "sh2"), size = sizes[2]) +
   geom_point(aes(x = Date_first_restriction, color = "col3", shape = "sh3"), size = sizes[3]) +
   geom_point(aes(x = Date_lockdown, color = "col4", shape = "sh4"), size = sizes[4]) +
   geom_point(aes(x = Date_lockdown_eased, color = "col5", shape = "sh5"), size = sizes[5]) +
@@ -118,13 +118,13 @@ plot_2 <- ggplot(data = summary_eur, aes(y = Country)) +
   scale_color_manual(name = "Date:",
                      breaks = c("col1", "col2", "col3", "col4", "col5", "col6"),
                      values = cols,
-                     labels = c("first confirmed case", "100th confirmed case", 
+                     labels = c("first confirmed case", "50th confirmed case", 
                                 "first restriction imposed", "lockdown imposed", 
                                 "lockdown eased", "lockdown lifted")) +
   scale_shape_manual(name = "Date:",
                      breaks = c("sh1", "sh2", "sh3", "sh4", "sh5", "sh6"),
                      values = shapes,
-                     labels = c("first confirmed case", "100th confirmed case", 
+                     labels = c("first confirmed case", "50th confirmed case", 
                                 "first restriction imposed", "lockdown imposed", 
                                 "lockdown eased", "lockdown lifted")) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
@@ -138,7 +138,7 @@ plot_2 <- ggplot(data = summary_eur, aes(y = Country)) +
 #plot_2
 
 # Save plot
-ggsave(paste0(out, "Figure - Important dates (including first and 100th cases).png"),
+ggsave(paste0(out, "Figure - Important dates (including first and 50th cases).png"),
        plot = plot_2, width = 12, height = 8)
 
 # Remove plotting objects from environment
@@ -163,10 +163,10 @@ for (i in countries_eur) {
   data_eur_i <- data_eur %>% filter(Country == country)
   summary_eur_i <- summary_eur %>% filter(Country == country)
   
-  # Define dates of first restriction, lockdown, and 100 cases
+  # Define dates of first restriction, lockdown, and 50 cases
   date_first_restriction <- summary_eur_i %>% pull("Date_first_restriction")
   date_lockdown <- summary_eur_i %>% pull("Date_lockdown")
-  date_100 <- summary_eur_i %>% pull("Date_100")
+  date_50 <- summary_eur_i %>% pull("Date_50")
   
   # Calculate date_T (end date of simulation) as either...
   # date_max or date_lockdown_eased + 7, whichever comes first
@@ -181,10 +181,10 @@ for (i in countries_eur) {
     labs(title = paste0(country)) +
     geom_path() +
     geom_point(size = 1) +
-    geom_point(data = filter(data_eur_i, Date == date_100),
+    geom_point(data = filter(data_eur_i, Date == date_50),
                size = 3, color = "grey", shape = 15) +
-    geom_text_repel(data = filter(data_eur_i, Date == date_100), color = "grey",
-                    label = paste0(as.character(date_100, format = "%d %b")),
+    geom_text_repel(data = filter(data_eur_i, Date == date_50), color = "grey",
+                    label = paste0(as.character(date_50, format = "%d %b")),
                     hjust = 0, size = 3) +
     geom_point(data = filter(data_eur_i, Date == date_first_restriction),
                size = 3, color = "navyblue", shape = 15) +
@@ -231,10 +231,10 @@ for (i in countries_eur) {
   data_eur_i <- data_eur %>% filter(Country == country)
   summary_eur_i <- summary_eur %>% filter(Country == country)
   
-  # Define dates of first restriction, lockdown, and 100 cases
+  # Define dates of first restriction, lockdown, and 50 cases
   date_first_restriction <- summary_eur_i %>% pull("Date_first_restriction")
   date_lockdown <- summary_eur_i %>% pull("Date_lockdown")
-  #date_100 <- summary_eur_i %>% pull("Date_100")
+  #date_50 <- summary_eur_i %>% pull("Date_50")
   
   # Calculate date_T (end date of simulation) as either...
   # date_max or date_lockdown_end, whichever comes first
@@ -285,7 +285,7 @@ dev.off()
 
 # Remove plotting objects from environment
 rm(i, country, data_eur_i, summary_eur_i,
-   date_first_restriction, date_lockdown, date_100, date_T,
+   date_first_restriction, date_lockdown, date_50, date_T,
    rows, cols, p, g)
 
 # ------------------------------------------------------------------------------
@@ -318,26 +318,26 @@ for (i in countries_eur) {
   # Define number of best knot point pairs
   n_knots_i <- nrow(knots_best_i)
   
-  # Define dates of first restriction, lockdown, and 100 cases
+  # Define dates of first restriction, lockdown, and 50 cases
   date_first_restriction <- summary_eur_i %>% pull("Date_first_restriction")
   date_lockdown <- summary_eur_i %>% pull("Date_lockdown")
-  date_100 <- summary_eur_i %>% pull("Date_100")
+  date_50 <- summary_eur_i %>% pull("Date_50")
   
   # Calculate date_T (end date of simulation) as either...
   # date_max or date_lockdown_eased + 7, whichever comes first
   date_T <- min(summary_eur_i$Date_max, summary_eur_i$Date_lockdown_eased + 7, na.rm = TRUE)
   
-  # Create copy of cases/deaths dataframe where cumulative cases >= 100 and up to date_T
-  data_eur_100_i <- data_eur_i %>% filter(Date >= date_100 & Date <= date_T)
+  # Create copy of cases/deaths dataframe where cumulative cases >= 50 and up to date_T
+  data_eur_50_i <- data_eur_i %>% filter(Date >= date_50 & Date <= date_T)
   
   # Create base plot
-  p <- ggplot(data = data_eur_100_i,
+  p <- ggplot(data = data_eur_50_i,
               aes(x = Cumulative_cases_beg, y = Daily_cases)) +
     theme_minimal() +
     theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
     labs(title = paste0(country)) +
     geom_path() +
-    geom_path(data = filter(data_eur_i, Date <= date_100),
+    geom_path(data = filter(data_eur_i, Date <= date_50),
               aes(x = Cumulative_cases_beg, y = Daily_cases),
               linetype = "dashed") +
     geom_point(size = 1) +
@@ -376,8 +376,8 @@ for (i in countries_eur) {
     knot_2 <- data_eur_i %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
     
     # Calculate min and max values of cumulative cases in modelling period
-    x_min <- data_eur_100_i %>% pull(Cumulative_cases_beg) %>% min()
-    x_max <- data_eur_100_i %>% pull(Cumulative_cases_beg) %>% max()
+    x_min <- data_eur_50_i %>% pull(Cumulative_cases_beg) %>% min()
+    x_max <- data_eur_50_i %>% pull(Cumulative_cases_beg) %>% max()
     
     # Define Arima spline parameters
     slope_1 <- knots_best_j %>% pull(Growth_factor_1) %>% head(1) - 1
@@ -388,7 +388,7 @@ for (i in countries_eur) {
     intercept_3 <- knots_best_j %>% pull(Intercept_3) %>% head(1)
     
     # Add fitted line
-    if (knot_date_1 == date_100) {
+    if (knot_date_1 == date_50) {
       if (is.na(knot_date_2)) {  # NO knot points
         p <- p +
           geom_segment(aes_(x = x_min, xend = x_max,
@@ -451,7 +451,7 @@ dev.off()
 
 # Remove plotting objects from environment
 rm(i, country, data_eur_i, knots_best_i, summary_eur_i, n_knots_i,
-   date_first_restriction, date_lockdown, date_100, date_T, data_eur_100_i,
+   date_first_restriction, date_lockdown, date_50, date_T, data_eur_50_i,
    j, knots_best_j, knot_date_1, knot_date_2, knot_1, knot_2, x_min, x_max,
    slope_1, slope_2, slope_3, intercept_1, intercept_2, intercept_3,
    rows, cols, p, g)
@@ -733,7 +733,7 @@ for (i in countries_eur_lockdown) {
   n_knots_i <- nrow(knots_best_i)
   
   # Define important dates
-  date_100 <- summary_eur_lockdown_i %>% pull(Date_100)
+  date_50 <- summary_eur_lockdown_i %>% pull(Date_50)
   date_first_restriction <- summary_eur_lockdown_i %>% pull(Date_first_restriction)
   date_lockdown <- summary_eur_lockdown_i %>% pull(Date_lockdown)
   date_lockdown_eased <- summary_eur_lockdown_i %>% pull(Date_lockdown_eased)
@@ -801,13 +801,13 @@ for (i in countries_eur_lockdown) {
   
   # (3) Plot incident vs cumulative cases
   ## Base plot:
-  plot_exp <- ggplot(data = filter(data_eur_lockdown_T_i, Date >= date_100),
+  plot_exp <- ggplot(data = filter(data_eur_lockdown_T_i, Date >= date_50),
                      aes(x = Cumulative_cases_beg, y = Daily_cases)) +
     theme_minimal() +
     theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
     labs(title = "Cumulative vs incident cases of COVID-19") +
     geom_path(alpha = 0.5) +
-    geom_path(data = filter(data_eur_lockdown_T_i, Date <= date_100),
+    geom_path(data = filter(data_eur_lockdown_T_i, Date <= date_50),
               aes(x = Cumulative_cases_beg, y = Daily_cases),
               linetype = "dashed", alpha = 0.5) +
     geom_point(alpha = 0.5, size = 0.5) +
@@ -832,8 +832,8 @@ for (i in countries_eur_lockdown) {
     knot_2 <- data_eur_lockdown_T_i %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
     
     # Calculate min and max values of cumulative cases in modelling period
-    x_min <- data_eur_lockdown_T_i %>% filter(Date >= date_100) %>% pull(Cumulative_cases_beg) %>% min()
-    x_max <- data_eur_lockdown_T_i %>% filter(Date >= date_100) %>% pull(Cumulative_cases_beg) %>% max()
+    x_min <- data_eur_lockdown_T_i %>% filter(Date >= date_50) %>% pull(Cumulative_cases_beg) %>% min()
+    x_max <- data_eur_lockdown_T_i %>% filter(Date >= date_50) %>% pull(Cumulative_cases_beg) %>% max()
     
     # Define Arima spline parameters
     slope_1 <- knots_best_j %>% pull(Growth_factor_1) %>% head(1) - 1
@@ -844,7 +844,7 @@ for (i in countries_eur_lockdown) {
     intercept_3 <- knots_best_j %>% pull(Intercept_3) %>% head(1)
     
     # Add fitted line
-    if (knot_date_1 == date_100) {
+    if (knot_date_1 == date_50) {
       if (is.na(knot_date_2)) {  # NO knot points
         plot_exp <- plot_exp +
           geom_segment(aes_(x = x_min, xend = x_max,
@@ -900,7 +900,7 @@ for (i in countries_eur_lockdown) {
 rm(out_folder, i, j, 
    summary_daily_cases_sim_i, summary_cumulative_cases_end_sim_i, summary_thresholds_i,
    data_eur_lockdown_i, summary_eur_lockdown_i, knots_best_i,
-   n_knots_i, date_100, date_first_restriction, date_lockdown, date_lockdown_eased,
+   n_knots_i, date_50, date_first_restriction, date_lockdown, date_lockdown_eased,
    cc_first_restriction, cc_lockdown, cc_lockdown_eased,
    date_T, y_max_inc, y_max_cum, threshold_value,
    plot_inc, plot_cum, plot_exp, knots_best_j, knot_date_1, knot_date_2,
