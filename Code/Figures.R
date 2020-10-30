@@ -751,14 +751,14 @@ for (i in countries_eur_lockdown) {
   # date_max or first date when daily cases equal zero, whichever comes first
   # max_date 
   
-  # Re-filter datasets to include only data up to date_T
+  # Create copy of datasets which include data only up to date_T
   #summary_daily_cases_sim_i <- summary_daily_cases_sim_i %>% filter(Date <= date_T)
   #summary_cumulative_cases_end_sim_i <- summary_cumulative_cases_end_sim_i %>% filter(Date <= date_T)
-  data_eur_lockdown_i <- data_eur_lockdown_i %>% filter(Date <= date_T)
+  data_eur_lockdown_T_i <- data_eur_lockdown_i %>% filter(Date <= date_T)
   
   # Calculate upper limits of y-axes
-  y_max_inc <- max(summary_daily_cases_sim_i$C_975, data_eur_lockdown_i$Daily_cases)
-  y_max_cum <- max(summary_cumulative_cases_end_sim_i$C_975, data_eur_lockdown_i$Cumulative_cases_end)
+  y_max_inc <- max(summary_daily_cases_sim_i$C_975, data_eur_lockdown_T_i$Daily_cases)
+  y_max_cum <- max(summary_cumulative_cases_end_sim_i$C_975, data_eur_lockdown_T_i$Cumulative_cases_end)
   
   # Create dataframe which maps colours onto thresholds
   threshold_value <- data.frame(yint_threshold = pull(summary_thresholds_i, Threshold_value),
@@ -771,7 +771,8 @@ for (i in countries_eur_lockdown) {
     theme_minimal() +
     theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
     labs(title = "Incident cases of COVID-19") +
-    geom_col(data = data_eur_lockdown_i, aes(x = Date, y = Daily_cases), alpha = 0.4) +
+    geom_col(data = data_eur_lockdown_T_i, aes(x = Date, y = Daily_cases), alpha = 0.5) +
+    geom_col(data = filter(data_eur_lockdown_i, Date > date_T), aes(x = Date, y = Daily_cases), alpha = 0.2) +
     geom_line(color = "navyblue", size = 1) +
     geom_ribbon(aes(ymin = C_025, ymax = C_975), fill = "navyblue", alpha = 0.25) +
     geom_hline(data = threshold_value, aes(yintercept = yint_threshold, color = Threshold),
@@ -781,9 +782,8 @@ for (i in countries_eur_lockdown) {
     #          hjust = 0, vjust = 0, size = 3) +
     scale_color_manual(values = threshold_value$col, breaks = threshold_value$Threshold) +
     scale_x_date(name = "Date", date_breaks = "1 month", date_labels = "%b\n%y") +
-    scale_y_continuous(name = "Number of daily cases",
-                       limits = c(0, y_max_inc),
-                       expand = expansion(mult = c(0, 0))) 
+    scale_y_continuous(name = "Number of daily cases") +
+    coord_cartesian(ylim = c(0, y_max_inc), expand = FALSE)
   
   # (2) Plot cumulative cases
   plot_cum <- ggplot(data = summary_cumulative_cases_end_sim_i, 
@@ -791,26 +791,26 @@ for (i in countries_eur_lockdown) {
     theme_minimal() +
     theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
     labs(title = "Cumulative cases of COVID-19") +
-    geom_col(data = data_eur_lockdown_i, aes(x = Date, y = Cumulative_cases_end), alpha = 0.4) +
+    geom_col(data = data_eur_lockdown_T_i, aes(x = Date, y = Cumulative_cases_end), alpha = 0.5) +
+    geom_col(data = filter(data_eur_lockdown_i, Date > date_T), aes(x = Date, y = Cumulative_cases_end), alpha = 0.2) +
     geom_line(color = "navyblue", size = 1) +
     geom_ribbon(aes(ymin = C_025, ymax = C_975), fill = "navyblue", alpha = 0.25) +
     scale_x_date(name = "Date", date_breaks = "1 month", date_labels = "%b\n%y") +
-    scale_y_continuous(name = "Number of cumulative cases",
-                       limits = c(0, y_max_cum),
-                       expand = expansion(mult = c(0, 0)))
+    scale_y_continuous(name = "Number of cumulative cases") +
+    coord_cartesian(ylim = c(0, y_max_cum), expand = FALSE)
   
   # (3) Plot incident vs cumulative cases
   ## Base plot:
-  plot_exp <- ggplot(data = filter(data_eur_lockdown_i, Date >= date_100),
+  plot_exp <- ggplot(data = filter(data_eur_lockdown_T_i, Date >= date_100),
                      aes(x = Cumulative_cases_beg, y = Daily_cases)) +
     theme_minimal() +
     theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
     labs(title = "Cumulative vs incident cases of COVID-19") +
-    geom_path(alpha = 0.4) +
-    geom_path(data = filter(data_eur_lockdown_i, Date <= date_100),
+    geom_path(alpha = 0.5) +
+    geom_path(data = filter(data_eur_lockdown_T_i, Date <= date_100),
               aes(x = Cumulative_cases_beg, y = Daily_cases),
-              linetype = "dashed", alpha = 0.4) +
-    geom_point(alpha = 0.4, size = 0.5) +
+              linetype = "dashed", alpha = 0.5) +
+    geom_point(alpha = 0.5, size = 0.5) +
     scale_x_continuous(name = "Cumulative number of COVID-19 cases",
                        labels = comma_format(accuracy = 1)) + 
     scale_y_continuous(name = "New daily number of COVID-19 cases",
@@ -828,12 +828,12 @@ for (i in countries_eur_lockdown) {
     knot_date_2 <- knots_best_j %>% pull(Knot_date_2)
     
     # Define values of cumulative cases at knot dates
-    knot_1 <- data_eur_lockdown_i %>% filter(Date == knot_date_1) %>% pull(Cumulative_cases_beg)
-    knot_2 <- data_eur_lockdown_i %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
+    knot_1 <- data_eur_lockdown_T_i %>% filter(Date == knot_date_1) %>% pull(Cumulative_cases_beg)
+    knot_2 <- data_eur_lockdown_T_i %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
     
     # Calculate min and max values of cumulative cases in modelling period
-    x_min <- data_eur_lockdown_i %>% filter(Date >= date_100) %>% pull(Cumulative_cases_beg) %>% min()
-    x_max <- data_eur_lockdown_i %>% filter(Date >= date_100) %>% pull(Cumulative_cases_beg) %>% max()
+    x_min <- data_eur_lockdown_T_i %>% filter(Date >= date_100) %>% pull(Cumulative_cases_beg) %>% min()
+    x_max <- data_eur_lockdown_T_i %>% filter(Date >= date_100) %>% pull(Cumulative_cases_beg) %>% max()
     
     # Define Arima spline parameters
     slope_1 <- knots_best_j %>% pull(Growth_factor_1) %>% head(1) - 1
