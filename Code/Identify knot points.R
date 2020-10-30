@@ -324,7 +324,7 @@ for (i in countries_eur) {
       }
       
       # Calculate daily cases at time t and record
-      inc_t <- round(growth*inc_tminus1)
+      inc_t <- growth*inc_tminus1
       daily_cases_sim[, as.character(t)] <- inc_t
       
       # Calculate cumulative cases at end of time t and record
