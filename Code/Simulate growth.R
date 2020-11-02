@@ -78,6 +78,9 @@ thresholds <- c(0.0001, 0.00001, 0.000001)
 summary_daily_cases_sim <- list()  # daily cases
 summary_cumulative_cases_end_sim <- list()  # cumulative cases
 
+# Set seed
+set.seed(23)
+
 # (1) Iterate through countries
 start <- Sys.time()
 for (i in countries_eur_lockdown) {
