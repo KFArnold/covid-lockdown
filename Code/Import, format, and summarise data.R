@@ -23,7 +23,8 @@
 # ------------------------------------------------------------------------------
 
 # Load required packages
-library(wbstats); library(tidyverse); library(readr); library(dplyr); library(ggplot2); library(caTools)
+library(wbstats); library(tidyverse); library(readr); library(dplyr)
+library(ggplot2); library(caTools); library(sjlabelled)
 
 # Run source code to update external data
 #source("./Code/Update data.R")
