@@ -8,7 +8,6 @@
 # Notes:
 # Lithuania, Portugal, Spain, and UK have negative incidence 
 # (negative incidence creates problems for calculating Poisson deviance - have removed NA's from function for now)
-# date_T is currently a global parameter - should be local, as only want to consider first wave for each country
 # Test whether making stricter criteria as equivalent to lockdown changes best knots identified
 
 # Russia slowing appears to occur nearly 2 months after first restrictions/lockdown,
