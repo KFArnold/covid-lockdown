@@ -65,7 +65,7 @@ Round_preserve_sum <- function(x, digits = 0) {
 # ------------------------------------------------------------------------------
 
 # Define maximum number of days to simulate
-max_t <- 365  # PLACEHOLDER for now - can update later
+max_t <- 500  # PLACEHOLDER for now - can update later
 
 # Define number of simulation runs per country
 n_runs <- 100000
@@ -223,7 +223,7 @@ for (i in countries_eur_lockdown) {
   
 }  # (close country loop (1), k)
 end <- Sys.time()
-end - start  # ~ 6 mins
+end - start  # ~ 8 mins
 
 # Combine summary results for all countries
 summary_daily_cases_sim <- bind_rows(summary_daily_cases_sim)
