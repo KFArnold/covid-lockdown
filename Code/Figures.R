@@ -744,16 +744,21 @@ for (i in countries_eur_lockdown) {
   cc_lockdown_eased <- summary_eur_lockdown_i %>% pull(Cumulative_cases_beg_lockdown_eased)
   
   # Calculate first date for which incident cases go below lowest threshold after max incidence reached
-  date_highest_incidence <- summary_daily_cases_sim_i %>% filter(Mean == max(Mean)) %>% pull(Date)
+  highest_incidence <- summary_daily_cases_sim_i %>% filter(Mean == max(Mean)) %>% pull(Mean)
+  date_highest_incidence <- summary_daily_cases_sim_i %>% filter(Mean == highest_incidence) %>% pull(Date)
   lowest_threshold <- summary_thresholds_i %>% pull(Threshold_value) %>% min
-  date_lowest_threshold <- summary_daily_cases_sim_i %>% 
-    filter(Date >= date_highest_incidence, Mean < lowest_threshold) %>% pull(Date) %>% min
+  if (highest_incidence >= lowest_threshold) {
+    date_lowest_threshold <- summary_daily_cases_sim_i %>% 
+      filter(Date >= date_highest_incidence, Mean < lowest_threshold) %>% pull(Date) %>% min
+  } else {
+    date_lowest_threshold <- Inf
+  }
   
   # Calculate max_date (max date to display on plots)
   if (is.infinite(date_lowest_threshold)) { 
-    max_date <- date_T + 28 
+    max_date <- date_T + 28
   } else {
-    max_date <- date_lowest_threshold + 28
+    max_date <- max(date_lowest_threshold + 28, date_T + 28)
   }
   
   # Calculate expected number of cumulative cases (beg) on max_date
@@ -925,8 +930,8 @@ rm(out_folder, i, j, country,
    data_eur_lockdown_i, data_eur_lockdown_T_i, summary_eur_lockdown_i, knots_best_i,
    n_knots_i, date_50, date_first_restriction, date_lockdown, date_lockdown_eased,
    cc_first_restriction, cc_lockdown, cc_lockdown_eased,
-   date_highest_incidence, lowest_threshold, date_lowest_threshold, max_date,
-   cc_max_date, date_T, y_max_inc, y_max_cum, threshold_value,
+   highest_incidence, date_highest_incidence, lowest_threshold, date_lowest_threshold, 
+   max_date, cc_max_date, date_T, y_max_inc, y_max_cum, threshold_value,
    plot_inc, plot_cum, plot_exp, knots_best_j, knot_date_1, knot_date_2,
    knot_1, knot_2, x_min, x_max, 
    slope_1, slope_2, slope_3, intercept_1, intercept_2, intercept_3,
