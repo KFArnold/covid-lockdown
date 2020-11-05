@@ -439,7 +439,7 @@ rm(summary_max_number_restrictions, summary_first_restriction,
 # Calculate date_T (last date to include data from) as either...
 # Date_max or Date_lockdown_eased + 10, whichever comes first
 summary_eur <- summary_eur %>% group_by(Country) %>% 
-  mutate(Date_T = min(Date_max, Date_lockdown_eased + 10, na.rm = TRUE))
+  mutate(Date_T = min(Date_max, Date_lockdown_eased + 21, na.rm = TRUE))
 
 # Export  summary table
 write_csv(summary_eur, path = paste0(out, "Country summaries.csv"))
