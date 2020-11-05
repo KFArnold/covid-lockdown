@@ -65,7 +65,7 @@ Round_preserve_sum <- function(x, digits = 0) {
 # ------------------------------------------------------------------------------
 
 # Define maximum number of days to simulate
-max_t <- 500  # PLACEHOLDER for now - can update later
+max_t <- 548  # PLACEHOLDER for now - can update later
 
 # Define number of simulation runs per country
 n_runs <- 100000
@@ -254,7 +254,7 @@ summary_daily_cases_sim <- read_csv(paste0(out, "Simulation summary - daily case
 
 # Define thresholds to consider
 # (proportions of total population)
-thresholds <- c(0.0001, 0.00001, 0.000001)
+thresholds <- c(0.0001, 0.00005, 0.00001)
 
 # Create lists to store summary of thresholds
 summary_thresholds <- list()  # thresholds
