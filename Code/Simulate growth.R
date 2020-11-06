@@ -294,6 +294,7 @@ for (i in countries_eur_lockdown) {
     summary_thresholds_i[[k, "Threshold_exceeded"]] <- threshold_exceeded_k
     
     # If threshold value was exceeded, find first date cases went below threshold
+    # else, record days required since lockdown to fall below threshold as zero
     if (threshold_exceeded_k == TRUE) {
       
       # Filter dataset by dates >= date of max number of daily cases
@@ -308,7 +309,9 @@ for (i in countries_eur_lockdown) {
         summary_thresholds_i[[k, "Days_since_lockdown"]] <- as.numeric(date_cases_below_threshold - date_lockdown)
       }
       
-    }
+    } else {
+      summary_thresholds_i[[k, "Days_since_lockdown"]] <- 0
+          }
     
   }  # (close loop k)
   
