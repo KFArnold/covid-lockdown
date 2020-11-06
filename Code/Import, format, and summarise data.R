@@ -501,12 +501,3 @@ if (length(countries_eur_lockdown) != length(countries_eur)) {
   rm(unavail)
 } 
 # EXCLUDE RUSSIA HERE...?
-
-
-# Create datasets for countries which entered lockdown
-data_eur_lockdown <- data_eur %>% filter(Country %in% countries_eur_lockdown) %>% droplevels
-policies_eur_lockdown <- policies_eur %>% filter(Country %in% countries_eur_lockdown) %>% droplevels
-
-# Create summary table for countries which entered lockdown
-summary_eur_lockdown <- summary_eur %>% filter(Country %in% countries_eur_lockdown)
-
