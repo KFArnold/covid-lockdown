@@ -2,11 +2,11 @@
 # Notes
 # ------------------------------------------------------------------------------
 
-# This script imports/formats COVID-19 cases, deaths, and policies data 
+# This script imports/formats COVID-19 cases/deaths data, policies data, and World Bank data
 # for countries around the world, and selects a subset of European countries to be analysed 
 
 # It then produces a table which summarises the state of the pandemic in each country:
-# (1) First date at which each country exceeded 100 cases (and cases/deaths on this day);
+# (1) First date at which each country exceeded 50 cases (and cases/deaths on this day);
 # (2) First date at which any restriction was imposed (and cases/deaths on this day);
 # (3) Date at which the country entered lockdown (and cases/deaths on this day);
 # (4) Date at which the country came out of lockdown (and cases/deaths on this day).
@@ -23,7 +23,8 @@
 # ------------------------------------------------------------------------------
 
 # Load required packages
-library(tidyverse); library(readr); library(dplyr); library(ggplot2); library(caTools)
+library(wbstats); library(tidyverse); library(readr); library(dplyr)
+library(ggplot2); library(caTools); library(sjlabelled)
 
 # Run source code to update external data
 #source("./Code/Update data.R")
@@ -31,14 +32,14 @@ library(tidyverse); library(readr); library(dplyr); library(ggplot2); library(ca
 # Define all European countries
 # (from https://www.worldometers.info/geography/how-many-countries-in-europe/)
 countries <- list("Albania", "Andorra", "Austria", "Belarus", "Belgium", 
-                  "Bosnia and Herzegovina", "Bulgaria", "Croatia", "Czechia",
+                  "Bosnia and Herzegovina", "Bulgaria", "Croatia", "Czech Republic",
                   "Denmark", "Estonia", "Finland", "France", "Germany", 
                   "Greece", "Holy See", "Hungary", "Iceland", "Ireland", 
                   "Italy", "Latvia", "Liechtenstein", "Lithuania", 
                   "Luxembourg", "Malta", "Moldova", "Monaco", "Montenegro",
                   "Netherlands", "North Macedonia", "Norway", "Poland",
                   "Portugal", "Romania", "Russia", "San Marino",
-                  "Serbia", "Slovakia", "Slovenia", "Spain", "Sweden", 
+                  "Serbia", "Slovak Republic", "Slovenia", "Spain", "Sweden", 
                   "Switzerland", "Ukraine", "United Kingdom")
 
 # Set storage directory for outputs
@@ -91,13 +92,19 @@ Summarise_N_Measures <- function(DATA, MEASURES, CUTOFFS) {
 cases <- read_csv("./Data/CSSE data/time_series_covid19_confirmed_global.csv")
 deaths <- read_csv("./Data/CSSE data/time_series_covid19_deaths_global.csv")
 ## (2) OxCGRT data (government policies)
-policies <- read_csv("./Data/OxCGRT data/OxCGRT_latest.csv") %>% 
+policies <- read_csv("./Data/OxCGRT data/OxCGRT_latest.csv",
+                     col_types = cols(RegionName = col_character(),
+                                      RegionCode = col_character())) %>% 
   mutate(Date = as.Date(as.character(Date), format = "%Y%m%d"))
+## World Bank data (population size, land area (square km))
+worldbank <- wb_data(indicator = c("SP.POP.TOTL", "AG.LND.TOTL.K2"), start_date = 2015, end_date = 2020) %>%
+  rename(Area_sq_km = AG.LND.TOTL.K2, Population = SP.POP.TOTL, Year = date) %>% remove_all_labels()
 
 # Replace slashes and spaces with underscores
 names(cases) <- str_replace_all(names(cases), c("/" = "_", " " = "_"))
 names(deaths) <- str_replace_all(names(deaths), c("/" = "_", " " = "_"))
 names(policies) <- str_replace_all(names(policies), c("/" = "_", " " = "_"))
+names(worldbank) <- str_to_title(names(worldbank))
 
 # Convert datasets to long form, select relevant variables, 
 # rename country variable, convert characters to factors,
@@ -112,10 +119,13 @@ deaths <- deaths %>% gather(Date, Cumulative_deaths_end, -(1:4)) %>%
   select(-c(Lat, Long)) %>% rename(c(Country = Country_Region)) %>% 
   mutate_if(is.character, as.factor) %>%
   group_by(Province_State, Country) %>% arrange(Country, Date)
-policies <- policies %>% rename(c(Country = CountryName)) %>% 
-  select(Country:C8_International_travel_controls) %>% #select(-contains("Flag")) %>%
+policies <- policies %>% rename(c(Country = CountryName,
+                                  Province_State = RegionName)) %>% 
+  select(-contains("Code"), c(Date, C1_School_closing:C8_International_travel_controls)) %>%
   mutate_if(is.character, as.factor) %>%
-  group_by(Country) %>% arrange(Country, Date)
+  group_by(Province_State, Country) %>% arrange(Country, Date)
+worldbank <- worldbank %>% mutate_if(is.character, as.factor) %>% 
+  group_by(Country) %>% arrange(Country)
 
 # Calculate daily cases and deaths
 cases <- cases %>% mutate(Cumulative_cases_beg = lag(Cumulative_cases_end, n = 1, default = 0),
@@ -138,27 +148,30 @@ data_all <- full_join(cases, deaths) %>% relocate(contains("MA7"), .after = last
 rm(cases, deaths)  # (remove separate datasets)
 
 # Create variables for: date of first case (Date_0), 
-# date at which cases first exceeded 100 (Date_100), 
-# number of days since 100 cases (Days_since_100), and
+# date at which cases first exceeded 50 (Date_50), 
+# number of days since 50 cases (Days_since_50), and
 # date for which data can be reasonably assumed complete (Date_max)
 data_all <- data_all %>% mutate(Date_0 = Date[which(Daily_cases >= 1)[1]],
-                                Date_100 = Date[which(Cumulative_cases_beg >= 100)[1]],
-                                Days_since_100 = as.numeric(Date - Date_100),
+                                Date_50 = Date[which(Cumulative_cases_beg >= 50)[1]],
+                                Days_since_50 = as.numeric(Date - Date_50),
                                 Date_max = max(Date) - 7)
 
 # Remove data after Date_max, since this is likely incomplete
 data_all <- data_all %>% filter(Date <= Date_max)
 
-# Rename Czech Republic and Slovak Republic in policies dataset
-policies <- policies %>% mutate(Country = recode(Country, "Czech Republic" = "Czechia"),
-                                Country = recode(Country, "Slovak Republic" = "Slovakia"))
+# Rename Czechia and Slovakia in cases/deaths dataset,
+# and Russian Federation in Worldbank data
+data_all <- data_all %>% mutate(Country = recode(Country, "Czechia" = "Czech Republic"),
+                                Country = recode(Country, "Slovakia" = "Slovak Republic"))
+worldbank <- worldbank %>% mutate(Country = recode(Country, "Russian Federation" = "Russia"))
 
 # Retain data for countries in Europe only
 # and remove dependencies (of the Netherlands, UK, France, and Denmark)
 # and drop unused levels
 data_eur <- data_all %>% filter(Country %in% countries) %>% ungroup(Province_State) %>%
   filter(is.na(Province_State)) %>% select(-Province_State) %>% droplevels
-policies_eur <- policies %>% filter(Country %in% countries) %>% droplevels
+policies_eur <- policies %>% filter(Country %in% countries) %>% ungroup(Province_State) %>%
+  filter(is.na(Province_State)) %>% select(-Province_State) %>% droplevels
 
 # Create list of European countries for which we have both cases/deaths data and policy data
 countries_eur <- as.list(intersect(levels(data_eur$Country), levels(policies_eur$Country)))
@@ -174,36 +187,51 @@ if (length(countries_eur) != length(countries)) {
 # Retain data for European countries for which we have both cases/deaths data and policy data
 data_eur <- data_eur %>% filter(Country %in% countries_eur) %>% droplevels
 policies_eur <- policies_eur %>% filter(Country %in% countries_eur) %>% droplevels
+worldbank_eur <- worldbank %>% filter(Country %in% countries_eur) %>% droplevels
 
 # Remove non-European dataframes and lists
-rm(countries, data_all, policies)
+rm(countries, data_all, policies, worldbank)
 
 # ------------------------------------------------------------------------------
 # Summarise countries 
 # ------------------------------------------------------------------------------
 
-# Create summary table which defines first date at which cases first exceeded 100 (Date_100)
-summary_eur <- data_eur %>% filter(Date == Date_100) %>% 
-  select(-c(Date_100, Days_since_100, contains(c("end", "MA7")))) %>%
-  rename_at(vars(-c(Country, Date_0, Date_max)), .funs = list(~ paste0(., "_100"))) %>%
-  relocate(c(Date_0, Date_max), .before = Date_100)
+# Define variables to be included in summaries of important dates
+summary_vars <- c("Country", "Date", "Cumulative_cases_beg", "Daily_cases", "Daily_cases_MA7", 
+                  "Cumulative_deaths_beg", "Daily_deaths", "Daily_deaths_MA7")
+
+# Create summary table which defines first date at which cases first exceeded 50 (Date_50)
+summary_eur <- data_eur %>% filter(Date == Date_50) %>% 
+  select(c(all_of(summary_vars), Date_0, Date_max)) %>%
+  rename_at(vars(-c(Country, Date_0, Date_max)), .funs = list(~ paste0(., "_50"))) %>%
+  relocate(c(Date_0, Date_max), .before = Date_50)
 
 # Create empty summary tables to store:
-# (1) Date of first restriction (including cases and deaths)
-summary_first_restriction <- data_eur %>% 
-  select(-c(Date_0, Date_100, Days_since_100, Date_max, contains(c("end", "MA7")))) %>%
+# (1) Max number of restrictions
+summary_max_number_restrictions <- data_eur %>% select(Country) %>% 
+  mutate(Max_number_restrictions = as.numeric(NA))
+summary_max_number_restrictions <- summary_max_number_restrictions[0, ]
+# (2) Date of first restriction (including cases and deaths)
+summary_first_restriction <- data_eur %>% select(all_of(summary_vars)) %>%
   rename_at(vars(-Country), .funs = list(~ paste0(., "_first_restriction"))) 
 summary_first_restriction <- summary_first_restriction[0, ]
-# (2) Date of lockdown (including cases and deaths)
-summary_lockdown <- data_eur %>% 
-  select(-c(Date_0, Date_100, Days_since_100, Date_max, contains(c("end", "MA7")))) %>%
+# (3) Date of restriction easing (including cases and deaths)
+summary_restrictions_eased <- data_eur %>% select(all_of(summary_vars)) %>%
+  rename_at(vars(-Country), .funs = list(~ paste0(., "_restrictions_eased"))) 
+summary_restrictions_eased <- summary_restrictions_eased[0, ]
+# (4) Date of lockdown (including cases and deaths)
+summary_lockdown <- data_eur %>% select(all_of(summary_vars)) %>%
   rename_at(vars(-Country), .funs = list(~ paste0(., "_lockdown"))) 
 summary_lockdown <- summary_lockdown[0, ]
-# (2) Date of lockdown end (including cases and deaths)
-summary_lockdown_end <- data_eur %>% 
-  select(-c(Date_0, Date_100, Days_since_100, Date_max, contains(c("end", "MA7")))) %>%
+# (5) Date of lockdown end (including cases and deaths)
+summary_lockdown_end <- data_eur %>% select(all_of(summary_vars)) %>% 
   rename_at(vars(-Country), .funs = list(~ paste0(., "_lockdown_end"))) 
 summary_lockdown_end <- summary_lockdown_end[0, ]
+# (6) Date of lockdown easing (including cases and deaths)
+summary_lockdown_eased <- data_eur %>% select(all_of(summary_vars)) %>%
+  rename_at(vars(-Country), .funs = list(~ paste0(., "_lockdown_eased"))) 
+summary_lockdown_eased <- summary_lockdown_eased[0, ]
+
 
 # Define requirements of interest and cutoff points for whether measures have been implemented
 # [1 corresponds to measure recommended, 2-3 corresponds to measure required]
@@ -242,33 +270,83 @@ for (i in 1:nrow(summary_eur)) {
   # Filter policies data by date_max
   policies_eur_i <- policies_eur_i %>% filter(Date <= date_max)
   
-  # Summarise first restriction --------
+  # Restrictions  --------
   
-  # Determine number of recommended measures values on each date
-  data_first_restriction <- Summarise_N_Measures(DATA = policies_eur_i,
-                                                 MEASURES = measures_any_restriction,
-                                                 CUTOFFS = cutoffs_any_restriction)
+  # (either recommended or required)
   
-  # Determine whether threshold of 1 exceeded for each date 
-  # (i.e. whether ANY measures were recommended)
-  data_first_restriction <- data_first_restriction %>% 
-    mutate(Threshold_exceeded = ifelse(N_measures >= threshold_any_restriction, TRUE, FALSE))
+  # Determine number of recommended or required measures values on each date
+  data_any_restriction <- Summarise_N_Measures(DATA = policies_eur_i,
+                                               MEASURES = measures_any_restriction,
+                                               CUTOFFS = cutoffs_any_restriction)
   
-  # Filter by dates where any measures were recommended
-  data_first_restriction_filt <- data_first_restriction %>% filter(Threshold_exceeded == TRUE)
+  # Determine change in number of restrictions from previous day
+  # (negative value indicates restriction(s) lifted, ...
+  # ...zero indicates no change, positive value indicates restriction(s) increased)
+  data_any_restriction <- data_any_restriction %>%
+    mutate(N_measures_diff = N_measures - lag(N_measures, n = 1, default = NA))
   
-  # Find first instance where any measures were recommended
-  # and summarise cases/deaths on this date
-  if (nrow(data_first_restriction_filt) > 0) {
-    # Define date of first restriction
-    date_first_restriction <- data_first_restriction_filt %>% pull(Date) %>% min(na.rm = TRUE)
+  # Determine whether any measures were recommended/required (i.e. threshold of 1 exceeded) for each date,
+  # and whether number of measures decreases (i.e. diff is negative) for each date
+  data_any_restriction <- data_any_restriction %>% 
+    mutate(Threshold_exceeded = ifelse(N_measures >= threshold_any_restriction, TRUE, FALSE),
+           Diff_neg = ifelse(N_measures_diff < 0, TRUE, FALSE)) %>%
+    relocate(-contains("diff"))
+  
+  # Create indicator for whether any restriction was recommended/required
+  any_restriction_tf <- any(data_any_restriction$Threshold_exceeded == TRUE, na.rm = TRUE)
+  
+  # Analyse countries which recommended/required any restriction
+  if (any_restriction_tf == TRUE) {
+    
+    ## Max number of restrictions ##
+    
+    # Determine max number of recommended or required measures
+    max_number_restrictions <- data_any_restriction %>% summarise(max(N_measures)) %>% pull()
+    # Create summary of max number of measures
+    summary_max_number_restrictions_i <- tibble(Country = as.factor(country), 
+                                                Max_number_restrictions = max_number_restrictions)
+    # Add max number of measures to summary table
+    summary_max_number_restrictions <- bind_rows(summary_max_number_restrictions, summary_max_number_restrictions_i)
+    
+    ## First restriction ##
+    ## (first date where any restrictions were either recommended or required) ##
+    
+    # Filter restrictions data by dates where any measures were recommended
+    data_any_restriction_filt <- data_any_restriction %>% filter(Threshold_exceeded == TRUE)
+    # Define date of first restriction as first date where threshold was exceeded
+    date_first_restriction <- data_any_restriction_filt %>% pull(Date) %>% min(na.rm = TRUE)
     # Create summary of cases/deaths on date of first restriction
     summary_first_restriction_i <- data_eur_i %>% filter(Date == date_first_restriction) %>% 
-      select(-c(Date_0, Date_100, Days_since_100, Date_max, contains(c("end", "MA7")))) %>%
+      select(all_of(summary_vars)) %>%
       rename_at(vars(-Country), .funs = list(~ paste0(., "_first_restriction"))) 
     # Merge with full first restriction summary dataset
     summary_first_restriction <- bind_rows(summary_first_restriction, summary_first_restriction_i)
-  }
+    
+    ## Restrictions eased ##
+    ## (first date after date of first restriction where number of measures decreased) ##
+    
+    # Filter restrictions data by dates greater than date of first restriction
+    data_any_restriction_filt <- data_any_restriction %>% filter(Date >= date_first_restriction)
+    
+    # Create indicator for whether restrictions were eased
+    # (TRUE if difference is negative on any date, FALSE if difference always >= 0)
+    restrictions_eased_tf <- any(data_any_restriction_filt$Diff_neg == TRUE, na.rm = TRUE)
+    
+    # Analyse countries whose restrictions were eased
+    if (restrictions_eased_tf == TRUE) {
+      # Re-filter data by dates where difference is negative
+      data_any_restriction_filt <- data_any_restriction_filt %>% filter(Diff_neg == TRUE)
+      # Define date of restrictions eased as first date with negative difference
+      date_restrictions_eased <- data_any_restriction_filt %>% pull(Date) %>% min(na.rm = TRUE)
+      # Create summary of cases/deaths on date restrictions eased
+      summary_restrictions_eased_i <- data_eur_i %>% filter(Date == date_restrictions_eased) %>% 
+        select(all_of(summary_vars)) %>%
+        rename_at(vars(-Country), .funs = list(~ paste0(., "_restrictions_eased")))
+      # Merge with full lockdown easing summary dataset
+      summary_restrictions_eased <- bind_rows(summary_restrictions_eased, summary_restrictions_eased_i)
+    }  
+    
+  }  # (close inner loop - countries which which recommended/required any restriction)
   
   # Summarise lockdown --------
   
@@ -282,69 +360,128 @@ for (i in 1:nrow(summary_eur)) {
                                             MEASURES = measures_lockdown_alt, 
                                             CUTOFFS = cutoffs_lockdown_alt)
   
+  # Determine change in number of restrictions from previous day
+  # (negative value indicates restriction(s) lifted, ...
+  # ...zero indicates no change, positive value indicates restriction(s) increased)
+  data_lockdown <- data_lockdown %>% 
+    mutate(N_measures_diff = N_measures - lag(N_measures, n = 1, default = NA))
+  data_lockdown_alt <- data_lockdown_alt %>% 
+    mutate(N_measures_diff = N_measures - lag(N_measures, n = 1, default = NA))
+  
   # Merge two dataframes together
   data_lockdown_all <- full_join(data_lockdown, data_lockdown_alt, by = "Date", suffix = c("_lockdown", "_lockdown_alt"))
   
-  # Determine whether lockdown measures or alternate lockdown threshold exceeded for each date
-  data_lockdown_all <- data_lockdown_all %>% mutate(Threshold_exceeded = ifelse(N_measures_lockdown >= threshold_lockdown |
-                                                             N_measures_lockdown_alt >= threshold_lockdown_alt,
-                                                           TRUE, FALSE))
+  # Determine whether lockdown measures or alternate lockdown threshold is exceeded for each date,
+  # and whether number of lockdown measures or alternate lockdown measures decreases (i.e. diff is negative) for each date
+  data_lockdown_all <- data_lockdown_all %>% 
+    mutate(Threshold_exceeded = ifelse(N_measures_lockdown >= threshold_lockdown |
+                                         N_measures_lockdown_alt >= threshold_lockdown_alt,
+                                       TRUE, FALSE),
+           Diff_neg = ifelse(N_measures_diff_lockdown < 0 | N_measures_diff_lockdown_alt < 0, 
+                             TRUE, FALSE)) %>%
+    relocate(-contains("diff"))
   
-  # Filter by dates where either lockdown or alternate lockdown measures were required
-  data_lockdown_all_filt <- data_lockdown_all %>% filter(Threshold_exceeded == TRUE)
+  # Create indicator for whether lockdown was entered
+  # (TRUE if threshold exceeded on any date, FALSE if threshold never exceeded)
+  lockdown_tf <- any(data_lockdown_all$Threshold_exceeded == TRUE, na.rm = TRUE)
   
   # Analyse countries which entered lockdown
-  if (nrow(data_lockdown_all_filt) > 0) {
+  if (lockdown_tf == TRUE) {
     
     ## Beginning of lockdown ##
-    # (first date where either lockdown or alternate lockdown measures were required)
+    ## (first date where either lockdown or alternate lockdown measures were required) ##
     
-    # Define lockdown date
+    # Filter lockdown data by dates where lockdown threshold was exceeded
+    data_lockdown_all_filt <- data_lockdown_all %>% filter(Threshold_exceeded == TRUE)
+    # Define lockdown date as first date where threshold was exceeded
     date_lockdown <- data_lockdown_all_filt %>% pull(Date) %>% min(na.rm = TRUE)
     # Create summary of cases/deaths on date of lockdown
     summary_lockdown_i <- data_eur_i %>% filter(Date == date_lockdown) %>% 
-      select(-c(Date_0, Date_100, Days_since_100, Date_max, contains(c("end", "MA7")))) %>%
+      select(all_of(summary_vars)) %>%
       rename_at(vars(-Country), .funs = list(~ paste0(., "_lockdown"))) 
     # Merge with full lockdown summary dataset
     summary_lockdown <- bind_rows(summary_lockdown, summary_lockdown_i)
     
-    ## End of lockdown ##
-    # (first date AFTER date_lockdown where neither lockdown measures no alt lockdown measures were required)
+    ## Lockdown eased ##
+    ## (first date after lockdown date where number of measures decreased) ##
     
-    # Re-filter lockdown data by dates greater than date_lockdown,
-    # then by dates where neither lockdown nor alternate lockdown measures were required
-    data_lockdown_all_filt <- data_lockdown_all %>% filter(Date > date_lockdown, Threshold_exceeded == FALSE) 
+    # Filter lockdown data by dates greater than lockdown date
+    data_lockdown_all_filt <- data_lockdown_all %>% filter(Date >= date_lockdown)
+    
+    # Create indicator for whether lockdown was eased
+    # (TRUE if difference is negative on any date, FALSE if difference always >= 0)
+    lockdown_eased_tf <- any(data_lockdown_all_filt$Diff_neg == TRUE, na.rm = TRUE)
+    
+    # Analyse countries which eased lockdown
+    if (lockdown_eased_tf == TRUE) {
+      # Re-filter data by dates where difference is negative
+      data_lockdown_all_filt <- data_lockdown_all_filt %>% filter(Diff_neg == TRUE)
+      # Define lockdown easing date as first date with negative difference
+      date_lockdown_eased <- data_lockdown_all_filt %>% pull(Date) %>% min(na.rm = TRUE)
+      # Create summary of cases/deaths on date lockdown eased
+      summary_lockdown_eased_i <- data_eur_i %>% filter(Date == date_lockdown_eased) %>% 
+        select(all_of(summary_vars)) %>%
+        rename_at(vars(-Country), .funs = list(~ paste0(., "_lockdown_eased")))
+      # Merge with full lockdown easing summary dataset
+      summary_lockdown_eased <- bind_rows(summary_lockdown_eased, summary_lockdown_eased_i)
+    }
+    
+    ## End of lockdown ##
+    ## (first date AFTER lockdown date where neither lockdown measures no alt lockdown measures were required) ##
+    
+    # Filter lockdown data by dates greater than lockdown date
+    data_lockdown_all_filt <- data_lockdown_all %>% filter(Date >= date_lockdown)
+    
+    # Create indicator for whether lockdown was ended
+    lockdown_end_tf <- any(data_lockdown_all_filt$Threshold_exceeded == FALSE, na.rm = TRUE)
     
     # Analyse countries which ended lockdown
-    if (nrow(data_lockdown_all_filt) > 0) {
+    if (lockdown_end_tf == TRUE) {
+      # Re-filter data by dates where lockdown threshold wasn't exceeded
+      data_lockdown_all_filt <- data_lockdown_all_filt %>% filter(Threshold_exceeded == FALSE) 
       # Define lockdown end date
       date_lockdown_end <- data_lockdown_all_filt %>% pull(Date) %>% min(na.rm = TRUE)
       # Create summary of cases/deaths on date of lockdown end
       summary_lockdown_end_i <- data_eur_i %>% filter(Date == date_lockdown_end) %>% 
-        select(-c(Date_0, Date_100, Days_since_100, Date_max, contains(c("end", "MA7")))) %>%
+        select(all_of(summary_vars)) %>%
         rename_at(vars(-Country), .funs = list(~ paste0(., "_lockdown_end"))) 
       # Merge with full lockdown summary dataset
       summary_lockdown_end <- bind_rows(summary_lockdown_end, summary_lockdown_end_i)
     }
     
-  }
+  }  # (close inner loop - countries which entered lockdown)
   
-}
+}  # (close outer loop - all countries)
+
 # Remove measures/cutoffs, loop objects
 rm(measures_lockdown, measures_lockdown_alt, measures_any_restriction,
    cutoffs_lockdown, cutoffs_lockdown_alt, cutoffs_any_restriction,
    threshold_lockdown, threshold_lockdown_alt, threshold_any_restriction)
-rm(i, country, data_eur_i, policies_eur_i, date_max,
-   summary_first_restriction_i, summary_lockdown_i, summary_lockdown_end_i,
-   data_first_restriction, data_first_restriction_filt, 
+rm(i, country, summary_vars, data_eur_i, policies_eur_i, date_max,
+   any_restriction_tf, restrictions_eased_tf, 
+   lockdown_tf, lockdown_eased_tf, lockdown_end_tf,
+   summary_max_number_restrictions_i, summary_first_restriction_i, 
+   summary_restrictions_eased_i, summary_lockdown_i, 
+   summary_lockdown_eased_i, summary_lockdown_end_i,
+   data_any_restriction, data_any_restriction_filt, 
    data_lockdown, data_lockdown_alt, data_lockdown_all, data_lockdown_all_filt,
-   date_first_restriction, date_lockdown, date_lockdown_end)
+   max_number_restrictions, date_first_restriction, date_restrictions_eased,
+   date_lockdown, date_lockdown_eased, date_lockdown_end)
 
 # Combine all summary datasets; remove separate dataframes
-summary_eur <- full_join(summary_eur, summary_first_restriction, by = "Country") %>%
+summary_eur <- full_join(summary_eur, summary_max_number_restrictions, by = "Country") %>%
+  full_join(., summary_first_restriction, by = "Country") %>%
+  full_join(., summary_restrictions_eased, by = "Country") %>%
   full_join(., summary_lockdown, by = "Country") %>% 
+  full_join(., summary_lockdown_eased, by = "Country") %>%
   full_join(., summary_lockdown_end, by = "Country") %>% ungroup
-rm(summary_first_restriction, summary_lockdown, summary_lockdown_end)
+rm(summary_max_number_restrictions, summary_first_restriction, summary_restrictions_eased,
+   summary_lockdown, summary_lockdown_eased, summary_lockdown_end)
+
+# Calculate date_T (last date to include data from) as either...
+# Date_max, Date_restrictions_eased + 28, or Date_lockdown_eased + 28, whichever comes first
+summary_eur <- summary_eur %>% group_by(Country) %>% 
+  mutate(Date_T = min(Date_max, Date_restrictions_eased + 28, Date_lockdown_eased + 28, na.rm = TRUE))
 
 # Export  summary table
 write_csv(summary_eur, path = paste0(out, "Country summaries.csv"))
@@ -364,12 +501,3 @@ if (length(countries_eur_lockdown) != length(countries_eur)) {
   rm(unavail)
 } 
 # EXCLUDE RUSSIA HERE...?
-
-
-# Create datasets for countries which entered lockdown
-data_eur_lockdown <- data_eur %>% filter(Country %in% countries_eur_lockdown) %>% droplevels
-policies_eur_lockdown <- policies_eur %>% filter(Country %in% countries_eur_lockdown) %>% droplevels
-
-# Create summary table for countries which entered lockdown
-summary_eur_lockdown <- summary_eur %>% filter(Country %in% countries_eur_lockdown)
-
