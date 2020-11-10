@@ -2,8 +2,12 @@
 # Notes
 # ------------------------------------------------------------------------------
 
-# This script creates various figures related to COVID-19:
-# (1) Important dates by country (including dates of first restrictions and lockdowns)
+# This script creates various country-specific figures related to COVID-19:
+# (1) Important dates (including dates of first restrictions and lockdowns)
+# (2) Exponential growth (i.e. cumulative vs incident cases), with and without fitted splines
+# (3) Growth factors under lockdown
+# (4) Observed incident and cumulative cases 
+# (5) Simulated incident and cumulative cases
 
 # ------------------------------------------------------------------------------
 # Setup

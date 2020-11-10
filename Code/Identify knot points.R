@@ -2,7 +2,15 @@
 # Notes
 # ------------------------------------------------------------------------------
 
-# This script...
+# This script finds the 'best' pairs of dates where the growth rate of COVID-19 cases changes,
+# from a list of candidate pairs of dates. This is done for all European countries.
+
+# For each candidate pair, an ARIMA spline model is fit with the pair of dates as knot points.
+# The growth factor for each of the spline segments is estimated from this model,
+# and the growth of cases is simulated using the estimated growth factors.
+
+# The 'best' pairs of dates for each country are selected according to how well their estimated growth factors
+# fit the observed growth of COVID-19 cases.
 
 
 # Notes:

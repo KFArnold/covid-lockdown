@@ -6,6 +6,9 @@
 # for all European countries for which we have data relating to both cases and policies.
 # It uses the 'best' pairs of knot points identified in script 'Identify knot points.R'.
 
+# It also calculates the number of days from lockdown until the mean number of daily cases
+# falls below specified thresholds (based on population).
+
 # ------------------------------------------------------------------------------
 # Setup
 # ------------------------------------------------------------------------------
