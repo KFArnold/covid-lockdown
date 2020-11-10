@@ -13,8 +13,11 @@
 # Setup
 # ------------------------------------------------------------------------------
 
-# Load packages
-library(stringr); library(sjlabelled); library(scales); library(ggpubr)
+# Restore package library to last snapshot
+packrat::restore()
+
+# Load required packages
+library(tidyverse)
 
 # Run source code to import and format data
 source("./Code/Import, format, and summarise data.R")
