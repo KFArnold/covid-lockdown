@@ -27,7 +27,7 @@
 
 # Load required packages
 library(tidyverse); library(lspline); library(forecast); library(ggpubr); 
-library(ggrepel); library(scales); library(Metrics)
+library(ggrepel); library(scales)
 
 # Run source code to import and format data
 source("./Code/Import, format, and summarise data.R")
