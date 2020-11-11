@@ -13,6 +13,9 @@
 # Setup
 # ------------------------------------------------------------------------------
 
+# Restore package library to last snapshot
+packrat::restore()
+
 # Load required packages
 library(readr)
 

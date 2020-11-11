@@ -22,9 +22,11 @@
 # Setup
 # ------------------------------------------------------------------------------
 
+# Restore package library to last snapshot
+packrat::restore()
+
 # Load required packages
-library(wbstats); library(tidyverse); library(readr); library(dplyr)
-library(ggplot2); library(caTools); library(sjlabelled)
+library(wbstats); library(tidyverse); library(caTools); library(sjlabelled)
 
 # Run source code to update external data
 #source("./Code/Update data.R")

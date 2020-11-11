@@ -13,9 +13,11 @@
 # Setup
 # ------------------------------------------------------------------------------
 
+# Restore package library to last snapshot
+packrat::restore()
+
 # Load required packages
-library(tidyverse); library(readr); library(dplyr); library(ggplot2); 
-library(ggrepel); library(scales); library(ggpubr)
+library(tidyverse); library(ggrepel); library(scales); library(ggpubr)
 
 # Run source code to import, format, and summarise data
 source("./Code/Import, format, and summarise data.R")
