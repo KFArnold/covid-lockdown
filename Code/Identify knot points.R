@@ -156,7 +156,7 @@ for (i in countries_eur) {
         # Fit regular Arima model (with intercept, since this is not technically first segment)
         model <- tryCatch(Arima(data_eur_50_i$Daily_cases, order = c(2, 0, 0), 
                                 seasonal = list(order = c(1, 0, 0), period = 7),
-                                xreg = as.matrix(data_eur_final_50_i[, "Cumulative_cases_beg"]), 
+                                xreg = as.matrix(data_eur_50_i[, "Cumulative_cases_beg"]), 
                                 include.constant = TRUE, method = "ML"), 
                           error = function(e) { skip_to_next <<- TRUE } )
         if (skip_to_next) { next }
@@ -361,10 +361,14 @@ for (i in countries_eur) {
     
   }  # (close loop 2)
   
-  # Remove from consideration knot date pairs for which growth factor 1 is negative AND growth factor 3 exists 
-  # (i.e. growth factor 1 is positive OR growth factor 3 doesn't exist),
-  # because where there are 3 segments, the first scenario must represent initial uncontrolled growth
-  knots <- knots %>% filter(Growth_factor_1 >= 1 | is.na(Growth_factor_3))
+  # Remove from consideration knot date pairs for which ...
+  # (1) growth factor 1 is less than 1 AND growth factor 3 exists 
+  # (because where there are 3 segments, the first scenario must represent initial uncontrolled growth)
+  # (2) any of growth factors are negative
+  remove_1 <- knots %>% filter(Growth_factor_1 < 1 & !is.na(Growth_factor_3)) 
+  remove_2 <- knots %>% filter(Growth_factor_1 < 0 | Growth_factor_2 < 0 | Growth_factor_3 < 0)
+  knots <- anti_join(knots, remove_1, by = names(knots)) %>% 
+    anti_join(., remove_2, by = names(knots))
   
   # Find best knot points (by lowest Pois_dev_inc) for each country and label 
   knots_best_i <- knots %>% arrange(Pois_dev_inc) %>% head(10) %>% 
@@ -388,7 +392,7 @@ rm(i, j, t, g, country, data_eur_i, summary_eur_i, data_eur_50_i,
    growth_factor_1, growth_factor_2, growth_factor_3,
    inc_tminus1, cum_tminus1, inc_t, cum_t, growth,
    true_inc, pred_inc, true_cum, pred_cum, true_cum_end, pred_cum_end,
-   knots_best_i, start, end)
+   knots_best_i, remove_1, remove_2, start, end)
 
 # Combine best knots from all countries into single dataframe
 knots_best <- bind_rows(knots_best)
