@@ -56,7 +56,7 @@ knots_best <- list()
 
 # (1) Iterate through countries
 start <- Sys.time()
-for (i in countries_eur) {
+for (i in countries_eur_lockdown) {
   
   # Define country
   country <- i
@@ -345,7 +345,7 @@ for (i in countries_eur) {
     pred_inc <- daily_cases_sim[1, -1]
     knots[[j, "Pois_dev_inc"]] <- Calc_Pois_Dev(obs = true_inc, sim = pred_inc)
     ## (2) For true vs predicted cumulative cases
-    true_cum <- data_eur_50_i$Cumulative_cases_end_MA7
+    true_cum <- data_eur_50_i$Cumulative_cases_end
     pred_cum <- cumulative_cases_end_sim[1, -1]
     knots[[j, "Pois_dev_cum"]] <- Calc_Pois_Dev(obs = true_cum, sim = pred_cum)
     
@@ -356,8 +356,8 @@ for (i in countries_eur) {
     
     # Display progress 
     cat('\r', paste(round((j / nrow(knots) * 100), 0), 
-                    "% done of country", grep(country, unlist(countries_eur)), "of", 
-                    length(countries_eur), "          ", sep = " "))
+                    "% done of country", grep(country, unlist(countries_eur_lockdown)), "of", 
+                    length(countries_eur_lockdown), "          ", sep = " "))
     
   }  # (close loop 2)
   
