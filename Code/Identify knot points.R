@@ -418,7 +418,7 @@ median_growth_factors <- knots_best %>% summarise(Median_growth_factor_1 = media
                                                   Median_growth_factor_2 = median(Growth_factor_2, na.rm = TRUE),
                                                   Median_growth_factor_3 = median(Growth_factor_3, na.rm = TRUE),
                                                   .groups = "keep")
-knots_best <- full_join(knots_best, median_growth_factors)
+knots_best <- full_join(knots_best, median_growth_factors, by = "Country")
 rm(median_growth_factors)
 
 # Export knots_best dataframe
