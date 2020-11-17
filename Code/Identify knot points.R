@@ -126,9 +126,9 @@ for (i in countries_eur_lockdown) {
            dimnames = list(1, as.character(seq.Date(from = date_50 - 1, to = date_T, by = 1))))
   # Initialise matrices with data at date_50 - 1
   daily_cases_sim[, 1] <- data_eur_i %>% 
-    filter(Date == (date_50 - 1)) %>% pull(Daily_cases)
+    filter(Date == (date_50 - 1)) %>% pull(Daily_cases_MA7)
   cumulative_cases_end_sim[, 1] <- data_eur_i %>% 
-    filter(Date == (date_50 - 1)) %>% pull(Cumulative_cases_end)
+    filter(Date == (date_50 - 1)) %>% pull(Cumulative_cases_end_MA7)
   
   # (2) Iterate through pairs of candidate knot points
   for (j in 1:nrow(knots)) {
@@ -345,7 +345,7 @@ for (i in countries_eur_lockdown) {
     pred_inc <- daily_cases_sim[1, -1]
     knots[[j, "Pois_dev_inc"]] <- Calc_Pois_Dev(obs = true_inc, sim = pred_inc)
     ## (2) For true vs predicted cumulative cases
-    true_cum <- data_eur_50_i$Cumulative_cases_end
+    true_cum <- data_eur_50_i$Cumulative_cases_end_MA7
     pred_cum <- cumulative_cases_end_sim[1, -1]
     knots[[j, "Pois_dev_cum"]] <- Calc_Pois_Dev(obs = true_cum, sim = pred_cum)
     

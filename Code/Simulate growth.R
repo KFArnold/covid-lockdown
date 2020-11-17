@@ -146,9 +146,9 @@ for (i in countries_eur_lockdown) {
              dimnames = list(NULL, as.character(seq.Date(from = date_50 - 1, to = date_end, by = 1))))
     # Initialise matrices with data at date_50 - 1
     daily_cases_sim_j[, 1] <- data_eur_i %>% 
-      filter(Date == (date_50 - 1)) %>% pull(Daily_cases)
+      filter(Date == (date_50 - 1)) %>% pull(Daily_cases_MA7)
     cumulative_cases_end_sim_j[, 1] <- data_eur_i %>% 
-      filter(Date == (date_50 - 1)) %>% pull(Cumulative_cases_end)
+      filter(Date == (date_50 - 1)) %>% pull(Cumulative_cases_end_MA7)
     
     # (3) Iterate through dates
     for (t in as.list(dates)) {
