@@ -148,7 +148,7 @@ deaths <- deaths %>% mutate(Daily_deaths_MA7 = round(runmean(Daily_deaths, k = 7
   relocate(Cumulative_deaths_beg_MA7, .before = Daily_deaths_MA7)
 
 # Merge cases and deaths datasets into single dataframe
-data_all <- full_join(cases, deaths) %>% relocate(contains("MA7"), .after = last_col())
+data_all <- full_join(cases, deaths, by = c("Province_State", "Country", "Date")) 
 rm(cases, deaths)  # (remove separate datasets)
 
 # Create variables for: date of first case (Date_0), 
