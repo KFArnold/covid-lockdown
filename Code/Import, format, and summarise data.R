@@ -138,12 +138,14 @@ deaths <- deaths %>% mutate(Cumulative_deaths_beg = lag(Cumulative_deaths_end, n
   relocate(c(Cumulative_deaths_beg, Daily_deaths), .before = Cumulative_deaths_end)
 
 # Calculate 7-day moving averages of daily and cumulative cases and deaths
-cases <- cases %>% mutate(Cumulative_cases_beg_MA7 = round(runmean(Cumulative_cases_beg, k = 7, alg = "C", endrule = "mean"), 3),
-                          Daily_cases_MA7 = round(runmean(Daily_cases, k = 7, alg = "C", endrule = "mean"), 3),
-                          Cumulative_cases_end_MA7 = round(runmean(Cumulative_cases_end, k = 7, alg = "C", endrule = "mean"), 3))
-deaths <- deaths %>% mutate(Cumulative_deaths_beg_MA7 = round(runmean(Cumulative_deaths_beg, k = 7, alg = "C", endrule = "mean"), 3),
-                            Daily_deaths_MA7 = round(runmean(Daily_deaths, k = 7, alg = "C", endrule = "mean"), 3),
-                            Cumulative_deaths_end_MA7 = round(runmean(Cumulative_deaths_end, k = 7, alg = "C", endrule = "mean"), 3))
+cases <- cases %>% mutate(Daily_cases_MA7 = round(runmean(Daily_cases, k = 7, alg = "C", endrule = "mean"), 3),
+                          Cumulative_cases_end_MA7 = cumsum(Daily_cases_MA7),
+                          Cumulative_cases_beg_MA7 = lag(Cumulative_cases_end_MA7, n = 1, default = 0)) %>%
+  relocate(Cumulative_cases_beg_MA7, .before = Daily_cases_MA7)
+deaths <- deaths %>% mutate(Daily_deaths_MA7 = round(runmean(Daily_deaths, k = 7, alg = "C", endrule = "mean"), 3),
+                            Cumulative_deaths_end_MA7 = cumsum(Daily_deaths_MA7),
+                            Cumulative_deaths_beg_MA7 = lag(Cumulative_deaths_end_MA7, n = 1, default = 0)) %>%
+  relocate(Cumulative_deaths_beg_MA7, .before = Daily_deaths_MA7)
 
 # Merge cases and deaths datasets into single dataframe
 data_all <- full_join(cases, deaths) %>% relocate(contains("MA7"), .after = last_col())
