@@ -66,29 +66,30 @@ for (i in countries_eur_lockdown) {
   summary_eur_i <- summary_eur %>% filter(Country == country)
   
   # Record important dates
-  date_50 <- summary_eur_i %>% pull(Date_50)
+  date_pop_pct <- summary_eur_i %>% pull(Date_pop_pct)
   date_first_restriction <- summary_eur_i %>% pull(Date_first_restriction)
   date_lockdown <- summary_eur_i %>% pull(Date_lockdown)
   date_T <- summary_eur_i %>% pull(Date_T)
   
-  # Create copy of cases/deaths dataframe where cumulative cases >= 50 and up to date_T
-  data_eur_50_i <- data_eur_i %>% filter(Date >= date_50 & Date <= date_T)
+  # Create copy of cases/deaths dataframe where 
+  # cumulative cases >= population percentage threshold and up to date_T
+  data_eur_pop_pct_i <- data_eur_i %>% filter(Date >= date_pop_pct & Date <= date_T)
   
   # Define potential knot dates (from dates of first restriction and lockdown to 28 days subsequent),
   # And create grid of all possible combinations of knot dates, with restrictions that...
   # (a) first knot date must be before or at the same time as second knot date, and
   # (b) knot dates must fall within modelling period 
-  # (i.e. after the first date at which cumulative cases >= 50 and less than date_T)
+  # (i.e. after the first date at which cumulative cases >= pop pct threshold and less than date_T)
   if (is.na(date_lockdown) | date_first_restriction == date_lockdown) {
     possible_knot_dates_1 <- seq(from = date_first_restriction, to = date_first_restriction + 28, by = 1)
-    grid <- tibble("Knot_date_1" = possible_knot_dates_1) %>% filter(Knot_date_1 >= date_50)
+    grid <- tibble("Knot_date_1" = possible_knot_dates_1) %>% filter(Knot_date_1 >= date_pop_pct)
   } else {
     possible_knot_dates_1 <- seq(from = date_first_restriction, to = date_first_restriction + 28, by = 1)
     possible_knot_dates_2 <- seq(from = date_lockdown, to = date_lockdown + 28, by = 1)
     grid <- tibble(expand.grid(possible_knot_dates_2, possible_knot_dates_1))
     names(grid) <- c("Knot_date_2", "Knot_date_1")
     grid <- grid %>% select("Knot_date_1", "Knot_date_2") %>% 
-      filter(Knot_date_1 <= Knot_date_2, Knot_date_1 >= date_50, Knot_date_2 < date_T)  
+      filter(Knot_date_1 <= Knot_date_2, Knot_date_1 >= date_pop_pct, Knot_date_2 < date_T)  
     # If first knot date equals second knot date, replace second with NA
     for (g in 1:nrow(grid)) {
       k_1 <- grid[[g, "Knot_date_1"]]
@@ -117,18 +118,18 @@ for (i in countries_eur_lockdown) {
   rm(grid)
   
   # Set dates over which to simulate growth
-  dates <- seq.Date(from = date_50, to = date_T, by = 1)
+  dates <- seq.Date(from = date_pop_pct, to = date_T, by = 1)
   
   # Create matrices for simulated data (daily and cumulative cases)
   # (1 row per simulation run, 1 col per date)
   daily_cases_sim <- cumulative_cases_end_sim <- 
     matrix(nrow = 1, ncol = length(dates) + 1,
-           dimnames = list(1, as.character(seq.Date(from = date_50 - 1, to = date_T, by = 1))))
-  # Initialise matrices with data at date_50 - 1
+           dimnames = list(1, as.character(seq.Date(from = date_pop_pct - 1, to = date_T, by = 1))))
+  # Initialise matrices with data at date_pop_pct - 1
   daily_cases_sim[, 1] <- data_eur_i %>% 
-    filter(Date == (date_50 - 1)) %>% pull(Daily_cases_MA7)
+    filter(Date == (date_pop_pct - 1)) %>% pull(Daily_cases_MA7)
   cumulative_cases_end_sim[, 1] <- data_eur_i %>% 
-    filter(Date == (date_50 - 1)) %>% pull(Cumulative_cases_end_MA7)
+    filter(Date == (date_pop_pct - 1)) %>% pull(Cumulative_cases_end_MA7)
   
   # (2) Iterate through pairs of candidate knot points
   for (j in 1:nrow(knots)) {
@@ -140,12 +141,12 @@ for (i in countries_eur_lockdown) {
     skip_to_next <- FALSE
     
     # Estimate growth parameters
-    ## If first knot occurs at first date for which cases exceeded 50 (i.e. when we begin modelling),
-    ## there may be either no knots (i.e. knot occured before or at date_50)
+    ## If first knot occurs at first date for which cases exceeded pop pct threshold (i.e. when we begin modelling),
+    ## there may be either no knots (i.e. knot occured before or at date_pop_pct)
     ## OR 1 knot (occurring at knot_date_2).
     ## Otherwise, there may be either 1 knot (occurring at knot_date_1 (= knot_date_2, if it exists))
     ## OR 2 knots (occurring at knot_date_1 and knot_date_2)
-    if (knot_date_1 == date_50) {
+    if (knot_date_1 == date_pop_pct) {
       
       if (is.na(knot_date_2)) {  # NO knot points
         
@@ -154,9 +155,9 @@ for (i in countries_eur_lockdown) {
         knots[[j, "N_knots"]] <- n_knots
         
         # Fit regular Arima model (with intercept, since this is not technically first segment)
-        model <- tryCatch(Arima(data_eur_50_i$Daily_cases, order = c(2, 0, 0), 
+        model <- tryCatch(Arima(data_eur_pop_pct_i$Daily_cases, order = c(2, 0, 0), 
                                 seasonal = list(order = c(1, 0, 0), period = 7),
-                                xreg = as.matrix(data_eur_50_i[, "Cumulative_cases_beg"]), 
+                                xreg = as.matrix(data_eur_pop_pct_i[, "Cumulative_cases_beg"]), 
                                 include.constant = TRUE, method = "ML"), 
                           error = function(e) { skip_to_next <<- TRUE } )
         if (skip_to_next) { next }
@@ -178,12 +179,12 @@ for (i in countries_eur_lockdown) {
         knots[[j, "N_knots"]] <- n_knots
         
         # Set knot point
-        knot_1 <- data_eur_50_i %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
+        knot_1 <- data_eur_pop_pct_i %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
         
         # Create dataframe for fitting manual splines
-        data_j <- data.frame(lspline(data_eur_50_i$Cumulative_cases_beg, knots = c(knot_1)))
+        data_j <- data.frame(lspline(data_eur_pop_pct_i$Cumulative_cases_beg, knots = c(knot_1)))
         names(data_j) <- names <- paste0("Cumulative_cases_beg_", 1:2)
-        data_j <- bind_cols(Daily_cases = data_eur_50_i$Daily_cases, data_j)
+        data_j <- bind_cols(Daily_cases = data_eur_pop_pct_i$Daily_cases, data_j)
         
         # Fit ARIMA spline model w/ specified knot point (with intercept)
         model <- tryCatch(Arima(data_j$Daily_cases, order = c(2, 0, 0), 
@@ -220,12 +221,12 @@ for (i in countries_eur_lockdown) {
         knots[[j, "N_knots"]] <- n_knots
         
         # Set knot point
-        knot_1 <- data_eur_50_i %>% filter(Date == knot_date_1) %>% pull(Cumulative_cases_beg)
+        knot_1 <- data_eur_pop_pct_i %>% filter(Date == knot_date_1) %>% pull(Cumulative_cases_beg)
         
         # Create dataframe for fitting manual splines
-        data_j <- data.frame(lspline(data_eur_50_i$Cumulative_cases_beg, knots = c(knot_1)))
+        data_j <- data.frame(lspline(data_eur_pop_pct_i$Cumulative_cases_beg, knots = c(knot_1)))
         names(data_j) <- names <- paste0("Cumulative_cases_beg_", 1:2)
-        data_j <- bind_cols(Daily_cases = data_eur_50_i$Daily_cases, data_j)
+        data_j <- bind_cols(Daily_cases = data_eur_pop_pct_i$Daily_cases, data_j)
         
         # Fit ARIMA spline model w/ specified knot point (with intercept)
         model <- tryCatch(Arima(data_j$Daily_cases, order = c(2, 0, 0), 
@@ -258,13 +259,13 @@ for (i in countries_eur_lockdown) {
         knots[[j, "N_knots"]] <- n_knots
         
         # Set knot points
-        knot_1 <- data_eur_50_i %>% filter(Date == knot_date_1) %>% pull(Cumulative_cases_beg)
-        knot_2 <- data_eur_50_i %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
+        knot_1 <- data_eur_pop_pct_i %>% filter(Date == knot_date_1) %>% pull(Cumulative_cases_beg)
+        knot_2 <- data_eur_pop_pct_i %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
         
         # Create dataframe for fitting manual splines
-        data_j <- data.frame(lspline(data_eur_50_i$Cumulative_cases_beg, knots = c(knot_1, knot_2)))
+        data_j <- data.frame(lspline(data_eur_pop_pct_i$Cumulative_cases_beg, knots = c(knot_1, knot_2)))
         names(data_j) <- names <- paste0("Cumulative_cases_beg_", 1:3)
-        data_j <- bind_cols(Daily_cases = data_eur_50_i$Daily_cases, data_j)
+        data_j <- bind_cols(Daily_cases = data_eur_pop_pct_i$Daily_cases, data_j)
         
         # Fit ARIMA spline model w/ specified knot points (no intercept)
         model <- tryCatch(Arima(data_j$Daily_cases, order = c(2, 0, 0), 
@@ -341,16 +342,16 @@ for (i in countries_eur_lockdown) {
     
     # Calculate and record Poisson deviance
     ## (1) For predicted vs true (7-day moving average) incident cases
-    true_inc <- data_eur_50_i$Daily_cases_MA7
+    true_inc <- data_eur_pop_pct_i$Daily_cases_MA7
     pred_inc <- daily_cases_sim[1, -1]
     knots[[j, "Pois_dev_inc"]] <- Calc_Pois_Dev(obs = true_inc, sim = pred_inc)
     ## (2) For true vs predicted cumulative cases
-    true_cum <- data_eur_50_i$Cumulative_cases_end_MA7
+    true_cum <- data_eur_pop_pct_i$Cumulative_cases_end_MA7
     pred_cum <- cumulative_cases_end_sim[1, -1]
     knots[[j, "Pois_dev_cum"]] <- Calc_Pois_Dev(obs = true_cum, sim = pred_cum)
     
     # Calculate absolute difference between cumulative cases at end of simulation vs true
-    true_cum_end <- data_eur_50_i %>% filter(Date == date_T) %>% pull(Cumulative_cases_end)
+    true_cum_end <- data_eur_pop_pct_i %>% filter(Date == date_T) %>% pull(Cumulative_cases_end)
     pred_cum_end <- cumulative_cases_end_sim[1, ncol(cumulative_cases_end_sim)]
     knots[[j, "Diff_cum_end"]] <- true_cum_end - pred_cum_end
     
@@ -382,8 +383,8 @@ end <- Sys.time()
 end - start  # ~9 mins
 
 # Remove loop variables
-rm(i, j, t, g, country, data_eur_i, summary_eur_i, data_eur_50_i, 
-   date_50, date_first_restriction, date_lockdown, date_T,
+rm(i, j, t, g, country, data_eur_i, summary_eur_i, data_eur_pop_pct_i, 
+   date_pop_pct, date_first_restriction, date_lockdown, date_T,
    possible_knot_dates_1, possible_knot_dates_2, k_1, k_2, knots, dates, 
    daily_cases_sim, cumulative_cases_end_sim, knot_date_1, knot_date_2,
    skip_to_next, names, n_knots, knot_1, knot_2, data_j, model, 
