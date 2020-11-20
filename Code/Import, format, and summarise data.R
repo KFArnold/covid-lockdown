@@ -105,7 +105,6 @@ worldbank <- read_csv("./Data/World Bank data/Worldbank_data.csv")
 names(cases) <- str_replace_all(names(cases), c("/" = "_", " " = "_"))
 names(deaths) <- str_replace_all(names(deaths), c("/" = "_", " " = "_"))
 names(policies) <- str_replace_all(names(policies), c("/" = "_", " " = "_"))
-names(worldbank) <- str_to_title(names(worldbank))
 
 # Convert datasets to long form, select relevant variables, 
 # rename country variable, convert characters to factors,

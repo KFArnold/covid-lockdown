@@ -75,6 +75,9 @@ out <- paste0(data_directory, "World Bank data/")
 worldbank_data <- wb_data(indicator = c("SP.POP.TOTL", "AG.LND.TOTL.K2"), start_date = 2015, end_date = 2020) %>%
   rename(Area_sq_km = AG.LND.TOTL.K2, Population = SP.POP.TOTL, Year = date) %>% remove_all_labels()
 
+# Capitalise first letter of every variable name
+names(worldbank_data) <- str_to_title(names(worldbank_data))
+
 # Save to repository Data folder
 write_csv(x = worldbank_data, path = paste0(out, "Worldbank_data.csv"))
 
