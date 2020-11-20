@@ -26,7 +26,7 @@
 packrat::restore()
 
 # Load required packages
-library(wbstats); library(tidyverse); library(caTools); library(sjlabelled)
+library(tidyverse); library(caTools); library(sjlabelled)
 
 # Run source code to update external data
 #source("./Code/Update data.R")
@@ -99,8 +99,7 @@ policies <- read_csv("./Data/OxCGRT data/OxCGRT_latest.csv",
                                       RegionCode = col_character())) %>% 
   mutate(Date = as.Date(as.character(Date), format = "%Y%m%d"))
 ## World Bank data (population size, land area (square km))
-worldbank <- wb_data(indicator = c("SP.POP.TOTL", "AG.LND.TOTL.K2"), start_date = 2015, end_date = 2020) %>%
-  rename(Area_sq_km = AG.LND.TOTL.K2, Population = SP.POP.TOTL, Year = date) %>% remove_all_labels()
+worldbank <- read_csv("./Data/World Bank data/Worldbank_data.csv")
 
 # Replace slashes and spaces with underscores
 names(cases) <- str_replace_all(names(cases), c("/" = "_", " " = "_"))
