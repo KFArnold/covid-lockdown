@@ -189,9 +189,9 @@ data_eur <- data_eur %>% filter(Country %in% countries_eur) %>% droplevels
 policies_eur <- policies_eur %>% filter(Country %in% countries_eur) %>% droplevels
 worldbank_eur <- worldbank %>% filter(Country %in% countries_eur) %>% droplevels
 
-# Calculate 0.001% of population for each country
+# Calculate 0.0001% of population for each country
 pct <- worldbank_eur %>% filter(Year == 2019) %>% 
-  mutate(Pop_pct = 0.00001 * Population) %>% select(Country, Pop_pct)
+  mutate(Pop_pct = 0.000001 * Population) %>% select(Country, Pop_pct)
 # Determine date for which cumulative cases first exceeded this percent (Date_pop_pct)
 # and add to data_eur dataframe
 data_eur <- full_join(data_eur, pct, by = "Country") %>%
