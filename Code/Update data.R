@@ -6,6 +6,7 @@
 
 # (1) COVID-19 Data Repository by the Center for Systems Science and Engineering (CSSE) at Johns Hopkins University
 # (2) Oxford Covid-19 Government Response Tracker
+# (3) World Bank (from wbstats package)
 
 # Data is then saved to project repository.
 
@@ -17,7 +18,7 @@
 packrat::restore()
 
 # Load required packages
-library(readr)
+library(readr); library(wbstats)
 
 # Define project directory where data is located
 data_directory <- paste0("./Data/")
@@ -65,5 +66,17 @@ for (i in filenames) {
             path = paste0(out, filename))
 }
 
+## World Bank data -------------------------------------------------------------
+
+# Set storage directory for saved data
+out <- paste0(data_directory, "World Bank data/")
+
+# Download data - population size, land area (square km)
+worldbank_data <- wb_data(indicator = c("SP.POP.TOTL", "AG.LND.TOTL.K2"), start_date = 2015, end_date = 2020) %>%
+  rename(Area_sq_km = AG.LND.TOTL.K2, Population = SP.POP.TOTL, Year = date) %>% remove_all_labels()
+
+# Save to repository Data folder
+write_csv(x = worldbank_data, path = paste0(out, "Worldbank_data.csv"))
+
 # Remove variables from environment
-rm(data_directory, out, source, filenames)
+rm(data_directory, out, source, filenames, worldbank_data)
