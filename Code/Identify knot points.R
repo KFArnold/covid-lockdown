@@ -82,7 +82,8 @@ for (i in countries_eur_lockdown) {
   # (i.e. after the first date at which cumulative cases >= pop pct threshold and less than date_T)
   if (is.na(date_lockdown) | date_first_restriction == date_lockdown) {
     possible_knot_dates_1 <- seq(from = date_first_restriction, to = date_first_restriction + 28, by = 1)
-    grid <- tibble("Knot_date_1" = possible_knot_dates_1) %>% filter(Knot_date_1 >= date_pop_pct)
+    grid <- tibble("Knot_date_1" = possible_knot_dates_1) %>% 
+      filter(Knot_date_1 >= date_pop_pct, Knot_date_1 < date_T)
   } else {
     possible_knot_dates_1 <- seq(from = date_first_restriction, to = date_first_restriction + 28, by = 1)
     possible_knot_dates_2 <- seq(from = date_lockdown, to = date_lockdown + 28, by = 1)
