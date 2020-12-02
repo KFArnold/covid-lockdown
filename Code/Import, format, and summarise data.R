@@ -26,7 +26,7 @@
 packrat::restore()
 
 # Load required packages
-library(wbstats); library(tidyverse); library(caTools); library(sjlabelled)
+library(tidyverse); library(caTools); library(sjlabelled)
 
 # Run source code to update external data
 #source("./Code/Update data.R")
@@ -99,14 +99,12 @@ policies <- read_csv("./Data/OxCGRT data/OxCGRT_latest.csv",
                                       RegionCode = col_character())) %>% 
   mutate(Date = as.Date(as.character(Date), format = "%Y%m%d"))
 ## World Bank data (population size, land area (square km))
-worldbank <- wb_data(indicator = c("SP.POP.TOTL", "AG.LND.TOTL.K2"), start_date = 2015, end_date = 2020) %>%
-  rename(Area_sq_km = AG.LND.TOTL.K2, Population = SP.POP.TOTL, Year = date) %>% remove_all_labels()
+worldbank <- read_csv("./Data/World Bank data/Worldbank_data.csv")
 
 # Replace slashes and spaces with underscores
 names(cases) <- str_replace_all(names(cases), c("/" = "_", " " = "_"))
 names(deaths) <- str_replace_all(names(deaths), c("/" = "_", " " = "_"))
 names(policies) <- str_replace_all(names(policies), c("/" = "_", " " = "_"))
-names(worldbank) <- str_to_title(names(worldbank))
 
 # Convert datasets to long form, select relevant variables, 
 # rename country variable, convert characters to factors,
@@ -138,24 +136,22 @@ deaths <- deaths %>% mutate(Cumulative_deaths_beg = lag(Cumulative_deaths_end, n
   relocate(c(Cumulative_deaths_beg, Daily_deaths), .before = Cumulative_deaths_end)
 
 # Calculate 7-day moving averages of daily and cumulative cases and deaths
-cases <- cases %>% mutate(Cumulative_cases_beg_MA7 = round(runmean(Cumulative_cases_beg, k = 7, alg = "C", endrule = "mean"), 3),
-                          Daily_cases_MA7 = round(runmean(Daily_cases, k = 7, alg = "C", endrule = "mean"), 3),
-                          Cumulative_cases_end_MA7 = round(runmean(Cumulative_cases_end, k = 7, alg = "C", endrule = "mean"), 3))
-deaths <- deaths %>% mutate(Cumulative_deaths_beg_MA7 = round(runmean(Cumulative_deaths_beg, k = 7, alg = "C", endrule = "mean"), 3),
-                            Daily_deaths_MA7 = round(runmean(Daily_deaths, k = 7, alg = "C", endrule = "mean"), 3),
-                            Cumulative_deaths_end_MA7 = round(runmean(Cumulative_deaths_end, k = 7, alg = "C", endrule = "mean"), 3))
+cases <- cases %>% mutate(Daily_cases_MA7 = round(runmean(Daily_cases, k = 7, alg = "C", endrule = "mean"), 3),
+                          Cumulative_cases_end_MA7 = cumsum(Daily_cases_MA7),
+                          Cumulative_cases_beg_MA7 = lag(Cumulative_cases_end_MA7, n = 1, default = 0)) %>%
+  relocate(Cumulative_cases_beg_MA7, .before = Daily_cases_MA7)
+deaths <- deaths %>% mutate(Daily_deaths_MA7 = round(runmean(Daily_deaths, k = 7, alg = "C", endrule = "mean"), 3),
+                            Cumulative_deaths_end_MA7 = cumsum(Daily_deaths_MA7),
+                            Cumulative_deaths_beg_MA7 = lag(Cumulative_deaths_end_MA7, n = 1, default = 0)) %>%
+  relocate(Cumulative_deaths_beg_MA7, .before = Daily_deaths_MA7)
 
 # Merge cases and deaths datasets into single dataframe
-data_all <- full_join(cases, deaths) %>% relocate(contains("MA7"), .after = last_col())
+data_all <- full_join(cases, deaths, by = c("Province_State", "Country", "Date")) 
 rm(cases, deaths)  # (remove separate datasets)
 
 # Create variables for: date of first case (Date_0), 
-# date at which cases first exceeded 50 (Date_50), 
-# number of days since 50 cases (Days_since_50), and
 # date for which data can be reasonably assumed complete (Date_max)
 data_all <- data_all %>% mutate(Date_0 = Date[which(Daily_cases >= 1)[1]],
-                                Date_50 = Date[which(Cumulative_cases_beg >= 50)[1]],
-                                Days_since_50 = as.numeric(Date - Date_50),
                                 Date_max = max(Date) - 7)
 
 # Remove data after Date_max, since this is likely incomplete
@@ -191,6 +187,16 @@ data_eur <- data_eur %>% filter(Country %in% countries_eur) %>% droplevels
 policies_eur <- policies_eur %>% filter(Country %in% countries_eur) %>% droplevels
 worldbank_eur <- worldbank %>% filter(Country %in% countries_eur) %>% droplevels
 
+# Calculate 0.0001% of population for each country
+pct <- worldbank_eur %>% filter(Year == 2019) %>% 
+  mutate(Pop_pct = 0.000001 * Population) %>% select(Country, Pop_pct)
+# Determine date for which cumulative cases first exceeded this percent (Date_pop_pct)
+# and add to data_eur dataframe
+data_eur <- full_join(data_eur, pct, by = "Country") %>%
+  mutate(Date_pop_pct = Date[which(Cumulative_cases_beg >= Pop_pct)[1]]) %>%
+  select(-Pop_pct) %>% relocate(Date_pop_pct, .before = Date_max)
+rm(pct)
+
 # Remove non-European dataframes and lists
 rm(countries, data_all, policies, worldbank)
 
@@ -202,11 +208,12 @@ rm(countries, data_all, policies, worldbank)
 summary_vars <- c("Country", "Date", "Cumulative_cases_beg", "Daily_cases", "Daily_cases_MA7", 
                   "Cumulative_deaths_beg", "Daily_deaths", "Daily_deaths_MA7")
 
-# Create summary table which defines first date at which cases first exceeded 50 (Date_50)
-summary_eur <- data_eur %>% filter(Date == Date_50) %>% 
+# Create summary table which defines first date at which 
+# cases exceeded 0.001% population threshold (Date_pop_pct)
+summary_eur <- data_eur %>% filter(Date == Date_pop_pct) %>% 
   select(c(all_of(summary_vars), Date_0, Date_max)) %>%
-  rename_at(vars(-c(Country, Date_0, Date_max)), .funs = list(~ paste0(., "_50"))) %>%
-  relocate(c(Date_0, Date_max), .before = Date_50)
+  rename_at(vars(-c(Country, Date_0, Date_max)), .funs = list(~ paste0(., "_pop_pct"))) %>%
+  relocate(c(Date_0, Date_max), .before = Date_pop_pct)
 
 # Create empty summary tables to store:
 # (1) Max number of restrictions
