@@ -19,26 +19,36 @@ packrat::restore()
 # Load required packages
 library(tidyverse); library(ggrepel); library(scales); library(ggpubr)
 
-# Run source code to import, format, and summarise data
-source("./Code/Import, format, and summarise data.R")
+# Define storage directory for formatted data
+data_directory_f <- paste0("./Data/Formatted/")
 
-# Import file containing best knot date pairs
-knots_best <- read_csv(paste0(out, "Best knot points.csv")) %>% group_by(Country)
+# Define storage directory for results
+results_directory <- paste0("./Results/")
+
+# Load formatted data
+data_eur <- read_csv(paste0(data_directory_f, "Cases_deaths_data_europe.csv"))
+worldbank_eur <- read_csv(paste0(data_directory_f, "Worldbank_data_europe.csv"))
+
+# Import file containing best knot date pairs and country summaries
+knots_best <- read_csv(paste0(results_directory, "Best knot points.csv"))
+summary_eur <- read_csv(paste0(results_directory, "Country summaries.csv"))
 
 # Import files containing simulation results
-summary_daily_cases_sim <- read_csv(paste0(out, "Simulation summary - daily cases.csv")) %>% 
+summary_daily_cases_sim <- read_csv(paste0(results_directory, "Simulation summary - daily cases.csv")) %>% 
   group_by(Country)
-summary_cumulative_cases_end_sim <- read_csv(paste0(out, "Simulation summary - cumulative cases.csv")) %>%
+summary_cumulative_cases_end_sim <- read_csv(paste0(results_directory, "Simulation summary - cumulative cases.csv")) %>%
   group_by(Country)
-summary_thresholds <- read_csv(paste0(out, "Simulation summary - thresholds.csv")) %>%
+summary_thresholds <- read_csv(paste0(results_directory, "Simulation summary - thresholds.csv")) %>%
   group_by(Country)
 
 # Create dataframe for simulated cumulative cases at beginning of time t
 summary_cumulative_cases_beg_sim <- summary_cumulative_cases_end_sim %>% 
   mutate(across(c(Mean, C_025, C_975), ~lag(., n = 1, default = NA)))
 
-# Set storage directory for outputs
-out <- paste0("./Results/")
+# Load list of European countries for which we have both cases/deaths data and policy data,
+# and those which entered lockdown
+load(paste0(results_directory, "countries_eur.RData"))
+load(paste0(results_directory, "countries_eur_lockdown.RData"))
 
 # ------------------------------------------------------------------------------
 # Important dates
@@ -95,7 +105,7 @@ dates_1 <- ggplot(data = summary_eur, aes(y = Country)) +
 #dates_1
 
 # Save plot
-ggsave(paste0(out, "Figure - Important dates.png"), plot = dates_1, width = 12, height = 8)
+ggsave(paste0(results_directory, "Figure - Important dates.png"), plot = dates_1, width = 12, height = 8)
 
 ## Dates of first restriction, lockdown, first case, and cases >= pop pct ----------
 
@@ -151,7 +161,7 @@ dates_2 <- ggplot(data = summary_eur, aes(y = Country)) +
 #dates_2
 
 # Save plot
-ggsave(paste0(out, "Figure - Important dates (including cases).png"),
+ggsave(paste0(results_directory, "Figure - Important dates (including cases).png"),
        plot = dates_2, width = 12, height = 8)
 
 # Remove plotting objects from environment
@@ -224,7 +234,7 @@ cols <- length(plot_exp_growth) %>% sqrt %>% floor
 #dev.new()  # make very large to avoid bug with saving
 p <- ggarrange(plotlist = plot_exp_growth, nrow = rows, ncol = cols)
 g <- annotate_figure(p, top = text_grob("Exponential growth of Covid-19 cases: Cumulative versus incident cases", size = 30))
-ggsave(paste0(out, "Figure - Cumulative vs incident cases.png"),
+ggsave(paste0(results_directory, "Figure - Cumulative vs incident cases.png"),
        plot = g, width = 6*cols, height = 6*rows, limitsize = FALSE)
 #dev.off()
 
@@ -301,7 +311,7 @@ rm(i, country, data_eur_i, summary_eur_i,
 
 # Create folder for storing figures of exponential growth with fitted splines, 
 # if none already exists
-out_folder <- paste0(out, "Figures - cumulative vs incident cases (with fitted splines) by country")
+out_folder <- paste0(results_directory, "Figures - cumulative vs incident cases (with fitted splines) by country")
 if(!dir.exists(out_folder)) {
   dir.create(out_folder)
 } else {
@@ -312,7 +322,7 @@ if(!dir.exists(out_folder)) {
 plot_exp_growth_fit <- list()
 
 # Create plots
-for (i in countries_eur_lockdown) {
+for (i in countries_eur) {
   
   # Define country
   country <- i
@@ -321,6 +331,9 @@ for (i in countries_eur_lockdown) {
   data_eur_i <- data_eur %>% filter(Country == country)
   knots_best_i <- knots_best %>% filter(Country == country)
   summary_eur_i <- summary_eur %>% filter(Country == country)
+  
+  # If no best knot points for country i, skip to next
+  if (nrow(knots_best_i) == 0) { next }
   
   # Define number of best knot point pairs
   n_knots_i <- nrow(knots_best_i)
@@ -449,7 +462,7 @@ cols <- length(plot_exp_growth_fit) %>% sqrt %>% floor
 #dev.new()  # make very large to avoid bug with saving
 p <- ggarrange(plotlist = plot_exp_growth_fit, nrow = rows, ncol = cols)
 g <- annotate_figure(p, top = text_grob("Exponential growth of Covid-19 cases: Cumulative versus incident cases", size = 30))
-ggsave(paste0(out, "Figure - Cumulative vs incident cases (with fitted splines).png"),
+ggsave(paste0(results_directory, "Figure - Cumulative vs incident cases (with fitted splines).png"),
        plot = g, width = 6*cols, height = 6*rows, limitsize = FALSE)
 #dev.off()
 
@@ -468,13 +481,15 @@ rm(i, country, data_eur_i, knots_best_i, summary_eur_i, n_knots_i,
 
 # Calculate median growth factor under lockdown from list of best knots
 median_growth_factor_lockdown <- knots_best %>% filter(Country %in% countries_eur_lockdown) %>%
-  select(Country, contains("Median")) %>% unique %>% 
+  group_by(Country) %>% select(Country, contains("Median")) %>% unique %>% 
   summarise(Median_growth_factor_lockdown = ifelse(!is.na(Median_growth_factor_3),
                                                 Median_growth_factor_3, Median_growth_factor_2),
             .groups = "keep")
 
 # Create lockdown-specific summary dataframe and bind median growth factors
-summary_eur_lockdown <- summary_eur %>% filter(Country %in% countries_eur_lockdown)
+summary_eur_lockdown <- summary_eur %>% select(Country, Date_lockdown) %>%
+  full_join(., data_eur, by = "Country") %>% 
+  filter(Date == Date_lockdown, Country %in% countries_eur_lockdown) %>% select(-Date)
 summary_eur_lockdown <- full_join(summary_eur_lockdown, median_growth_factor_lockdown,
                                   by = "Country")
 rm(median_growth_factor_lockdown)
@@ -483,7 +498,7 @@ rm(median_growth_factor_lockdown)
 
 # Plot relationship between cumulative cases on date of lockdown and median growth factor under lockdown
 plot_growth_factor_1 <- ggplot(data = summary_eur_lockdown, 
-       aes(x = Cumulative_cases_beg_lockdown, y = Median_growth_factor_lockdown)) +
+       aes(x = Cumulative_cases_beg, y = Median_growth_factor_lockdown)) +
   theme_classic() +
   theme(axis.text = element_text(size = 6), 
         axis.title = element_text(size = 8),
@@ -500,39 +515,15 @@ plot_growth_factor_1 <- ggplot(data = summary_eur_lockdown,
   scale_y_continuous(name = "Growth factor under lockdown") 
 #plot_growth_factor_1
 
-# Plot without UK (outlier)
-plot_growth_factor_2 <- ggplot(data = filter(summary_eur_lockdown, Country != "United Kingdom"), 
-                               aes(x = Cumulative_cases_beg_lockdown, y = Median_growth_factor_lockdown)) +
-  theme_classic() +
-  theme(axis.text = element_text(size = 6), 
-        axis.title = element_text(size = 8),
-        legend.position = "none",
-        panel.grid.major = element_line(),
-        plot.margin = unit(c(1, 1, 1, 1), "cm"),
-        plot.title = element_text(size = 9)) +
-  labs(title = "Relationship between cumulative number of COVID-19 cases at the date of lockdown \nand growth factor under lockdown") +
-  geom_point() +
-  #geom_smooth(method = "lm", se = FALSE, linetype = "dashed") +
-  #geom_smooth(data = filter(summary_eur_lockdown, Country != "United Kingdom" & !is.na(Date_lockdown)),
-  #            method = "glm", method.args = list(family = gaussian(link = "log")), se = FALSE,
-  #            aes(x = Cumulative_cases_beg_lockdown, y = Median_growth_factor_lockdown)) +
-  geom_text_repel(aes(label = Country), size = 2) +
-  scale_x_continuous(name = "Cumulative number of COVID-19 cases at date of lockdown",
-                     labels = comma_format(accuracy = 1)) +
-  scale_y_continuous(name = "Growth factor under lockdown")
-#plot_growth_factor_2
-
 # Save plots
-ggsave(paste0(out, "Figure - Cumulative cases at lockdown vs growth factor.png"),
+ggsave(paste0(results_directory, "Figure - Cumulative cases at lockdown vs growth factor.png"),
        plot = plot_growth_factor_1, width = 6, height = 6)
-ggsave(paste0(out, "Figure - Cumulative cases at lockdown vs growth factor - without UK.png"),
-       plot = plot_growth_factor_2, width = 6, height = 6)
 
 ## Incident cases on date of lockdown ------------------------------------------
 
 # Plot relationship between daily cases on date of lockdown and median growth factor under lockdown
-plot_growth_factor_3 <- ggplot(data = summary_eur_lockdown, 
-                               aes(x = Daily_cases_MA7_lockdown, y = Median_growth_factor_lockdown)) +
+plot_growth_factor_2 <- ggplot(data = summary_eur_lockdown, 
+                               aes(x = Daily_cases_MA7, y = Median_growth_factor_lockdown)) +
   theme_classic() +
   theme(axis.text = element_text(size = 6), 
         axis.title = element_text(size = 8),
@@ -547,35 +538,11 @@ plot_growth_factor_3 <- ggplot(data = summary_eur_lockdown,
   scale_x_continuous(name = "Daily number of COVID-19 cases at date of lockdown",
                      labels = comma_format(accuracy = 1)) +
   scale_y_continuous(name = "Growth factor under lockdown") 
-#plot_growth_factor_3
-
-# Plot without UK (outlier)
-plot_growth_factor_4 <- ggplot(data = filter(summary_eur_lockdown, Country != "United Kingdom"), 
-                               aes(x = Daily_cases_MA7_lockdown, y = Median_growth_factor_lockdown)) +
-  theme_classic() +
-  theme(axis.text = element_text(size = 6), 
-        axis.title = element_text(size = 8),
-        legend.position = "none",
-        panel.grid.major = element_line(),
-        plot.margin = unit(c(1, 1, 1, 1), "cm"),
-        plot.title = element_text(size = 9)) +
-  labs(title = "Relationship between daily number of COVID-19 cases at the date of lockdown \nand growth factor under lockdown") +
-  geom_point() +
-  #geom_smooth(method = "lm", se = FALSE, linetype = "dashed") +
-  #geom_smooth(data = filter(summary_eur_lockdown, Country != "United Kingdom" & !is.na(Date_lockdown)),
-  #            method = "glm", method.args = list(family = gaussian(link = "log")), se = FALSE,
-  #            aes(x = Daily_cases_lockdown, y = Median_growth_factor_lockdown)) +
-  geom_text_repel(aes(label = Country), size = 2) +
-  scale_x_continuous(name = "Daily number of COVID-19 cases at date of lockdown",
-                     labels = comma_format(accuracy = 1)) +
-  scale_y_continuous(name = "Growth factor under lockdown")
-#plot_growth_factor_4
+#plot_growth_factor_2
 
 # Save plots
-ggsave(paste0(out, "Figure - Incident cases at lockdown vs growth factor.png"),
-       plot = plot_growth_factor_3, width = 6, height = 6)
-ggsave(paste0(out, "Figure - Incident cases at lockdown vs growth factor - without UK.png"),
-       plot = plot_growth_factor_4, width = 6, height = 6)
+ggsave(paste0(results_directory, "Figure - Incident cases at lockdown vs growth factor.png"),
+       plot = plot_growth_factor_2, width = 6, height = 6)
 
 # ------------------------------------------------------------------------------
 # Incident and cumulative cases 
@@ -587,7 +554,7 @@ ggsave(paste0(out, "Figure - Incident cases at lockdown vs growth factor - witho
 
 # Create folder for storing figures of incident and cumulative cases by country, 
 # if none already exists
-out_folder <- paste0(out, "Figures - incident and cumulative cases by country")
+out_folder <- paste0(results_directory, "Figures - incident and cumulative cases by country")
 if(!dir.exists(out_folder)) {
   dir.create(out_folder)
 } else {
@@ -614,11 +581,31 @@ for (i in countries_eur) {
   date_lockdown_end <- summary_eur_i %>% pull(Date_lockdown_end)
   date_T <- summary_eur_i %>% pull(Date_T)
   
-  # Define cumulative cases on dates of first restriction, lockdown, lockdown eased, and lockdown lifted
-  cc_first_restriction <- summary_eur_i %>% pull(Cumulative_cases_beg_first_restriction)
-  cc_lockdown <- summary_eur_i %>% pull(Cumulative_cases_beg_lockdown)
-  cc_lockdown_eased <- summary_eur_i %>% pull(Cumulative_cases_beg_lockdown_eased)
-  cc_lockdown_end <- summary_eur_i %>% pull(Cumulative_cases_beg_lockdown_end)
+  # Define cumulative cases on dates of: 
+  # first restriction
+  if (!is.na(date_first_restriction)) {
+    cc_first_restriction <- data_eur_i %>% filter(Date == date_first_restriction) %>% pull(Cumulative_cases_beg)
+  } else {
+    cc_first_restriction <- NA
+  }
+  # lockdown
+  if (!is.na(date_lockdown)) {
+    cc_lockdown <- data_eur_i %>% filter(Date == date_lockdown) %>% pull(Cumulative_cases_beg)
+  } else {
+    cc_lockdown <- NA
+  }
+  # lockdown eased
+  if (!is.na(date_lockdown_eased)) {
+    cc_lockdown_eased <- data_eur_i %>% filter(Date == date_lockdown_eased) %>% pull(Cumulative_cases_beg)
+  } else {
+    cc_lockdown_eased <- NA
+  }
+  # lockdown lifted
+  if (!is.na(date_lockdown_end)) {
+    cc_lockdown_end <- data_eur_i %>% filter(Date == date_lockdown_end) %>% pull(Cumulative_cases_beg)
+  } else {
+    cc_lockdown_end <- NA
+  }
   
   # Re-filter cases/deaths dataset to only include data up to date_T
   # (don't do this if you want all data displayed / want to see data up to lockdown)
@@ -706,7 +693,7 @@ rm(out_folder, i, country, data_eur_i, summary_eur_i,
 
 # Create folder for storing figures of incident and cumulative cases by country, 
 # if none already exists
-out_folder <- paste0(out, "Figures - simulation results by country")
+out_folder <- paste0(results_directory, "Figures - simulation results by country")
 if(!dir.exists(out_folder)) {
   dir.create(out_folder)
 } else {
@@ -717,7 +704,7 @@ if(!dir.exists(out_folder)) {
 plot_country_sim <- list()
 
 # Create plots
-for (i in countries_eur_lockdown) {
+for (i in countries_eur) {
   
   # Define country
   country <- i
@@ -730,6 +717,9 @@ for (i in countries_eur_lockdown) {
   summary_cumulative_cases_beg_sim_i <- summary_cumulative_cases_beg_sim %>% filter(Country == country)
   summary_cumulative_cases_end_sim_i <- summary_cumulative_cases_end_sim %>% filter(Country == country)
   summary_thresholds_i <- summary_thresholds %>% filter(Country == country)
+  
+  # If no simulated data for country i, skip to next
+  if (nrow(summary_daily_cases_sim_i) == 0) { next }
   
   # Combine daily/cumulative cases data into single dataframe
   summary_cases_sim_i <- full_join(summary_daily_cases_sim_i, summary_cumulative_cases_beg_sim_i, by = c("Country", "Date"),
@@ -744,11 +734,6 @@ for (i in countries_eur_lockdown) {
   date_first_restriction <- summary_eur_i %>% pull(Date_first_restriction)
   date_lockdown <- summary_eur_i %>% pull(Date_lockdown)
   date_lockdown_eased <- summary_eur_i %>% pull(Date_lockdown_eased)
-  
-  # Define cumulative cases on important dates
-  cc_first_restriction <- summary_eur_i %>% pull(Cumulative_cases_beg_first_restriction)
-  cc_lockdown <- summary_eur_i %>% pull(Cumulative_cases_beg_lockdown)
-  cc_lockdown_eased <- summary_eur_i %>% pull(Cumulative_cases_beg_lockdown_eased)
   
   # Calculate first date for which incident cases go below lowest threshold after max incidence reached
   highest_incidence <- summary_daily_cases_sim_i %>% filter(Mean == max(Mean)) %>% pull(Mean)

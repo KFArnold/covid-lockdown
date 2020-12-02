@@ -19,14 +19,24 @@ packrat::restore()
 # Load required packages
 library(tidyverse)
 
-# Run source code to import and format data
-source("./Code/Import, format, and summarise data.R")
+# Define storage directory for formatted data
+data_directory_f <- paste0("./Data/Formatted/")
 
-# Import best knot points dataframe 
-knots_best <- read_csv(paste0(out, "Best knot points.csv")) %>% group_by(Country)
+# Define storage directory for results
+results_directory <- paste0("./Results/")
 
-# Set storage directory for outputs
-out <- paste0("./Results/")
+# Load formatted data
+data_eur <- read_csv(paste0(data_directory_f, "Cases_deaths_data_europe.csv"))
+worldbank_eur <- read_csv(paste0(data_directory_f, "Worldbank_data_europe.csv"))
+
+# Import files containing best knot point pairs and country summaries
+knots_best <- read_csv(paste0(results_directory, "Best knot points.csv"))
+summary_eur <- read_csv(paste0(results_directory, "Country summaries.csv"))
+
+# Load list of European countries for which we have both cases/deaths data and policy data,
+# and those which entered lockdown
+load(paste0(results_directory, "countries_eur.RData"))
+load(paste0(results_directory, "countries_eur_lockdown.RData"))
 
 ## Functions -------------------------------------------------------------------
 
@@ -84,7 +94,7 @@ set.seed(23)
 
 # (1) Iterate through countries
 start <- Sys.time()
-for (i in countries_eur_lockdown) {
+for (i in countries_eur) {
   
   # Define country
   country <- i
@@ -93,6 +103,11 @@ for (i in countries_eur_lockdown) {
   data_eur_i <- data_eur %>% filter(Country == country)
   summary_eur_i <- summary_eur %>% filter(Country == country)
   knots_best_i <- knots_best %>% filter(Country == country)
+  
+  # If country has no best knot points, skip to next
+  # (modelling is not possible for current country, 
+  # likely because restrictions happened long before threshold for modelling is reached)
+  if (nrow(knots_best_i) == 0) { next }
   
   # Record important dates
   date_pop_pct <- summary_eur_i %>% pull(Date_pop_pct)  # (starting date of simulation)
@@ -205,8 +220,8 @@ for (i in countries_eur_lockdown) {
   }  # (close knot date loop (2), j)
   
   # Print status update
-  cat('\r', paste("Summarising data from simulation", grep(country, unlist(countries_eur_lockdown)), 
-                  "of", length(countries_eur_lockdown), "...    ", sep = " "))
+  cat('\r', paste("Summarising data from simulation", grep(country, unlist(countries_eur)), 
+                  "of", length(countries_eur), "...    ", sep = " "))
   
   # Record summaries (mean, 2.5 and 97.5 centiles)
   ## Daily cases:
@@ -231,8 +246,8 @@ summary_daily_cases_sim <- bind_rows(summary_daily_cases_sim)
 summary_cumulative_cases_end_sim <- bind_rows(summary_cumulative_cases_end_sim)
 
 # Export all summary data
-write_csv(summary_daily_cases_sim, path = paste0(out, "Simulation summary - daily cases.csv"))
-write_csv(summary_cumulative_cases_end_sim, path = paste0(out, "Simulation summary - cumulative cases.csv"))
+write_csv(summary_daily_cases_sim, file = paste0(results_directory, "Simulation summary - daily cases.csv"))
+write_csv(summary_cumulative_cases_end_sim, file = paste0(results_directory, "Simulation summary - cumulative cases.csv"))
 
 # Remove loop variables
 rm(i, j, t, country, data_eur_i, summary_eur_i, knots_best_i,
@@ -244,14 +259,15 @@ rm(i, j, t, country, data_eur_i, summary_eur_i, knots_best_i,
    growth_factor_1_j, growth_factor_2_j, growth_factor_3_j, 
    growth_factor_1_sd_j, growth_factor_2_sd_j, growth_factor_3_sd_j,
    n_runs_j, daily_cases_sim_j, cumulative_cases_end_sim_j,
-   inc_tminus1, cum_tminus1, growth, inc_t, cum_t)
+   inc_tminus1, cum_tminus1, growth, inc_t, cum_t,
+   start, end)
 
 # ------------------------------------------------------------------------------
 # Calculate dates for which thresholds reached
 # ------------------------------------------------------------------------------
 
 # Import file containing daily cases simulation summary, if necessary
-summary_daily_cases_sim <- read_csv(paste0(out, "Simulation summary - daily cases.csv"))
+summary_daily_cases_sim <- read_csv(paste0(results_directory, "Simulation summary - daily cases.csv"))
 
 # Define thresholds to consider
 # (proportions of total population)
@@ -260,7 +276,7 @@ thresholds <- c(0.0001, 0.00005, 0.00001)
 # Create lists to store summary of thresholds
 summary_thresholds <- list()  # thresholds
 
-for (i in countries_eur_lockdown) {
+for (i in countries_eur) {
   
   # Define country
   country <- i
@@ -268,6 +284,9 @@ for (i in countries_eur_lockdown) {
   # Filter data by country
   summary_daily_cases_sim_i <- summary_daily_cases_sim %>% filter(Country == country)
   summary_eur_i <- summary_eur %>% filter(Country == country)
+  
+  # If country has no simulated data, skip to next
+  if (nrow(summary_daily_cases_sim_i) == 0) { next }
   
   # Record lockdown date
   date_lockdown <- summary_eur_i %>% pull(Date_lockdown)  # (date of lockdown)
@@ -326,7 +345,7 @@ for (i in countries_eur_lockdown) {
 summary_thresholds <- bind_rows(summary_thresholds)
 
 # Export summary data
-write_csv(summary_thresholds, path = paste0(out, "Simulation summary - thresholds.csv"))
+write_csv(summary_thresholds, file = paste0(results_directory, "Simulation summary - thresholds.csv"))
 
 # Remove loop variables
 rm(i, k, country, summary_daily_cases_sim_i, summary_eur_i,

@@ -20,8 +20,8 @@ packrat::restore()
 # Load required packages
 library(tidyverse); library(wbstats); library(sjlabelled)
 
-# Define project directory where data is located
-data_directory <- paste0("./Data/")
+# Define project directory where unformatted data is located
+data_directory_u <- paste0("./Data/Unformatted/")
 
 # ------------------------------------------------------------------------------
 # Import data
@@ -30,7 +30,7 @@ data_directory <- paste0("./Data/")
 ## Cases and deaths data -------------------------------------------------------
 
 # Set storage directory for saved data
-out <- paste0(data_directory, "CSSE data/")
+out <- paste0(data_directory_u, "CSSE data/")
 
 # Define web repository where CSSE data is located
 source <- paste0("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/")
@@ -41,15 +41,17 @@ filenames <- list("time_series_covid19_confirmed_global.csv",
 
 # Download data files and save to repository Data folder
 for (i in filenames) {
-  filename <- i
-  write_csv(x = read_csv(url(paste0(source, filename))),
-            path = paste0(out, filename))
+  filenames_i <- i  # define filename
+  data <- read_csv(url(paste0(source, filenames_i)))  # download file
+  names(data) <- str_replace_all(names(data), c("/" = "_", " " = "_"))  # replace slashes and spaces with underscores in var names
+  write_csv(x = data,
+            file = paste0(out, filenames_i))  # write to repo folder
 }
 
 ## Policy data -----------------------------------------------------------------
 
 # Set storage directory for saved data
-out <- paste0(data_directory, "OxCGRT data/")
+out <- paste0(data_directory_u, "OxCGRT data/")
 
 # Define web repository where OxCGRT data is located
 source <- paste0("https://raw.githubusercontent.com/OxCGRT/covid-policy-tracker/master/data/")
@@ -59,27 +61,29 @@ filenames <- list("OxCGRT_latest.csv")
 
 # Download data files and save to repository Data folder
 for (i in filenames) {
-  filename <- i
-  write_csv(x = read_csv(url(paste0(source, filename)),
-                         col_types = cols(RegionName = col_character(),
-                                          RegionCode = col_character())),
-            path = paste0(out, filename))
+  filenames_i <- i  # define filenames
+  data <- read_csv(url(paste0(source, filenames_i)),
+                   col_types = cols(RegionName = col_character(),
+                                    RegionCode = col_character()))  # download file
+  names(data) <- str_replace_all(names(data), c("/" = "_", " " = "_"))  # replace slashes and spaces with underscores in var names
+  write_csv(x = data,
+            file = paste0(out, filenames_i))  # write to repo folder
 }
 
 ## World Bank data -------------------------------------------------------------
 
 # Set storage directory for saved data
-out <- paste0(data_directory, "World Bank data/")
+out <- paste0(data_directory_u, "World Bank data/")
 
 # Download data - population size, land area (square km)
-worldbank_data <- wb_data(indicator = c("SP.POP.TOTL", "AG.LND.TOTL.K2"), start_date = 2015, end_date = 2020) %>%
+data <- wb_data(indicator = c("SP.POP.TOTL", "AG.LND.TOTL.K2"), start_date = 2015, end_date = 2020) %>%
   rename(Area_sq_km = AG.LND.TOTL.K2, Population = SP.POP.TOTL, Year = date) %>% remove_all_labels()
 
 # Capitalise first letter of every variable name
-names(worldbank_data) <- str_to_title(names(worldbank_data))
+names(data) <- str_to_title(names(data))
 
 # Save to repository Data folder
-write_csv(x = worldbank_data, path = paste0(out, "Worldbank_data.csv"))
+write_csv(x = data, file = paste0(out, "Worldbank_data.csv"))
 
 # Remove variables from environment
-rm(data_directory, out, source, filenames, filename, i, worldbank_data)
+rm(data_directory_u, out, source, filenames, i, filenames_i, data)
