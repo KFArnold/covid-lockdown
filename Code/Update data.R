@@ -18,7 +18,7 @@
 packrat::restore()
 
 # Load required packages
-library(readr); library(wbstats)
+library(tidyverse); library(wbstats); library(sjlabelled)
 
 # Define project directory where data is located
 data_directory <- paste0("./Data/")
@@ -82,4 +82,4 @@ names(worldbank_data) <- str_to_title(names(worldbank_data))
 write_csv(x = worldbank_data, path = paste0(out, "Worldbank_data.csv"))
 
 # Remove variables from environment
-rm(data_directory, out, source, filenames, worldbank_data)
+rm(data_directory, out, source, filenames, filename, i, worldbank_data)
