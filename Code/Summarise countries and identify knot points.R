@@ -541,12 +541,12 @@ for (i in countries_eur) {
         model <- tryCatch(Arima(data_j$Daily_cases, order = c(2, 0, 0), 
                                 seasonal = list(order = c(1, 0, 0), period = 7),
                                 xreg = as.matrix(data_j[, names]), 
-                                include.constant = TRUE, method = "ML"), 
+                                include.constant = FALSE, method = "ML"), 
                           error = function(e) { skip_to_next <<- TRUE } )
         if (skip_to_next) { next }
 
         # Record model parameters (intercept, slope, and SD of slope)
-        intercept_1 <- as.numeric(coef(model)["intercept"])
+        intercept_1 <- 0
         slope_1 <- as.numeric(coef(model)["Cumulative_cases_beg_1"])
         slope_2 <- as.numeric(coef(model)["Cumulative_cases_beg_2"])
         slope_1_sd <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_1"]]
@@ -658,8 +658,8 @@ for (i in countries_eur) {
     
     # Display progress 
     cat('\r', paste(round((j / nrow(knots) * 100), 0), 
-                    "% done of country", grep(country, unlist(countries_eur_lockdown)), "of", 
-                    length(countries_eur_lockdown), "          ", sep = " "))
+                    "% done of country", grep(country, unlist(countries_eur)), "of", 
+                    length(countries_eur), "          ", sep = " "))
     
   }  # (close loop 2)
   
