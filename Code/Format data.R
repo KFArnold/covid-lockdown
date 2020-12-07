@@ -104,13 +104,8 @@ deaths <- deaths %>% mutate(Daily_deaths_MA7 = round(runmean(Daily_deaths, k = 7
 data_all <- full_join(cases, deaths, by = c("Province_State", "Country", "Date")) 
 rm(cases, deaths)  # (remove separate datasets)
 
-# Create variables for: date of first case (Date_0), 
-# date for which data can be reasonably assumed complete (Date_max)
-data_all <- data_all %>% mutate(Date_0 = Date[which(Daily_cases >= 1)[1]],
-                                Date_max = max(Date) - 7)
-
-# Remove data after Date_max, since this is likely incomplete
-data_all <- data_all %>% filter(Date <= Date_max)
+# Remove data which cannot be reasonable assumed complete
+data_all <- data_all %>% filter(Date <= max(Date) - 7)
 
 # Rename Czechia and Slovakia in cases/deaths dataset,
 # and Russian Federation in Worldbank data
@@ -143,16 +138,6 @@ if (length(countries_eur) != length(countries)) {
 data_eur <- data_eur %>% filter(Country %in% countries_eur) %>% droplevels
 policies_eur <- policies_eur %>% filter(Country %in% countries_eur) %>% droplevels
 worldbank_eur <- worldbank %>% filter(Country %in% countries_eur) %>% droplevels
-
-# Calculate 0.0001% of population for each country
-pct <- worldbank_eur %>% filter(Year == 2019) %>% 
-  mutate(Pop_pct = 0.000001 * Population) %>% select(Country, Pop_pct)
-# Determine date for which cumulative cases first exceeded this percent (Date_pop_pct)
-# and add to data_eur dataframe
-data_eur <- full_join(data_eur, pct, by = "Country") %>%
-  mutate(Date_pop_pct = Date[which(Cumulative_cases_beg >= Pop_pct)[1]]) %>%
-  select(-Pop_pct) %>% relocate(Date_pop_pct, .before = Date_max)
-rm(pct)
 
 # Remove non-European dataframes and lists
 rm(countries, data_all, policies, worldbank)
