@@ -104,11 +104,32 @@ Calc_Pois_Dev <- function(obs, sim) {
 # Summarise countries 
 # ------------------------------------------------------------------------------
 
+# Create variables for: date of first case (Date_0), 
+# dates at which cases first exceeded 25, 50, and 100 (Date_25, Date_50, Date_100), 
+# date for which data can be reasonably assumed complete (Date_max)
+data_eur <- data_eur %>% group_by(Country) %>%
+  mutate(Date_0 = Date[which(Daily_cases >= 1)[1]],
+         Date_25 = Date[which(Cumulative_cases_beg >= 25)[1]],
+         Date_50 = Date[which(Cumulative_cases_beg >= 50)[1]],
+         Date_100 = Date[which(Cumulative_cases_beg >= 100)[1]],
+         Date_max = max(Date))
+
+# Calculate 0.0001% of population for each country
+pct <- worldbank_eur %>% filter(Year == 2019) %>% 
+  mutate(Pop_pct = 0.000001 * Population) %>% select(Country, Pop_pct)
+# Determine date for which cumulative cases first exceeded this percent (Date_pop_pct)
+# and add to data_eur dataframe
+data_eur <- full_join(data_eur, pct, by = "Country") %>%
+  mutate(Date_pop_pct = Date[which(Cumulative_cases_beg >= Pop_pct)[1]]) %>%
+  select(-Pop_pct) %>% relocate(Date_pop_pct, .before = Date_max) %>% ungroup
+rm(pct)
+
 # Create summary table to store info on:
 # Max number of restrictions,
-# Important dates: Date_0, Date_pop_pct, Date_max, Date_first_restriction, 
-# Date_restrictions_eased, Date_lockdown, Date_lockdown_eased, Date_lockdown_end
-summary_eur <- data_eur %>% select(Country, Date_0, Date_pop_pct, Date_max) %>% unique %>%
+# Important dates: Date_0, Date_25, Date_50, Date_100, Date_pop_pct, Date_max, 
+# Date_first_restriction, Date_restrictions_eased, Date_lockdown, Date_lockdown_eased, Date_lockdown_end
+summary_eur <- data_eur %>% 
+  select(Country, Date_0, Date_25, Date_50, Date_100, Date_pop_pct, Date_max) %>% unique %>%
   mutate(Date_first_restriction = as.Date(NA),
          Date_restrictions_eased = as.Date(NA),
          Date_lockdown = as.Date(NA),
@@ -325,12 +346,6 @@ rm(i, country, data_eur_i, policies_eur_i, date_max,
    max_number_restrictions, date_first_restriction, date_restrictions_eased,
    date_lockdown, date_lockdown_eased, date_lockdown_end)
 
-# Calculate date_T (last date to include data from) as either...
-# Date_max, Date_restrictions_eased + 28, or Date_lockdown_eased + 28, whichever comes first
-summary_eur <- summary_eur %>% group_by(Country) %>%
-  mutate(Date_T = min(Date_max, Date_restrictions_eased + 28, Date_lockdown_eased + 28, na.rm = TRUE)) %>%
-  relocate(Date_T, .before = Max_number_restrictions) %>% ungroup
-
 # Determine European countries which entered lockdown
 # and save list to Results folder
 countries_eur_lockdown <- summary_eur %>% filter(!is.na(Date_lockdown)) %>% 
@@ -343,6 +358,15 @@ if (length(countries_eur_lockdown) != length(countries_eur)) {
              paste0(unavail, collapse = ", ")))
   rm(unavail)
 } 
+
+# Define first date from which to include data (Date_start)
+summary_eur <- summary_eur %>% mutate(Date_start = Date_pop_pct) 
+
+# Calculate date_T (last date to include data from) as either...
+# Date_max, Date_restrictions_eased + 28, or Date_lockdown_eased + 28, whichever comes first
+summary_eur <- summary_eur %>% group_by(Country) %>%
+  mutate(Date_T = min(Date_max, Date_restrictions_eased + 28, Date_lockdown_eased + 28, na.rm = TRUE)) %>%
+  ungroup
 
 # Export summary table
 write_csv(summary_eur, file = paste0(results_directory, "Country summaries.csv"))
@@ -366,14 +390,14 @@ for (i in countries_eur) {
   summary_eur_i <- summary_eur %>% filter(Country == country)
   
   # Record important dates
-  date_pop_pct <- summary_eur_i %>% pull(Date_pop_pct)
+  date_start <- summary_eur_i %>% pull(Date_start)
   date_first_restriction <- summary_eur_i %>% pull(Date_first_restriction)
   date_lockdown <- summary_eur_i %>% pull(Date_lockdown)
   date_T <- summary_eur_i %>% pull(Date_T)
   
   # Create copy of cases/deaths dataframe where 
-  # cumulative cases >= population percentage threshold and up to date_T
-  data_eur_pop_pct_i <- data_eur_i %>% filter(Date >= date_pop_pct & Date <= date_T)
+  # cumulative cases >= starting threshold and up to date_T
+  data_eur_pop_pct_i <- data_eur_i %>% filter(Date >= date_start & Date <= date_T)
   
   # Create indicator to skip to next iteration (country)
   skip_to_next_i <- FALSE
@@ -386,14 +410,14 @@ for (i in countries_eur) {
   if (is.na(date_lockdown) | date_first_restriction == date_lockdown) {
     possible_knot_dates_1 <- seq(from = date_first_restriction + 2, to = date_first_restriction + 28, by = 1)
     grid <- tibble("Knot_date_1" = possible_knot_dates_1) %>% 
-      filter(Knot_date_1 >= date_pop_pct, Knot_date_1 < date_T)
+      filter(Knot_date_1 >= date_start, Knot_date_1 < date_T)
   } else {
     possible_knot_dates_1 <- seq(from = date_first_restriction + 2, to = date_first_restriction + 28, by = 1)
     possible_knot_dates_2 <- seq(from = date_lockdown + 2, to = date_lockdown + 28, by = 1)
     grid <- tibble(expand.grid(possible_knot_dates_2, possible_knot_dates_1))
     names(grid) <- c("Knot_date_2", "Knot_date_1")
     grid <- grid %>% select("Knot_date_1", "Knot_date_2") %>% 
-      filter(Knot_date_1 <= Knot_date_2, Knot_date_1 >= date_pop_pct, Knot_date_2 < date_T)  
+      filter(Knot_date_1 <= Knot_date_2, Knot_date_1 >= date_start, Knot_date_2 < date_T)  
     # If first knot date equals second knot date, replace second with NA
     for (g in 1:nrow(grid)) {
       k_1 <- grid[[g, "Knot_date_1"]]
@@ -427,18 +451,18 @@ for (i in countries_eur) {
   rm(grid)
   
   # Set dates over which to simulate growth
-  dates <- seq.Date(from = date_pop_pct, to = date_T, by = 1)
+  dates <- seq.Date(from = date_start, to = date_T, by = 1)
   
   # Create matrices for simulated data (daily and cumulative cases)
   # (1 row per simulation run, 1 col per date)
   daily_cases_sim <- cumulative_cases_end_sim <- 
     matrix(nrow = 1, ncol = length(dates) + 1,
-           dimnames = list(1, as.character(seq.Date(from = date_pop_pct - 1, to = date_T, by = 1))))
-  # Initialise matrices with data at date_pop_pct - 1
+           dimnames = list(1, as.character(seq.Date(from = date_start - 1, to = date_T, by = 1))))
+  # Initialise matrices with data at date_start - 1
   daily_cases_sim[, 1] <- data_eur_i %>% 
-    filter(Date == (date_pop_pct - 1)) %>% pull(Daily_cases_MA7)
+    filter(Date == (date_start - 1)) %>% pull(Daily_cases_MA7)
   cumulative_cases_end_sim[, 1] <- data_eur_i %>% 
-    filter(Date == (date_pop_pct - 1)) %>% pull(Cumulative_cases_end_MA7)
+    filter(Date == (date_start - 1)) %>% pull(Cumulative_cases_end_MA7)
   
   # (2) Iterate through pairs of candidate knot points
   for (j in 1:nrow(knots)) {
@@ -451,11 +475,11 @@ for (i in countries_eur) {
     
     # Estimate growth parameters
     ## If first knot occurs at first date for which cases exceeded pop pct threshold (i.e. when we begin modelling),
-    ## there may be either no knots (i.e. knot occured before or at date_pop_pct)
+    ## there may be either no knots (i.e. knot occured before or at date_start)
     ## OR 1 knot (occurring at knot_date_2).
     ## Otherwise, there may be either 1 knot (occurring at knot_date_1 (= knot_date_2, if it exists))
     ## OR 2 knots (occurring at knot_date_1 and knot_date_2)
-    if (knot_date_1 == date_pop_pct) {
+    if (knot_date_1 == date_start) {
       
       if (is.na(knot_date_2)) {  # NO knot points
         
@@ -685,7 +709,7 @@ end - start  # ~9 mins
 
 # Remove loop variables
 rm(i, j, t, g, country, data_eur_i, summary_eur_i, data_eur_pop_pct_i, 
-   date_pop_pct, date_first_restriction, date_lockdown, date_T,
+   date_start, date_first_restriction, date_lockdown, date_T,
    possible_knot_dates_1, possible_knot_dates_2, k_1, k_2, knots, dates, 
    daily_cases_sim, cumulative_cases_end_sim, knot_date_1, knot_date_2,
    skip_to_next, names, n_knots, knot_1, knot_2, data_j, model, 
