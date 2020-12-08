@@ -691,10 +691,13 @@ for (i in countries_eur) {
   # (1) growth factor 1 is less than 1 AND growth factor 3 exists 
   # (because where there are 3 segments, the first scenario must represent initial uncontrolled growth)
   # (2) any of growth factors are negative
+  # (3) growth factor 1 is less than 2, or 2 is less than 3
   remove_1 <- knots %>% filter(Growth_factor_1 < 1 & !is.na(Growth_factor_3)) 
   remove_2 <- knots %>% filter(Growth_factor_1 < 0 | Growth_factor_2 < 0 | Growth_factor_3 < 0)
+  remove_3 <- knots %>% filter(Growth_factor_1 < Growth_factor_2 | Growth_factor_2 < Growth_factor_3)
   knots <- anti_join(knots, remove_1, by = names(knots)) %>% 
-    anti_join(., remove_2, by = names(knots))
+    anti_join(., remove_2, by = names(knots)) %>%
+    anti_join(., remove_3, by = names(knots))
   
   # Find best knot points (by lowest Pois_dev_inc) for each country and label 
   knots_best_i <- knots %>% arrange(Pois_dev_inc) %>% head(10) %>% 
