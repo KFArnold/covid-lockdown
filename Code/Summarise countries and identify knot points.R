@@ -362,6 +362,12 @@ if (length(countries_eur_lockdown) != length(countries_eur)) {
 # Define first date from which to include data (Date_start)
 summary_eur <- summary_eur %>% mutate(Date_start = Date_pop_pct) 
 
+# Manually replace start date for Denmark, Norway, and Slovenia
+summary_eur <- summary_eur %>% 
+  mutate(Date_start = if_else(Country == "Denmark", as.Date("2020-03-14") + 3, Date_start),
+         Date_start = if_else(Country == "Norway", as.Date("2020-03-14") + 3, Date_start),
+         Date_start = if_else(Country == "Slovenia", as.Date("2020-03-18") + 3, Date_start))
+
 # Calculate date_T (last date to include data from) as either...
 # Date_max, Date_restrictions_eased + 28, or Date_lockdown_eased + 28, whichever comes first
 summary_eur <- summary_eur %>% group_by(Country) %>%
@@ -721,7 +727,7 @@ rm(i, j, t, g, country, data_eur_i, summary_eur_i, data_eur_pop_pct_i,
    growth_factor_1, growth_factor_2, growth_factor_3,
    inc_tminus1, cum_tminus1, inc_t, cum_t, growth,
    true_inc, pred_inc, true_cum, pred_cum, 
-   knots_best_i, remove_1, remove_2, start, end)
+   knots_best_i, remove_1, remove_2, remove_3, start, end)
 
 # Combine best knots from all countries into single dataframe
 knots_best <- bind_rows(knots_best)
