@@ -483,7 +483,7 @@ for (i in countries_eur) {
     ## If first knot occurs at first date for which cases exceeded pop pct threshold (i.e. when we begin modelling),
     ## there may be either no knots (i.e. knot occured before or at date_start)
     ## OR 1 knot (occurring at knot_date_2).
-    ## Otherwise, there may be either 1 knot (occurring at knot_date_1 (= knot_date_2, if it exists))
+    ## Otherwise, there may be either 1 knot (occurring at knot_date_1)
     ## OR 2 knots (occurring at knot_date_1 and knot_date_2)
     if (knot_date_1 == date_start) {
       
@@ -567,7 +567,7 @@ for (i in countries_eur) {
         names(data_j) <- names <- paste0("Cumulative_cases_beg_", 1:2)
         data_j <- bind_cols(Daily_cases = data_eur_pop_pct_i$Daily_cases, data_j)
         
-        # Fit ARIMA spline model w/ specified knot point (with intercept)
+        # Fit ARIMA spline model w/ specified knot point (no intercept)
         model <- tryCatch(Arima(data_j$Daily_cases, order = c(2, 0, 0), 
                                 seasonal = list(order = c(1, 0, 0), period = 7),
                                 xreg = as.matrix(data_j[, names]), 
@@ -698,12 +698,15 @@ for (i in countries_eur) {
   # (because where there are 3 segments, the first scenario must represent initial uncontrolled growth)
   # (2) any of growth factors are negative
   # (3) growth factor 1 is less than 2, or 2 is less than 3
+  # (4) any of growth factor SDs are NaN
   remove_1 <- knots %>% filter(Growth_factor_1 < 1 & !is.na(Growth_factor_3)) 
   remove_2 <- knots %>% filter(Growth_factor_1 < 0 | Growth_factor_2 < 0 | Growth_factor_3 < 0)
   remove_3 <- knots %>% filter(Growth_factor_1 < Growth_factor_2 | Growth_factor_2 < Growth_factor_3)
+  remove_4 <- knots %>% filter(is.nan(Growth_factor_1_sd) | is.nan(Growth_factor_2_sd) | is.nan(Growth_factor_3_sd))
   knots <- anti_join(knots, remove_1, by = names(knots)) %>% 
     anti_join(., remove_2, by = names(knots)) %>%
-    anti_join(., remove_3, by = names(knots))
+    anti_join(., remove_3, by = names(knots)) %>%
+    anti_join(., remove_4, by = names(knots)) 
   
   # Find best knot points (by lowest Pois_dev_inc) for each country and label 
   knots_best_i <- knots %>% arrange(Pois_dev_inc) %>% head(10) %>% 
@@ -727,7 +730,7 @@ rm(i, j, t, g, country, data_eur_i, summary_eur_i, data_eur_pop_pct_i,
    growth_factor_1, growth_factor_2, growth_factor_3,
    inc_tminus1, cum_tminus1, inc_t, cum_t, growth,
    true_inc, pred_inc, true_cum, pred_cum, 
-   knots_best_i, remove_1, remove_2, remove_3, start, end)
+   knots_best_i, remove_1, remove_2, remove_3, remove_4, start, end)
 
 # Combine best knots from all countries into single dataframe
 knots_best <- bind_rows(knots_best)
