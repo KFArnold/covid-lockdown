@@ -762,3 +762,116 @@ rm(median_growth_factors)
 # Export knots_best dataframe
 write_csv(knots_best, file = paste0(results_directory, "Best knot points.csv"))
 
+# Create list of countries for which best knot points could be estimated
+# (i.e. those which can be modelled) and save
+countries_eur_modelled <- knots_best %>% pull(Country) %>% unique %>% as.list
+save(countries_eur_modelled, file = paste0(results_directory, "countries_eur_modelled.RData"))
+
+# ------------------------------------------------------------------------------
+# Calculate possible counterfactual conditions
+# ------------------------------------------------------------------------------
+
+# Given best knot dates, calculate all possible combinations of the number of days earlier
+# we can estimate the first restriction and lockdown (counterfactuals)
+
+# Create dataframe to store possible combinations of counterfactual days for each country
+possible_days_counterfactual <- tibble(Country = as.character(),
+                                       Max_n_knots = as.numeric(),
+                                       N_days_first_restriction = as.numeric(),
+                                       N_days_lockdown = as.numeric())
+
+# Iterate through countries
+for (i in countries_eur_modelled) {
+  
+  # Define country
+  country <- i
+  
+  # Filter datasets by country
+  knots_best_country <- knots_best %>% filter(Country == country)  # best knots
+  summary_eur_country <- summary_eur %>% filter(Country == country)  # summary
+  
+  # Record simulation start date
+  date_start <- summary_eur_country %>% pull(Date_start)
+  
+  # Record dates of first restriction and lockdown
+  date_first_restriction <- summary_eur_country %>% pull(Date_first_restriction)
+  date_lockdown <- summary_eur_country %>% pull(Date_lockdown)
+  
+  # Calculate maximum number of knots in best knots dataframe
+  max_n_knots <- knots_best_country %>% pull(N_knots) %>% max(na.rm = TRUE) %>% 
+    suppressWarnings
+  
+  # Calculate possible counterfactuals
+  if (max_n_knots == 2) {  # both first restriction and lockdown
+    
+    # Calculate maximum number of days earlier we can estimate FIRST RESTRICTION
+    # (minimum value of knot_date_1 greater than or equal to date_start)
+    max_days_counterfactual_first_restriction <- knots_best_country %>% 
+      mutate(Diff = Knot_date_1 - date_start) %>% pull(Diff) %>% min %>% as.numeric 
+    
+    # Calculate minimum date we can estimate first restriction
+    min_date_first_restriction <- date_first_restriction - max_days_counterfactual_first_restriction
+    
+    # Calculate minimum date we can estimate lockdown (must be after date of first restriction)
+    min_date_lockdown <- min_date_first_restriction + 1
+    
+    # Determine all possible combinations of dates for first restriction and lockdown
+    # (first restriction must be before lockdown)
+    possible_dates_counterfactual_i <- expand_grid(Date_first_restriction = seq.Date(min_date_first_restriction, date_first_restriction, 1),
+                                                   Date_lockdown = seq.Date(min_date_lockdown, date_lockdown, 1)) %>%
+      filter(Date_first_restriction < Date_lockdown)
+
+    # Calculate all possible combinations of counterfactual days for first restriction and lockdown, label
+    possible_days_counterfactual_i <- possible_dates_counterfactual_i %>%
+      mutate(N_days_first_restriction = as.numeric(date_first_restriction - Date_first_restriction),
+             N_days_lockdown = as.numeric(date_lockdown - Date_lockdown)) %>%
+      select(N_days_first_restriction, N_days_lockdown) %>%
+      arrange(N_days_first_restriction, N_days_lockdown) %>%
+      mutate(Max_n_knots = 2, Country = country)
+    
+  } else if (max_n_knots == 1) {  # first restriction only
+    
+    # Calculate maximum number of days earlier we can estimate FIRST RESTRICTION
+    # (minimum value of knot_date_1 greater than or equal to date_start)
+    max_days_counterfactual_first_restriction <- knots_best_country %>% 
+      mutate(Diff = Knot_date_1 - date_start) %>% pull(Diff) %>% min %>% as.numeric 
+    
+    # Calculate minimum date we can estimate first restriction
+    min_date_first_restriction <- date_first_restriction - max_days_counterfactual_first_restriction
+    
+    # Determine all possible dates for first restriction
+    possible_dates_counterfactual_i <- expand_grid(Date_first_restriction = seq.Date(min_date_first_restriction, date_first_restriction, 1),
+                                                   Date_lockdown = as.numeric(NA))
+    
+    # Determine all possible counterfactual days for first restriction, label
+    possible_days_counterfactual_i <- possible_dates_counterfactual_i %>%
+      mutate(N_days_first_restriction = as.numeric(date_first_restriction - Date_first_restriction),
+             N_days_lockdown = as.numeric(date_lockdown - Date_lockdown)) %>%
+      select(N_days_first_restriction, N_days_lockdown) %>%
+      arrange(N_days_first_restriction, N_days_lockdown) %>%
+      mutate(Max_n_knots = 1, Country = country)
+    
+  } else {  # none
+    
+    # Specify no combinations of counterfactual days are possible, label
+    possible_days_counterfactual_i <- expand_grid(N_days_first_restriction = as.numeric(NA),
+                                                  N_days_lockdown = as.numeric(NA)) %>%
+      mutate(Max_n_knots = NA, Country = country)
+    
+  }
+  
+  # Bind counterfactual days for country i to full dataframe
+  possible_days_counterfactual <- bind_rows(possible_days_counterfactual, possible_days_counterfactual_i)
+  
+}
+
+# Remove loop objects
+rm(i, country, knots_best_country, summary_eur_country, date_start,
+   date_first_restriction, date_lockdown,
+   max_n_knots, max_days_counterfactual_first_restriction, 
+   min_date_first_restriction, min_date_lockdown,
+   possible_dates_counterfactual_i, possible_days_counterfactual_i)
+
+# Export possible_days_counterfactual dataframe
+write_csv(possible_days_counterfactual, file = paste0(results_directory, "Possible counterfactuals.csv"))
+
