@@ -30,11 +30,11 @@ data_eur <- read_csv(paste0(data_directory_f, "Cases_deaths_data_europe.csv"))
 worldbank_eur <- read_csv(paste0(data_directory_f, "Worldbank_data_europe.csv"))
 
 # Import files containing best knot point pairs and country summaries
-knots_best <- read_csv(paste0(results_directory, "Best knot points.csv"))
-summary_eur <- read_csv(paste0(results_directory, "Country summaries.csv"))
+knots_best <- read_csv(paste0(results_directory, "knots_best.csv"))
+summary_eur <- read_csv(paste0(results_directory, "summary_eur.csv"))
 
 # Import file containing possible counterfactual conditions
-possible_days_counterfactual <- read_csv(paste0(results_directory, "Possible counterfactuals.csv"))
+possible_days_counterfactual <- read_csv(paste0(results_directory, "possible_days_counterfactual.csv"))
 
 # Load list of European countries for which we have both cases/deaths data and policy data,
 # those which entered lockdown, and those which can be modelled
@@ -467,8 +467,8 @@ save(countries_eur_sim, file = paste0(out_folder, "countries_eur_sim.RData"))
 #setdiff(countries_eur_modelled, countries_eur_sim)  # countries not simulated
 
 # Export summary results
-write_csv(summary_daily_cases_sim, file = paste0(out_folder, "Simulation summary - daily cases.csv"))
-write_csv(summary_cumulative_cases_end_sim, file = paste0(out_folder, "Simulation summary - cumulative cases.csv"))
+write_csv(summary_daily_cases_sim, file = paste0(out_folder, "summary_daily_cases_sim.csv"))
+write_csv(summary_cumulative_cases_end_sim, file = paste0(out_folder, "summary_cumulative_cases_end_sim.csv"))
 
 ## Sequential simulation -------------------------------------------------------
 
@@ -494,8 +494,8 @@ write_csv(summary_cumulative_cases_end_sim, file = paste0(out_folder, "Simulatio
 #                                        .f = ~.x$summary_cumulative_cases_end_sim) %>% reduce(bind_rows)
 #
 ## Export summary results
-#write_csv(summary_daily_cases_sim, file = paste0(out_folder, "Simulation summary - daily cases.csv"))
-#write_csv(summary_cumulative_cases_end_sim, file = paste0(out_folder, "Simulation summary - cumulative cases.csv"))
+#write_csv(summary_daily_cases_sim, file = paste0(out_folder, "summary_daily_cases_sim.csv"))
+#write_csv(summary_cumulative_cases_end_sim, file = paste0(out_folder, "summary_cumulative_cases_end_sim.csv"))
 
 ## Calculate dates for which thresholds reached --------------------------------
 
@@ -513,5 +513,5 @@ summary_thresholds <- map(.x = summary_thresholds,
                           .f = ~.x$summary_thresholds) %>% reduce(bind_rows)
 
 # Export summary thresholds table
-write_csv(summary_thresholds, file = paste0(out_folder, "Simulation summary - thresholds.csv"))
+write_csv(summary_thresholds, file = paste0(out_folder, "summary_thresholds.csv"))
 

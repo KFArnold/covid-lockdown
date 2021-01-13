@@ -375,7 +375,7 @@ summary_eur <- summary_eur %>% group_by(Country) %>%
   ungroup
 
 # Export summary table
-write_csv(summary_eur, file = paste0(results_directory, "Country summaries.csv"))
+write_csv(summary_eur, file = paste0(results_directory, "summary_eur.csv"))
 
 # ------------------------------------------------------------------------------
 # Estimate knot points
@@ -760,7 +760,7 @@ knots_best <- full_join(knots_best, median_growth_factors, by = "Country")
 rm(median_growth_factors)
 
 # Export knots_best dataframe
-write_csv(knots_best, file = paste0(results_directory, "Best knot points.csv"))
+write_csv(knots_best, file = paste0(results_directory, "knots_best.csv"))
 
 # Create list of countries for which best knot points could be estimated
 # (i.e. those which can be modelled) and save
@@ -873,5 +873,5 @@ rm(i, country, knots_best_country, summary_eur_country, date_start,
    possible_dates_counterfactual_i, possible_days_counterfactual_i)
 
 # Export possible_days_counterfactual dataframe
-write_csv(possible_days_counterfactual, file = paste0(results_directory, "Possible counterfactuals.csv"))
+write_csv(possible_days_counterfactual, file = paste0(results_directory, "possible_days_counterfactual.csv"))
 
