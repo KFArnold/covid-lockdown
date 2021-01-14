@@ -280,7 +280,7 @@ Simulate_Growth <- function(country, n_days_first_restriction, n_days_lockdown,
     # Bind knot-specific dataframes to full scenario dataframe
     daily_cases_sim <- rbind(daily_cases_sim, daily_cases_sim_i)
     
-  }  # (close knot date loop (2), j)
+  }  # (close knot date loop (2), i)
   
   # Calculate cumulative cases
   daily_cases_sim_copy <- daily_cases_sim
@@ -305,6 +305,7 @@ Simulate_Growth <- function(country, n_days_first_restriction, n_days_lockdown,
   
   # Update progress bar
   setTxtProgressBar(progress_bar, 1)
+  close(progress_bar)
   
   # Return list of summary dataframes: simulated daily and cumulative cases
   return(list("summary_daily_cases_sim" = summary_daily_cases_sim, 
@@ -461,15 +462,6 @@ summary_daily_cases_sim <- map(.x = sim_data,
 summary_cumulative_cases_end_sim <- map(.x = sim_data, 
                                         .f = ~.x$summary_cumulative_cases_end_sim) %>% reduce(bind_rows)
 
-# Get list of countries simulated, export to simulation subfolder
-countries_eur_sim <- summary_daily_cases_sim %>% pull(Country) %>% unique %>% as.list
-save(countries_eur_sim, file = paste0(out_folder, "countries_eur_sim.RData"))
-#setdiff(countries_eur_modelled, countries_eur_sim)  # countries not simulated
-
-# Export summary results
-write_csv(summary_daily_cases_sim, file = paste0(out_folder, "summary_daily_cases_sim.csv"))
-write_csv(summary_cumulative_cases_end_sim, file = paste0(out_folder, "summary_cumulative_cases_end_sim.csv"))
-
 ## Sequential simulation -------------------------------------------------------
 
 ## Set seed
@@ -492,10 +484,6 @@ write_csv(summary_cumulative_cases_end_sim, file = paste0(out_folder, "summary_c
 #                               .f = ~.x$summary_daily_cases_sim) %>% reduce(bind_rows)
 #summary_cumulative_cases_end_sim <- map(.x = sim_data, 
 #                                        .f = ~.x$summary_cumulative_cases_end_sim) %>% reduce(bind_rows)
-#
-## Export summary results
-#write_csv(summary_daily_cases_sim, file = paste0(out_folder, "summary_daily_cases_sim.csv"))
-#write_csv(summary_cumulative_cases_end_sim, file = paste0(out_folder, "summary_cumulative_cases_end_sim.csv"))
 
 ## Calculate dates for which thresholds reached --------------------------------
 
@@ -512,6 +500,24 @@ summary_thresholds <- foreach(i = countries_eur_modelled, .errorhandling = "pass
 summary_thresholds <- map(.x = summary_thresholds, 
                           .f = ~.x$summary_thresholds) %>% reduce(bind_rows)
 
-# Export summary thresholds table
-write_csv(summary_thresholds, file = paste0(out_folder, "summary_thresholds.csv"))
+## SAVE all output -------------------------------------------------------------
 
+# Get list of countries simulated, export to simulation subfolder
+countries_eur_sim <- summary_daily_cases_sim %>% pull(Country) %>% unique %>% as.list
+save(countries_eur_sim, file = paste0(out_folder, "countries_eur_sim.RData"))
+#setdiff(countries_eur_modelled, countries_eur_sim)  # countries not simulated
+
+# Create list of all summary datasets to export
+summary_sim_all <- list(summary_daily_cases_sim = summary_daily_cases_sim, 
+                        summary_cumulative_cases_end_sim = summary_cumulative_cases_end_sim, 
+                        summary_thresholds = summary_thresholds)
+
+# For all summary datasets, 
+# create Simulation variable which contains a text description of the simulation parameters
+summary_sim_all <- map(.x = summary_sim_all, 
+                       .f = ~.x %>% mutate(Simulation = paste(n_days_first_restriction, n_days_lockdown, sep = ",")) %>%
+                         relocate(Simulation, .after = Country))
+
+# Save all summary tables
+summary_sim_all %>% names(.) %>% 
+  walk(~ write_csv(summary_sim_all[[.]], paste0(out_folder, ., ".csv")))
