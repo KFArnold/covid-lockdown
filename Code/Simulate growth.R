@@ -2,7 +2,7 @@
 # Notes
 # ------------------------------------------------------------------------------
 
-# This script simulates the natural history of COVID-19 growth 
+# This script simulates the natural and counterfactual grwoth of COVID-19  
 # for all European countries for which we have data relating to both cases and policies.
 # It uses the 'best' pairs of knot points identified in script 'Identify knot points.R'.
 
@@ -41,6 +41,10 @@ possible_days_counterfactual <- read_csv(paste0(results_directory, "possible_day
 load(paste0(results_directory, "countries_eur.RData"))
 load(paste0(results_directory, "countries_eur_lockdown.RData"))
 load(paste0(results_directory, "countries_eur_modelled.RData"))
+
+# ------------------------------------------------------------------------------
+# Simulation and analysis
+# ------------------------------------------------------------------------------
 
 ## Functions -------------------------------------------------------------------
 
@@ -398,10 +402,7 @@ Calculate_Date_Threshold_Reached <- function(country, thresholds, data_sim) {
   
 }
 
-
-# ------------------------------------------------------------------------------
-# Simulation and analysis
-# ------------------------------------------------------------------------------
+## Simulation ------------------------------------------------------------------
 
 # Specify simulation parameters
 n_days_first_restriction <- 0
@@ -423,7 +424,7 @@ if(!dir.exists(out_folder)) {
   print("Folder already exists")
 }
 
-## Parallelised simulation -----------------------------------------------------
+### Parallelised ---------------------------------------------------------------
 
 # Set up parallelisation
 n_cores <- detectCores()
@@ -462,7 +463,7 @@ summary_daily_cases_sim <- map(.x = sim_data,
 summary_cumulative_cases_end_sim <- map(.x = sim_data, 
                                         .f = ~.x$summary_cumulative_cases_end_sim) %>% reduce(bind_rows)
 
-## Sequential simulation -------------------------------------------------------
+### Sequential -----------------------------------------------------------------
 
 ## Set seed
 #set.seed(13)
