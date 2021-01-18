@@ -206,6 +206,12 @@ Source: CRAN
 Version: 0.6.25
 Hash: ec0a673866797c8c1fc1daa359fb4cad
 
+Package: doSNOW
+Source: CRAN
+Version: 1.0.19
+Hash: 1e8c3527501251bc846723c5c49f137a
+Requires: foreach, iterators, snow
+
 Package: dplyr
 Source: CRAN
 Version: 1.0.0
@@ -239,6 +245,12 @@ Source: CRAN
 Version: 0.5.0
 Hash: 6b130778caccc8e4e6cf498c76c84e7b
 Requires: ellipsis, magrittr, rlang, tibble
+
+Package: foreach
+Source: CRAN
+Version: 1.5.1
+Hash: 6dda99e5cba20abf021b0e6cfb3472df
+Requires: iterators
 
 Package: forecast
 Source: CRAN
@@ -355,6 +367,11 @@ Source: CRAN
 Version: 0.2.1
 Hash: d2c6d55af5a6470b2edef34d03d53068
 Requires: Rcpp, testthat
+
+Package: iterators
+Source: CRAN
+Version: 1.0.13
+Hash: 750adbdf6750e2dbcf2066c443d64892
 
 Package: jsonlite
 Source: CRAN
@@ -667,6 +684,11 @@ Source: CRAN
 Version: 1.1.7
 Hash: ab441075e6394bdc573cb5e6801c773d
 Requires: insight
+
+Package: snow
+Source: CRAN
+Version: 0.4-3
+Hash: 350fc9078c96345a2246415fc9e67311
 
 Package: sp
 Source: CRAN
