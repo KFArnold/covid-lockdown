@@ -1,0 +1,148 @@
+# ------------------------------------------------------------------------------
+# Notes
+# ------------------------------------------------------------------------------
+
+# This script imports/formats COVID-19 cases/deaths data, policies data, and World Bank data
+# for countries around the world, and selects a subset of European countries to be analysed 
+
+# Notes:
+# May have to impute some values (look at Peter's code) - find NA's
+# Need to take into account whether restrictions are targeted or general?
+# Lithuania, Portugal, Spain, and UK have negative incidence
+
+# ------------------------------------------------------------------------------
+# Setup
+# ------------------------------------------------------------------------------
+
+# Restore package library to last snapshot
+packrat::restore()
+
+# Load required packages
+library(tidyverse); library(caTools)
+
+# Run source code to update external data
+#source("./Code/Update data.R")
+
+# Define all European countries
+# (from https://www.worldometers.info/geography/how-many-countries-in-europe/)
+countries <- list("Albania", "Andorra", "Austria", "Belarus", "Belgium", 
+                  "Bosnia and Herzegovina", "Bulgaria", "Croatia", "Czech Republic",
+                  "Denmark", "Estonia", "Finland", "France", "Germany", 
+                  "Greece", "Holy See", "Hungary", "Iceland", "Ireland", 
+                  "Italy", "Latvia", "Liechtenstein", "Lithuania", 
+                  "Luxembourg", "Malta", "Moldova", "Monaco", "Montenegro",
+                  "Netherlands", "North Macedonia", "Norway", "Poland",
+                  "Portugal", "Romania", "Russia", "San Marino",
+                  "Serbia", "Slovak Republic", "Slovenia", "Spain", "Sweden", 
+                  "Switzerland", "Ukraine", "United Kingdom")
+
+# Define project directory where unformatted data is located
+data_directory_u <- paste0("./Data/Unformatted/")
+
+# Define storage directory for formatted data
+data_directory_f <- paste0("./Data/Formatted/")
+
+# Define storage directory for results
+results_directory <- paste0("./Results/")
+
+# ------------------------------------------------------------------------------
+# Import and format data
+# ------------------------------------------------------------------------------
+
+# Load unformatted data
+## (1) CSSE data (cumulative cases and deaths)
+cases <- read_csv(paste0(data_directory_u, "CSSE data/time_series_covid19_confirmed_global.csv"))
+deaths <- read_csv(paste0(data_directory_u, "CSSE data/time_series_covid19_deaths_global.csv"))
+## (2) OxCGRT data (government policies)
+policies <- read_csv(paste0(data_directory_u, "OxCGRT data/OxCGRT_latest.csv"),
+                     col_types = cols(RegionName = col_character(),
+                                      RegionCode = col_character())) %>% 
+  mutate(Date = as.Date(as.character(Date), format = "%Y%m%d"))
+## World Bank data (population size, land area (square km))
+worldbank <- read_csv(paste0(data_directory_u, "World Bank data/Worldbank_data.csv"))
+
+# Convert datasets to long form, select relevant variables, 
+# rename country variable, convert characters to factors,
+# and order / group by Province and Country
+cases <- cases %>% gather(Date, Cumulative_cases_end, -(1:4)) %>% 
+  mutate(Date = as.Date(Date, format = "%m_%d_%y")) %>% 
+  select(-c(Lat, Long)) %>% rename(c(Country = Country_Region)) %>% 
+  mutate_if(is.character, as.factor) %>%
+  group_by(Province_State, Country) %>% arrange(Country, Date)
+deaths <- deaths %>% gather(Date, Cumulative_deaths_end, -(1:4)) %>% 
+  mutate(Date = as.Date(Date, format = "%m_%d_%y")) %>% 
+  select(-c(Lat, Long)) %>% rename(c(Country = Country_Region)) %>% 
+  mutate_if(is.character, as.factor) %>%
+  group_by(Province_State, Country) %>% arrange(Country, Date)
+policies <- policies %>% rename(c(Country = CountryName,
+                                  Province_State = RegionName)) %>% 
+  select(c(Country, Province_State, Date, C1_School_closing:C8_International_travel_controls)) %>%
+  mutate_if(is.character, as.factor) %>%
+  group_by(Province_State, Country) %>% arrange(Country, Date)
+worldbank <- worldbank %>% mutate_if(is.character, as.factor) %>% 
+  group_by(Country) %>% arrange(Country)
+
+# Calculate daily cases and deaths
+cases <- cases %>% mutate(Cumulative_cases_beg = lag(Cumulative_cases_end, n = 1, default = 0),
+                          Daily_cases = Cumulative_cases_end - Cumulative_cases_beg) %>%
+  relocate(c(Cumulative_cases_beg, Daily_cases), .before = Cumulative_cases_end)
+deaths <- deaths %>% mutate(Cumulative_deaths_beg = lag(Cumulative_deaths_end, n = 1, default = 0), 
+                            Daily_deaths = Cumulative_deaths_end - Cumulative_deaths_beg) %>%
+  relocate(c(Cumulative_deaths_beg, Daily_deaths), .before = Cumulative_deaths_end)
+
+# Calculate 7-day moving averages of daily and cumulative cases and deaths
+cases <- cases %>% mutate(Daily_cases_MA7 = round(runmean(Daily_cases, k = 7, alg = "C", endrule = "mean"), 3),
+                          Cumulative_cases_end_MA7 = cumsum(Daily_cases_MA7),
+                          Cumulative_cases_beg_MA7 = lag(Cumulative_cases_end_MA7, n = 1, default = 0)) %>%
+  relocate(Cumulative_cases_beg_MA7, .before = Daily_cases_MA7)
+deaths <- deaths %>% mutate(Daily_deaths_MA7 = round(runmean(Daily_deaths, k = 7, alg = "C", endrule = "mean"), 3),
+                            Cumulative_deaths_end_MA7 = cumsum(Daily_deaths_MA7),
+                            Cumulative_deaths_beg_MA7 = lag(Cumulative_deaths_end_MA7, n = 1, default = 0)) %>%
+  relocate(Cumulative_deaths_beg_MA7, .before = Daily_deaths_MA7)
+
+# Merge cases and deaths datasets into single dataframe
+data_all <- full_join(cases, deaths, by = c("Province_State", "Country", "Date")) 
+rm(cases, deaths)  # (remove separate datasets)
+
+# Remove data which cannot be reasonable assumed complete
+data_all <- data_all %>% filter(Date <= max(Date) - 7)
+
+# Rename Czechia and Slovakia in cases/deaths dataset,
+# and Russian Federation in Worldbank data
+data_all <- data_all %>% mutate(Country = recode(Country, "Czechia" = "Czech Republic"),
+                                Country = recode(Country, "Slovakia" = "Slovak Republic"))
+worldbank <- worldbank %>% mutate(Country = recode(Country, "Russian Federation" = "Russia"))
+
+# Retain data for countries in Europe only
+# and remove dependencies (of the Netherlands, UK, France, and Denmark)
+# and drop unused levels
+data_eur <- data_all %>% filter(Country %in% countries) %>% ungroup(Province_State) %>%
+  filter(is.na(Province_State)) %>% select(-Province_State) %>% droplevels
+policies_eur <- policies %>% filter(Country %in% countries) %>% ungroup(Province_State) %>%
+  filter(is.na(Province_State)) %>% select(-Province_State) %>% droplevels
+
+# Create list of European countries for which we have both cases/deaths data and policy data,
+# and save to Results folder
+countries_eur <- as.list(intersect(levels(data_eur$Country), levels(policies_eur$Country)))
+save(countries_eur, file = paste0(results_directory, "countries_eur.RData"))
+## print note about any countries which both are not avaiable:
+if (length(countries_eur) != length(countries)) {
+  unavail <- setdiff(levels(data_eur$Country), levels(policies_eur$Country))
+  cat(paste0("Note that the following countries do not have both cases/deaths
+  data and policy data available:\n", 
+             paste0(unavail, collapse = ", ")))
+  rm(unavail)
+} 
+
+# Retain data for European countries for which we have both cases/deaths data and policy data
+data_eur <- data_eur %>% filter(Country %in% countries_eur) %>% droplevels
+policies_eur <- policies_eur %>% filter(Country %in% countries_eur) %>% droplevels
+worldbank_eur <- worldbank %>% filter(Country %in% countries_eur) %>% droplevels
+
+# Remove non-European dataframes and lists
+rm(countries, data_all, policies, worldbank)
+
+# Save formatted data to project directory
+write_csv(x = data_eur, file = paste0(data_directory_f, "Cases_deaths_data_europe.csv"))
+write_csv(x = policies_eur, file = paste0(data_directory_f, "Policy_data_europe.csv"))
+write_csv(x = worldbank_eur, file = paste0(data_directory_f, "Worldbank_data_europe.csv"))
