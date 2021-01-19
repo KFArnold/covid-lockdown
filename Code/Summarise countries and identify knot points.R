@@ -751,6 +751,15 @@ knots_best <- knots_best %>% mutate(Pois_dev_cum_inv = 1 / Pois_dev_cum,
                                     Prob_unequal = Pois_dev_cum_inv * Norm) %>%
   select(-c(Pois_dev_cum_inv, Norm))
 
+# Calculate minimum number of simulation runs per knot date required to retain relative probability of each
+### (find the probability of the least likely knot date,
+### calculate the multiplier required for this knot date to be simulated once, and
+### multiply the probability of each knot date by multiplier)
+knots_best <- knots_best %>% mutate(Prob_min = min(Prob_unequal),
+                                    Mult = ceiling(1 / Prob_min),
+                                    Min_n_unequal = round(Prob_unequal * Mult)) %>%
+  select(-c(Prob_min, Mult))
+
 # Find median growth factors for each country among best knots
 median_growth_factors <- knots_best %>% summarise(Median_growth_factor_1 = median(Growth_factor_1, na.rm = TRUE),
                                                   Median_growth_factor_2 = median(Growth_factor_2, na.rm = TRUE),
