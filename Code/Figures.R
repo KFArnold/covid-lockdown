@@ -6,7 +6,7 @@
 # (1) Important dates 
 # (2) Exponential growth (i.e. cumulative vs incident cases), with fitted splines
 # (3) Growth factors under lockdown
-# (4) Simulated incident and cumulative cases (natural and counterfactual)
+# (4) Simulated incident and cumulative cases (natural and counterfactual), and model residuals
 
 # ------------------------------------------------------------------------------
 # Setup
@@ -400,7 +400,7 @@ figure_growth_factor <- Plot_Growth_Factor_Lockdown(countries = countries,
                                                     out = results_directory)
 
 # ------------------------------------------------------------------------------
-# Simulation results (natural vs counterfactual histories)
+# Simulation results: natural vs counterfactual histories, model residuals
 # ------------------------------------------------------------------------------
 
 ## Data import -----------------------------------------------------------------
@@ -449,9 +449,7 @@ summary_cases_sim_all <- full_join(summary_cumulative_cases_beg_sim_all,
   rename_at(vars(Mean, C_025, C_975), function(x) {paste0(x, "_cumulative_cases_end")})
 rm(summary_cumulative_cases_beg_sim_all, summary_daily_cases_sim_all, summary_cumulative_cases_end_sim_all)
 
-## note that data isn't grouped
-
-## Functions -------------------------------------------------------------------
+## Functions: natural vs counterfactual histories ------------------------------
 
 # Function to create three-panel figure of simulation results for a specified country
 # (from functions Plot_Daily_Cases_Sim, Plot_Cumulative_Cases_Sim, Plot_Exponential_Growth_Sim)
@@ -509,13 +507,13 @@ Plot_Simulation_Results <- function(country, simulations, out) {
     pull(Date_cases_below_threshold) %>% max(na.rm = TRUE)
   
   # Calculate min_date (min date to display on plots)
-  min_date <- date_0 - 28
+  min_date <- date_0 - 14
   
   # Calculate max_date (max date to display on plots)
   if (is.infinite(date_lowest_threshold)) { 
-    max_date <- date_T + 28
+    max_date <- date_T + 14
   } else {
-    max_date <- max(date_lowest_threshold + 28, date_T + 28)
+    max_date <- max(date_lowest_threshold + 14, date_T + 14)
   }
   
   # Create plots
@@ -821,7 +819,7 @@ Plot_Exponential_Growth_Sim <- function(max_date, obs_data, sim_data,
   
 }
 
-## Figures ---------------------------------------------------------------------
+## Figures: natural vs counterfactual histories --------------------------------
 
 # Create folder for storing figures of incident and cumulative cases by country, 
 # if none already exists
@@ -848,4 +846,150 @@ figure_sim_results <- foreach(i = countries_eur_modelled, .errorhandling = "pass
   Plot_Simulation_Results(country = i, 
                           simulations = simulations, 
                           out = out_folder)
+
+## Functions: model residuals --------------------------------------------------
+
+# Function to create two-panel figure of residual plots (for both incident and cumulative cases)
+# of simulation results for a particular country
+# Arguments:
+# (1) country = country to plot
+# (2) out = folder to save combined figure
+Plot_Model_Residuals_Combined <- function(country, out) {
+  
+  # Plot residuals of incident cases
+  plot_inc <- Plot_Model_Residuals(country = country,
+                                   cases = "Daily_cases",
+                                   out = out)
+  
+  # Plot residuals of cumulative cases
+  plot_cum <- Plot_Model_Residuals(country = country,
+                                   cases = "Cumulative_cases_end",
+                                   out = out)
+  
+  # Create copy of plots with description as title
+  plot_inc_copy <- plot_inc + 
+    labs(title = "Model residuals: incident cases")
+  plot_cum_copy <- plot_cum +
+    labs(title = "Model residuals: cumulative cases")
+  
+  # Combine copied plots in double panel with country as title
+  plots_all <- ggarrange(plotlist = list(plot_inc_copy, plot_cum_copy), align = "h",
+                         nrow = 1, ncol = 2)
+  plots_all_annotated <- annotate_figure(plots_all, top = text_grob(paste0(country),  size = 20))
+  
+  # Save combined plot to subfolder
+  ggsave(paste0(out, "/", country, ".png"), plot = plots_all_annotated, width = 6*2, height = 6)
+  
+  # Return lists of individual plots
+  return(list(plot_inc = plot_inc, plot_cum = plot_cum))
+  
+}
+
+# Function to create single figure of model residual plots
+# Arguments:
+# (1) country = country to plot
+# (2) cases = type of cases to display (cumulative or incident)
+# (3) out = folder to save combined figure
+Plot_Model_Residuals <- function(country, cases = c("Daily_cases", "Cumulative_cases_beg"), out) {
+  
+  # Filter observed cases/deaths and summary dataframes by country, and
+  # select relevant variables
+  data_eur_country <- data_eur %>% filter(Country == country) %>%
+    select(Country, Date, all_of(cases))
+  summary_eur_country <- summary_eur %>% filter(Country == country)
+  
+  # Filter simulation results by specified country, natural history, and 
+  # select relevant variables
+  summary_cases_sim_country <- summary_cases_sim_all %>%
+    filter(Country == country, History == "Natural history") %>%
+    select(Country, Date, paste0("Mean_", tolower(cases)))
+  
+  # If no simulated data for country, print warning and stop
+  if (nrow(summary_cases_sim_country) == 0) { 
+    stop(paste0("No simulated data for ", country, "."))
+  }
+  
+  # Record important dates
+  date_start <- summary_eur_country %>% pull(Date_start)  # first date of observed data included
+  date_T <- summary_eur_country %>% pull(Date_T)  # final date of observed data to include
+  
+  # Filter observed and simulated data within modelling period, and
+  # rename cases in dataframes to observed and predicted
+  data_eur_country <- data_eur_country %>% 
+    filter(Date >= date_start, Date <= date_T) %>%
+    rename(Observed_cases = cases)
+  summary_cases_sim_country <- summary_cases_sim_country %>% 
+    filter(Date >= date_start, Date <= date_T) %>%
+    rename(Predicted_cases = paste0("Mean_", tolower(cases)))
+  
+  # Join observed and simulated data, calculate residuals
+  residuals <- full_join(data_eur_country, summary_cases_sim_country, 
+                         by = c("Date", "Country")) %>%
+    mutate(Residual = Observed_cases - Predicted_cases)
+  
+  # Calculate absolute maximum value of residuals
+  max_res <- residuals %>% pull(Residual) %>% abs %>% max
+
+  # Define subtitle
+  if (cases == "Daily_cases") {
+    subtitle <- "Model residuals: incident cases"
+  } else {
+    subtitle <- "Model residuals: cumulative cases"
+  }
+  
+  # Plot residuals against date
+  plot <- ggplot(data = residuals, aes(x = Date, y = Residual)) +
+    theme_minimal() +
+    theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
+    labs(title = country) +
+    geom_hline(yintercept = 0, color = "firebrick") +
+    geom_line() +
+    scale_x_date(date_breaks = "1 month", date_labels = "%b\n%y") +
+    scale_y_continuous(name = "Residual",
+                       limits = c(-1.2*max_res, 1.2*max_res), 
+                       labels = comma_format(accuracy = 1))
+  
+  # Return plot
+  return(plot)
+  
+}
+
+## Figures: model residuals ----------------------------------------------------
+
+# Create folder for storing figures of model residuals by country, 
+# if none already exists
+out_folder <- paste0(results_directory, "Figures - Model residuals by country")
+if(!dir.exists(out_folder)) {
+  dir.create(out_folder)
+} else {
+  print("Folder already exists")
+}
+
+# Create figures
+figure_model_residuals <- foreach(i = countries_eur_modelled, .errorhandling = "pass") %do% 
+  Plot_Model_Residuals_Combined(country = i,
+                                out = out_folder)
+
+# Create separate lists for residuals of incident and cumulative cases
+figure_model_residuals_inc <- map(.x = figure_model_residuals,
+                                  .f = ~.x$plot_inc) 
+figure_model_residuals_cum <- map(.x = figure_model_residuals,
+                                  .f = ~.x$plot_cum) 
+
+# Create combined figures (all countries) for residuals of incident and cumulative cases
+rows <- length(figure_model_residuals_inc) %>% sqrt %>% ceiling
+cols <- length(figure_model_residuals_inc) %>% sqrt %>% floor
+## Incident cases
+p_inc <- ggarrange(plotlist = figure_model_residuals_inc, nrow = rows, ncol = cols)
+p_inc_annotated <- annotate_figure(p_inc, 
+                                   top = text_grob("Model residuals: incident cases", size = 30))
+ggsave(paste0(results_directory, "Figure - Model residuals (incident cases).png"),
+       plot = p_inc_annotated, width = 6*cols, height = 6*rows, limitsize = FALSE)
+## Cumulative cases
+p_cum <- ggarrange(plotlist = figure_model_residuals_cum, nrow = rows, ncol = cols)
+p_cum_annotated <- annotate_figure(p_cum, 
+                                   top = text_grob("Model residuals: cumulative cases", size = 30))
+ggsave(paste0(results_directory, "Figure - Model residuals (cumulative cases).png"),
+       plot = p_cum_annotated, width = 6*cols, height = 6*rows, limitsize = FALSE)
+
 
