@@ -507,13 +507,13 @@ Plot_Simulation_Results <- function(country, simulations, out) {
     pull(Date_cases_below_threshold) %>% max(na.rm = TRUE)
   
   # Calculate min_date (min date to display on plots)
-  min_date <- date_0 - 28
+  min_date <- date_0 - 14
   
   # Calculate max_date (max date to display on plots)
   if (is.infinite(date_lowest_threshold)) { 
-    max_date <- date_T + 28
+    max_date <- date_T + 14
   } else {
-    max_date <- max(date_lowest_threshold + 28, date_T + 28)
+    max_date <- max(date_lowest_threshold + 14, date_T + 14)
   }
   
   # Create plots
