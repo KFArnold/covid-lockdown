@@ -3,12 +3,11 @@
 # ------------------------------------------------------------------------------
 
 # This script downloads most recent data from:
-
 # (1) COVID-19 Data Repository by the Center for Systems Science and Engineering (CSSE) at Johns Hopkins University
 # (2) Oxford Covid-19 Government Response Tracker
 # (3) World Bank (from wbstats package)
 
-# Data is then saved to project repository.
+# Data is then saved to project repository (./Data/Unformatted/).
 
 # ------------------------------------------------------------------------------
 # Setup

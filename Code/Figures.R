@@ -8,6 +8,8 @@
 # (3) Growth factors under lockdown
 # (4) Simulated incident and cumulative cases (natural and counterfactual), and model residuals
 
+# All figures are saved to the project directory (./Results/).
+
 # ------------------------------------------------------------------------------
 # Setup
 # ------------------------------------------------------------------------------
@@ -28,8 +30,9 @@ results_directory <- paste0("./Results/")
 data_eur <- read_csv(paste0(data_directory_f, "Cases_deaths_data_europe.csv"))
 worldbank_eur <- read_csv(paste0(data_directory_f, "Worldbank_data_europe.csv"))
 
-# Import file containing best knot date pairs and country summaries
+# Import files containing best knot date pairs, median growth factors, and country summaries
 knots_best <- read_csv(paste0(results_directory, "knots_best.csv"))
+median_growth_factors <- read_csv(paste0(results_directory, "median_growth_factors.csv"))
 summary_eur <- read_csv(paste0(results_directory, "summary_eur.csv"))
 
 # Load list of European countries for which we have both cases/deaths data and policy data,
@@ -322,24 +325,25 @@ Plot_Growth_Factor_Lockdown <- function(countries,
                                                   "Daily_cases_MA7"),
                                         out) {
   
-  # Filter cases/deaths, summary, and best knots dataframes by countries that entered lockdown
-  # and select relevant variables
-  data_eur_lockdown <- data_eur %>% filter(Country %in% countries_eur_lockdown) %>%
+  # Filter cases/deaths, summary, best knots, and median growth factor dataframes 
+  # by countries and select relevant variables
+  data_eur_lockdown <- data_eur %>% filter(Country %in% countries) %>%
     select(Country, Date, all_of(cases))
-  summary_eur_lockdown <- summary_eur %>% filter(Country %in% countries_eur_lockdown) %>%
+  summary_eur_lockdown <- summary_eur %>% filter(Country %in% countries) %>%
     select(Country, Date_lockdown)
-  knots_best_lockdown <- knots_best %>% filter(Country %in% countries_eur_lockdown)
+  knots_best_lockdown <- knots_best %>% filter(Country %in% countries)
+  median_growth_factors_lockdown <- median_growth_factors %>% filter(Country %in% countries)
   
-  # Calculate median growth factor under lockdown from list of best knots
-  median_growth_factor_lockdown <- knots_best_lockdown %>%
-    group_by(Country) %>% select(Country, contains("Median")) %>% unique %>% 
+  # Calculate median growth factor under lockdown
+  median_growth_factors_lockdown <- median_growth_factors_lockdown %>% 
+    group_by(Country) %>% 
     summarise(Median_growth_factor_lockdown = ifelse(!is.na(Median_growth_factor_3),
                                                      Median_growth_factor_3, Median_growth_factor_2),
               .groups = "keep") %>% ungroup
   
   # Bind data together in single dataframe
   all_data_lockdown <- summary_eur_lockdown %>%
-    full_join(., median_growth_factor_lockdown, by = "Country") %>%
+    full_join(., median_growth_factors_lockdown, by = "Country") %>%
     full_join(., data_eur_lockdown, by = "Country") %>% 
     filter(Date == Date_lockdown) %>% select(-contains("Date")) 
   
