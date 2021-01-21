@@ -8,6 +8,8 @@
 # (3) Growth factors under lockdown
 # (4) Simulated incident and cumulative cases (natural and counterfactual), and model residuals
 
+# All figures are saved to the project directory (./Results/).
+
 # ------------------------------------------------------------------------------
 # Setup
 # ------------------------------------------------------------------------------

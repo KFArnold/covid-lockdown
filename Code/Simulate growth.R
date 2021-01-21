@@ -2,12 +2,15 @@
 # Notes
 # ------------------------------------------------------------------------------
 
-# This script simulates the natural and counterfactual grwoth of COVID-19  
+# This script simulates the natural and counterfactual growth of COVID-19  
 # for all European countries for which we have data relating to both cases and policies.
-# It uses the 'best' pairs of knot points identified in script 'Identify knot points.R'.
+# It uses the pairs of knot points identified in script 
+# 'Summarise countries and identify knot points.R'.
 
 # It also calculates the number of days from lockdown until the mean number of daily cases
-# falls below specified thresholds (based on population).
+# falls below specified population-based thresholds.
+
+# All outputs are saved to simulation-specific sub-folders the project directory (./Results/).
 
 # ------------------------------------------------------------------------------
 # Setup

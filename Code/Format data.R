@@ -2,13 +2,11 @@
 # Notes
 # ------------------------------------------------------------------------------
 
-# This script imports/formats COVID-19 cases/deaths data, policies data, and World Bank data
-# for countries around the world, and selects a subset of European countries to be analysed 
+# This script imports unformatted COVID-19 cases/deaths data, policies data, and World Bank data
+# from the project repository, selects a subset of European countries to be analysed,
+# and formats data for use in project.
 
-# Notes:
-# May have to impute some values (look at Peter's code) - find NA's
-# Need to take into account whether restrictions are targeted or general?
-# Lithuania, Portugal, Spain, and UK have negative incidence
+# Formatted data is then saved to project repository (./Data/Formatted/).
 
 # ------------------------------------------------------------------------------
 # Setup

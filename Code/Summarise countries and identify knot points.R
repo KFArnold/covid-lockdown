@@ -2,6 +2,20 @@
 # Notes
 # ------------------------------------------------------------------------------
 
+# This script summarises important dates in the COVID-19 timeline for all
+# European countries for which we have data relating to both cases and policies.
+# These dates include case thresholds (e.g. date of first confirmed case)
+# and policy implemetations (e.g. date of first restriction, 
+# date when restrictions eased, date of lockdown, date when lockdown eased).
+
+# This script then identifies when the effects of the first restriction and 
+# lockdown (if applicable) were realised, by identifying the 'knot dates' 
+# at which the growth factor changed.
+
+# Lastly, this script identifies the number of days earlier that the first
+# restriction and lockown measures may be (counterfactually) estimated.
+
+# All outputs are saved to the project directory (./Results/).
 
 # ------------------------------------------------------------------------------
 # Setup
@@ -780,6 +794,7 @@ Estimate_Growth <- function(date_start, date_end, start_value,
   # Initialise matrix with data at date_start - 1
   daily_cases_sim[, 1] <- start_value
   
+  # Iterate through dates
   for (t in as.list(dates)) {
     
     # Get daily cases from time t-1
