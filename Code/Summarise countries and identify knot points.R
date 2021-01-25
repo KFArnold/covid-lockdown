@@ -982,7 +982,7 @@ Calculate_Possible_Counterfactual_Days <- function(country, knots) {
     suppressWarnings
   
   # Calculate possible counterfactuals
-  if (max_n_knots == 2) {  # both first restriction and lockdown
+  if (max_n_knots == 2) {  # evidence of two unique intervention effects
     
     # Calculate maximum number of days earlier we can estimate first restriction
     # (minimum value of knot_date_1 greater than or equal to date_start)
@@ -1009,7 +1009,7 @@ Calculate_Possible_Counterfactual_Days <- function(country, knots) {
       arrange(N_days_first_restriction, N_days_lockdown) %>%
       mutate(Max_n_knots = 2)
     
-  } else if (max_n_knots == 1) {  # first restriction only
+  } else if (max_n_knots == 1) {  # evidence of only one unique intervention effect
     
     # Calculate maximum number of days earlier we can estimate first restriction
     # (minimum value of knot_date_1 greater than or equal to date_start)
@@ -1019,9 +1019,26 @@ Calculate_Possible_Counterfactual_Days <- function(country, knots) {
     # Calculate minimum date we can estimate first restriction
     min_date_first_restriction <- date_first_restriction - max_days_counterfactual_first_restriction
     
-    # Determine all possible dates for first restriction
-    possible_dates_counterfactual <- expand_grid(Date_first_restriction = seq.Date(min_date_first_restriction, date_first_restriction, 1),
-                                                 Date_lockdown = as.numeric(NA))
+    # Determine possible combinations of dates for first restriction and lockdown
+    if (is.na(date_lockdown)) {  ## (no lockdown implemented)
+            # Determine all possible dates for first restriction 
+      # (lockdown date is NA)
+      possible_dates_counterfactual <- tibble(Date_first_restriction = seq.Date(min_date_first_restriction, date_first_restriction, 1),
+                                                   Date_lockdown = as.numeric(NA))
+    } else if (date_first_restriction == date_lockdown) {  ## (lockdown implemented same day as first restriction)
+      # Determine all possible dates for first restriction 
+      # (lockdown date is equal to date of first restriction)
+      possible_dates_counterfactual <- tibble(Date_first_restriction = seq.Date(min_date_first_restriction, date_first_restriction, 1),
+                                              Date_lockdown = Date_first_restriction)
+    } else {  ## (lockdown implemented, but didn't have unique effect on growth)
+      # Calculate minimum date we can estimate lockdown (must be after date of first restriction)
+      min_date_lockdown <- min_date_first_restriction + 1
+      # Determine all possible combinations of dates for first restriction and lockdown
+      # (first restriction must be before lockdown)
+      possible_dates_counterfactual <- expand_grid(Date_first_restriction = seq.Date(min_date_first_restriction, date_first_restriction, 1),
+                                                   Date_lockdown = seq.Date(min_date_lockdown, date_lockdown, 1)) %>%
+        filter(Date_first_restriction < Date_lockdown)
+    }
     
     # Determine all possible counterfactual days for first restriction, label
     possible_days_counterfactual <- possible_dates_counterfactual %>%
@@ -1034,7 +1051,7 @@ Calculate_Possible_Counterfactual_Days <- function(country, knots) {
   } else {  # none
     
     # Specify no combinations of counterfactual days are possible, label
-    possible_days_counterfactual <- expand_grid(N_days_first_restriction = as.numeric(NA),
+    possible_days_counterfactual <- tibble(N_days_first_restriction = as.numeric(NA),
                                                 N_days_lockdown = as.numeric(NA)) %>%
       mutate(Max_n_knots = NA)
     
