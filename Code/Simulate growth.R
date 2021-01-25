@@ -84,31 +84,11 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
   date_first_restriction <- summary_eur_country %>% pull(Date_first_restriction)
   date_lockdown <- summary_eur_country %>% pull(Date_lockdown)
   
-  # Calculate counterfactual dates
-  date_first_restriction_counterfactual <- summary_eur_country %>% 
-    pull(Date_first_restriction) - n_days_first_restriction
-  date_lockdown_counterfactual <- summary_eur_country %>% 
-    pull(Date_lockdown) - n_days_lockdown
-  
-  # Record max number of knots 
-  max_n_knots <- possible_days_counterfactual_country %>% pull(Max_n_knots) %>% head(1)
-  
-  # Print message that n_days_lockdown will be ignored if: 
-  # Country didn't enter lockdown, lockdown was implemented immediately, or
-  # country did enter lockdown but all of best knot pairs only have one knot.
+  # Print message that n_days_lockdown will be ignored if country didn't enter lockdown
   # Set value of n_days_lockdown to NA
-  if (max_n_knots == 1) {
-    if (is.na(date_lockdown)) {
-      warning(paste0("Lockdown was not implemented in ", country, 
-                     ". Parameter n_days_lockdown will be ignored."))
-    } else if (date_first_restriction == date_lockdown) {
-      warning(paste0("Lockdown was implemented immediately in ", country, 
-                     " and thus did not have a unique effect on growth", 
-                     ". Parameter n_days_lockdown will be ignored."))
-    } else {
-      warning(paste0("Lockdown did not have a unique effect on growth in ", country,
-                     ". Parameter n_days_lockdown will be ignored."))
-    }
+  if (is.na(date_lockdown)) {
+    warning(paste0("Lockdown was not implemented in ", country, 
+                   ". Parameter n_days_lockdown will be ignored."))
     n_days_lockdown <- as.numeric(NA)
   }
   
@@ -128,6 +108,10 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
   # Label simulation as natural or counterfactual history
   history <- ifelse(n_days_first_restriction == 0 & (is.na(n_days_lockdown) | n_days_lockdown == 0), 
                     "Natural history", "Counterfactual history")
+  
+  # Calculate counterfactual lockdown date
+  date_lockdown_counterfactual <- summary_eur_country %>% 
+    pull(Date_lockdown) - n_days_lockdown
   
   # Calculate knot dates to be used for simulation
   knots_best_country_sim <- Modify_Knot_Dates(df_knots = knots_best_country, 
@@ -395,7 +379,7 @@ Calculate_Date_Threshold_Reached <- function(country, thresholds, data_sim, date
   
   # Filter simulated cases data and summary data by country
   data_sim_country <- data_sim %>% filter(Country == country)
-
+  
   # Print warning and stop if there is no simulated incidience data for specified country
   if (nrow(data_sim_country) == 0) {
     stop(paste("No data provided for", country))
