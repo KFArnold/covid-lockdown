@@ -996,4 +996,95 @@ p_cum_annotated <- annotate_figure(p_cum,
 ggsave(paste0(results_directory, "Figure - Model residuals (cumulative cases).png"),
        plot = p_cum_annotated, width = 6*cols, height = 6*rows, limitsize = FALSE)
 
+# ------------------------------------------------------------------------------
+# Analysis: effect sizes
+# ------------------------------------------------------------------------------
+
+## Data import -----------------------------------------------------------------
+
+# Import effect estimates
+effects_between_countries <- read_csv(paste0(results_directory, "effects_between_countries.csv")) %>%
+  mutate(Threshold = format(Threshold, scientific = FALSE))
+
+# Convert variables to factors
+effects_between_countries <- effects_between_countries %>% 
+  mutate(across(c(Outcome, Exposure, Covariates, Threshold), as.factor))
+
+# Create variable for adjusted vs unadjusted
+effects_between_countries <- effects_between_countries %>% 
+  mutate(Adjusted = ifelse(is.na(Covariates), "Unadjusted", "Adjusted"),
+         Adjusted = as.factor(Adjusted))
+
+## Figures: between-country effects --------------------------------------------
+
+# Create key for exposure labels
+exposure_labels <- c(Cumulative_cases_beg = "Cumulative cases", 
+                     Cumulative_cases_beg_MA7 = "Cumulative cases (MA7)",
+                     Daily_cases = "Daily cases", 
+                     Daily_cases_MA7 = "Daily cases (MA7)")
+
+# Figure: outcome = length of lockdown
+figure_between_country_effects_1 <- ggplot(data = filter(effects_between_countries, 
+                                                         Outcome == "Days_since_lockdown"),
+       aes(x = Threshold, y = Effect, color = Adjusted, shape = Adjusted)) +
+  theme_light() +
+  theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
+        axis.text.x = element_text(angle = 90),
+        panel.background = element_rect(fill = "gray90"),
+        panel.grid.major = element_line(color = "white"),
+        strip.text = element_text(color = "gray20")) +
+  geom_hline(yintercept = 0, color = "gray20", lty = "dashed") +
+  labs(title = "Effect on length of lockdown",
+       color = "", shape = "") +
+  geom_point(size = 2) +
+  geom_errorbar(aes(ymin = CI_lower, ymax = CI_upper), alpha = 0.4, width = 0.2) +
+  facet_grid(. ~ Exposure,
+             labeller = labeller(Exposure = exposure_labels)) +
+  scale_color_manual(values = c("firebrick", "royalblue"),
+                     breaks = c("Unadjusted", "Adjusted")) +
+  scale_shape_manual(values = c(15, 16),
+                     breaks = c("Unadjusted", "Adjusted"))
+
+# Figure: outcome = growth factor under lockdown
+figure_between_country_effects_2 <- ggplot(data = filter(effects_between_countries, 
+                                                         Outcome == "Median_growth_factor_lockdown"),
+       aes(x = Exposure, y = Effect, color = Adjusted, shape = Adjusted)) +
+  theme_light() +
+  theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
+        axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        panel.background = element_rect(fill = "gray90"),
+        panel.grid.major = element_line(color = "white"),
+        strip.text = element_text(color = "gray20")) +
+  geom_hline(yintercept = 0, color = "gray20", lty = "dashed") +
+  labs(title = "Effect on growth factor under lockdown",
+       color = "", shape = "") +
+  geom_point(size = 2) +
+  geom_errorbar(aes(ymin = CI_lower, ymax = CI_upper), alpha = 0.4, width = 0.2) +
+  facet_grid(. ~ Exposure,
+             scale = "free",
+             labeller = labeller(Exposure = exposure_labels)) +
+  scale_x_discrete(labels = exposure_labels) +
+  scale_y_continuous(labels = comma) +
+  scale_color_manual(values = c("firebrick", "royalblue"),
+                     breaks = c("Unadjusted", "Adjusted")) +
+  scale_shape_manual(values = c(15, 16),
+                     breaks = c("Unadjusted", "Adjusted"))
+
+# Combine figures of between-country effects in double panel with common legend, annotate 
+figure_between_country_effects_all <- ggarrange(plotlist = list(figure_between_country_effects_1, 
+                                                                figure_between_country_effects_2),
+          align = "hv", common.legend = TRUE, legend = "bottom", ncol = 2)
+figure_between_country_effects_all_annotated <- 
+  annotate_figure(figure_between_country_effects_all,
+                  top = text_grob("Estimated effects of each additional case of COVID-19 at lockdown", size = 20))
+
+# Save plot to Results folder
+ggsave(paste0(results_directory, "Figure - Between-country effects.png"), 
+       plot = figure_between_country_effects_all_annotated, width = 7*2, height = 7)
+
+
+
+
 
