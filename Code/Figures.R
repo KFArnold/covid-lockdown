@@ -1002,18 +1002,26 @@ ggsave(paste0(results_directory, "Figure - Model residuals (cumulative cases).pn
 
 ## Data import -----------------------------------------------------------------
 
-# Import effect estimates
+# Import between- and within-country effect estimates
 effects_between_countries <- read_csv(paste0(results_directory, "effects_between_countries.csv")) %>%
+  mutate(Threshold = format(Threshold, scientific = FALSE))
+effects_within_countries <- read_csv(paste0(results_directory, "effects_within_countries.csv")) %>%
   mutate(Threshold = format(Threshold, scientific = FALSE))
 
 # Convert variables to factors
 effects_between_countries <- effects_between_countries %>% 
   mutate(across(c(Outcome, Exposure, Covariates, Threshold), as.factor))
+effects_within_countries <- effects_within_countries %>% 
+  mutate(across(c(Country, Simulation, History, Threshold), as.factor))
 
-# Create variable for adjusted vs unadjusted
+# Create variable for adjusted vs unadjusted in between-country dataframe
 effects_between_countries <- effects_between_countries %>% 
   mutate(Adjusted = ifelse(is.na(Covariates), "Unadjusted", "Adjusted"),
          Adjusted = as.factor(Adjusted))
+
+# Reorder levels of Simulation factor in within-country dataframe
+effects_within_countries <- effects_within_countries %>% 
+  mutate(Simulation = factor(Simulation, levels = c("0,0", "7,7", "14,14")))
 
 ## Figures: between-country effects --------------------------------------------
 
@@ -1080,11 +1088,61 @@ figure_between_country_effects_all_annotated <-
   annotate_figure(figure_between_country_effects_all,
                   top = text_grob("Estimated effects of each additional case of COVID-19 at lockdown", size = 20))
 
-# Save plot to Results folder
+# Save combined plot to Results folder
 ggsave(paste0(results_directory, "Figure - Between-country effects.png"), 
        plot = figure_between_country_effects_all_annotated, width = 7*2, height = 7)
 
+## Figures: within-country effects ---------------------------------------------
 
+# Figure: outcome = percentage change in length of lockdown
+figure_within_country_effects_1 <- ggplot(data = filter(effects_within_countries, 
+                                                        History != "Natural history"),
+       aes(x = Threshold, y = Pct_change_days_since_lockdown)) +
+  theme_light() +
+  theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
+        axis.text.x = element_text(angle = 90),
+        panel.background = element_rect(fill = "gray90"),
+        panel.grid.major = element_line(color = "white"),
+        strip.text = element_text(color = "gray20")) +
+  geom_hline(yintercept = 0, color = "gray20", lty = "dashed") +
+  labs(title = "Effect on length of lockdown",
+       y = "Percentage change compared to natural history (0,0)") +
+  geom_point() +
+  stat_summary(fun = mean, color = "firebrick", size = 1) +
+  facet_grid(. ~ History + Simulation) +
+  scale_y_continuous(limits = c(NA, 0))
 
+# Figure: outcome = percentage change in total cases
+figure_within_country_effects_2 <- ggplot(data = filter(effects_within_countries, 
+                                                        History != "Natural history"),
+       aes(x = interaction(History, Simulation), y = Pct_change_cumulative_cases_end)) +
+  theme_light() +
+  theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
+        axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        panel.background = element_rect(fill = "gray90"),
+        panel.grid.major = element_line(color = "white"),
+        strip.text = element_text(color = "gray20")) +
+  geom_hline(yintercept = 0, color = "gray20", lty = "dashed") +
+  labs(title = "Effect on total cases",
+       y = "Percentage change compared to natural history (0,0)") +
+  geom_point() +
+  stat_summary(fun = mean, color = "firebrick", size = 1) +
+  facet_grid(. ~ History + Simulation,
+             scale = "free",) +
+  scale_y_continuous(limits = c(NA, 0))
+
+# Combine figures of within-country effects in double panel, annotate 
+figure_within_country_effects_all <- ggarrange(plotlist = list(figure_within_country_effects_1, 
+                                                               figure_within_country_effects_2),
+                                                align = "hv", ncol = 2)
+figure_within_country_effects_all_annotated <- 
+  annotate_figure(figure_within_country_effects_all,
+                  top = text_grob("Estimated within-country effects of lockdown timing", size = 20))
+
+# Save combined plot to Results folder
+ggsave(paste0(results_directory, "Figure - Within-country effects.png"), 
+       plot = figure_within_country_effects_all_annotated, width = 7*2, height = 7)
 
 
