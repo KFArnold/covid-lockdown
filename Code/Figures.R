@@ -347,45 +347,36 @@ Plot_Growth_Factor_Lockdown <- function(countries,
     full_join(., data_eur_lockdown, by = "Country") %>% 
     filter(Date == Date_lockdown) %>% select(-contains("Date")) 
   
-  # Create title and label for x-axis
-  if (cases == "Cumulative_cases_beg") {
-    title <- "Relationship between cumulative number of COVID-19 cases on the date of lockdown
-    and growth factor under lockdown"
-    x_lab <- "Cumulative cases on date of lockdown"
-  } else if (cases == "Cumulative_cases_beg_MA7") {
-    title <- "Relationship between cumulative number of COVID-19 cases on the date of lockdown
-    and growth factor under lockdown"
-    x_lab <- "Cumulative cases (7-day moving average) on date of lockdown"
-  } else if (cases == "Daily_cases") {
-    title <- "Relationship between daily number of COVID-19 cases on the date of lockdown
-    and growth factor under lockdown"
-    x_lab <- "Daily cases on date of lockdown"
-  } else {
-    title <- "Relationship between daily number of COVID-19 cases on the date of lockdown
-    and growth factor under lockdown"
-    x_lab <- "Daily cases (7-day moving average) on date of lockdown"
-  }
+  # Convert data to long format
+  all_data_lockdown <- all_data_lockdown %>% 
+    gather(Case_type, Cases, contains("cases")) %>% arrange(Country)
+  
+  # Create key for case labels
+  case_labels <- c(Cumulative_cases_beg = "Cumulative cases", 
+                   Cumulative_cases_beg_MA7 = "Cumulative cases (MA7)",
+                   Daily_cases = "Daily cases", 
+                   Daily_cases_MA7 = "Daily cases (MA7)")
   
   # Plot cases on date of lockdown vs growth factor
-  plot <- ggplot(data = all_data_lockdown, 
-                 aes(x = eval(parse(text = cases)), y = Median_growth_factor_lockdown)) +
-    theme_classic() +
-    theme(axis.text = element_text(size = 6), 
-          axis.title = element_text(size = 8),
-          legend.position = "none",
-          panel.grid.major = element_line(),
-          plot.margin = unit(c(1, 1, 1, 1), "cm"),
-          plot.title = element_text(size = 9)) +
-    labs(title = title) +
+  plot <- ggplot(data = all_data_lockdown,
+                 aes(x = Cases, y = Median_growth_factor_lockdown)) +
+    theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
+          panel.background = element_blank(),
+          panel.border = element_rect(color = "grey95", fill = NA),
+          axis.line.x.bottom = element_line(color = "black"),
+          axis.line.y.left = element_line(color = "black"),
+          panel.grid.major = element_line(color = "grey95")) +
+    labs(title = "Relationship between number of cases of COVID-19 on the date of lockdown and growth factor under lockdown") +
     geom_point() +
-    geom_text_repel(aes(label = Country), size = 2) +
-    scale_x_continuous(name = x_lab,
-                       labels = comma_format(accuracy = 1)) +
+    geom_text_repel(aes(label = Country), size = 2, alpha = 0.4) +
+    facet_wrap(. ~ Case_type, scales = "free",
+               labeller = labeller(Case_type = case_labels)) +
+    scale_x_continuous(labels = comma_format(accuracy = 1)) +
     scale_y_continuous(name = "Growth factor under lockdown") 
   
   # Save plot to subfolder
-  ggsave(paste0(out, "Figure - ", x_lab, " vs growth factor under lockdown.png"), 
-         plot = plot, width = 6, height = 6)
+  ggsave(paste0(out, "Figure - Cases at lockdown vs growth factor under lockdown.png"), 
+         plot = plot, width = 10, height = 8)
   
   # Return plot
   return(plot)
@@ -394,13 +385,11 @@ Plot_Growth_Factor_Lockdown <- function(countries,
 
 ## Figures ---------------------------------------------------------------------
 
-# Specify countries and type of cases to display
-countries <- countries_eur_lockdown
-cases <- "Daily_cases_MA7"
+# Specify countries and to display
+countries <- countries_eur_lockdown[countries_eur_lockdown != "Russia"]
 
 # Create figure
 figure_growth_factor <- Plot_Growth_Factor_Lockdown(countries = countries,
-                                                    cases = cases,
                                                     out = results_directory)
 
 # ------------------------------------------------------------------------------
