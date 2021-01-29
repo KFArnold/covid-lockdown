@@ -25,7 +25,7 @@
 packrat::restore()
 
 # Load required packages
-library(tidyverse); library(lspline); library(forecast)
+library(tidyverse); library(scales); library(lspline); library(forecast)
 library(foreach); library(parallel); library(doSNOW)
 
 # Define storage directory for formatted data
@@ -276,6 +276,63 @@ Summarise_N_Measures <- function(data, measures, cutoffs) {
   
 }
 
+# Function to calculate population-based threshold values for a particular country
+# Arguments:
+# (1) country = country
+# (2) year = year from which to use population
+# (3) thresholds = vector of threshold(s), representing proportion of total population
+# Returns: dataframe with country, description of threshold (%), and value of threshold
+Calculate_Pop_Threshold_Values <- function(country, year = 2019, thresholds) {
+  
+  # Filter World Bank data by specified country and most recent year
+  worldbank_eur_country <- worldbank_eur %>% filter(Country == country, Year == year) %>%
+    select(Country, Population)
+  
+  # Calculate value of threshold based on population
+  threshold_values <- worldbank_eur_country %>%
+    expand_grid(Threshold = thresholds) %>%
+    mutate(Threshold_value = Population * Threshold,
+           Threshold = percent(Threshold)) %>%
+    select(-Population)
+  
+  # Return table of thresholds and values
+  return(threshold_values)
+  
+}
+
+# Function to calculate the number of cases on the date lockdown was eased for a given country
+# (or, if country did not enter lockdown, number of cases on the date any restrictions were eased)
+# Arguments:
+# (1) country = country
+# (2) cases = type of cases (default is 7-day MA of daily cases)
+# Returns: dataframe with country and number of cases when lockdown/restrictions were eased
+Calculate_Cases_Lockdown_Eased <- function(country, cases = "Daily_cases_MA7") {
+  
+  # Filter cases and summary dataframe by country
+  data_eur_country <- data_eur %>% filter(Country == country) 
+  summary_eur_country <- summary_eur %>% filter(Country == country) 
+  
+  # Record important dates
+  date_restrictions_eased <- summary_eur_country %>% pull(Date_restrictions_eased)
+  date_lockdown <- summary_eur_country %>% pull(Date_lockdown)
+  date_lockdown_eased <- summary_eur_country %>% pull(Date_lockdown_eased)
+  
+  # Calculate cases on date lockdown eased
+  # (or, if no lockdown, on date any restrictions eased)
+  if (is.na(date_lockdown)) {
+    cases_lockdown_eased <- data_eur_country %>% filter(Date == date_restrictions_eased) %>%
+      pull(all_of(cases))
+  } else {
+    cases_lockdown_eased <- data_eur_country %>% filter(Date == date_lockdown_eased) %>%
+      pull(all_of(cases))
+  }
+  
+  # Return dataframe 
+  return(tibble(Country = country,
+                Cases_lockdown_eased = cases_lockdown_eased))
+  
+}
+
 ## Summaries -------------------------------------------------------------------
 
 # Calculate 0.0001% of population for each country
@@ -365,6 +422,34 @@ summary_eur <- summary_eur %>%
 
 # Export summary table
 write_csv(summary_eur, file = paste0(results_directory, "summary_eur.csv"))
+
+## Threshold values ------------------------------------------------------------
+
+# Define population-based thresholds
+thresholds <- c(0.00001, 0.00005, 0.0001)
+
+# Calculate population-based threshold values
+pop_thresholds <- foreach(i = countries_eur, .errorhandling = "pass") %do%
+  Calculate_Pop_Threshold_Values(country = i,
+                                 thresholds = thresholds) %>%
+  reduce(bind_rows)
+
+# Calculate average number of daily cases when lockdown/restrictions eased
+lockdown_thresholds <- foreach(i = countries_eur, .errorhandling = "pass") %do%
+  Calculate_Cases_Lockdown_Eased(country = i) %>%
+  reduce(bind_rows) %>%
+  mutate(Description = "Lockdown eased")
+
+# Bind all thresholds into single dataframe
+thresholds_all <- pop_thresholds %>% 
+  full_join(., lockdown_thresholds, by = c("Country", 
+                                           "Threshold" = "Description",
+                                           "Threshold_value" = "Cases_lockdown_eased")) %>%
+  arrange(Country)
+rm(pop_thresholds, lockdown_thresholds)
+
+# Export table of thresholds
+write_csv(thresholds_all, file = paste0(results_directory, "thresholds_all.csv"))
 
 # ------------------------------------------------------------------------------
 # Estimate knot points
