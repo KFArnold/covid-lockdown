@@ -66,13 +66,13 @@ load(paste0(results_directory, "countries_eur_modelled.RData"))
 Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lockdown,
                                     max_t, n_runs, prob_equal = c(TRUE, FALSE), thresholds) {
   
-  # Initialise progress bar
-  progress_bar <- txtProgressBar(min = 0, max = 1, style = 3, char = paste(country, " "))
-  
   # Print warning and stop if n_days_first_restriction or n_days_lockdown are less than zero
   if (n_days_first_restriction < 0 | n_days_lockdown < 0) {
     stop("The following arguments must be >= 0: n_days_first_restriction, n_days_lockdown.")
   }
+  
+  # Initialise progress bar
+  progress_bar <- txtProgressBar(min = 0, max = 1, style = 3, char = paste(country, " "))
   
   # Filter cases/deaths, summary, best knots, and possible counterfactual dataframes by country
   data_eur_country <- data_eur %>% filter(Country == country)
@@ -90,6 +90,22 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
     warning(paste0("Lockdown was not implemented in ", country, 
                    ". Parameter n_days_lockdown will be ignored."))
     n_days_lockdown <- as.numeric(NA)
+  } else {
+    # Print message that smaller n_days parameter will be overriden
+    # if country implemented first restriction and lockdown on same day
+    # Set smaller n_days parameter to value of other
+    if (date_first_restriction == date_lockdown & 
+        n_days_first_restriction != n_days_lockdown) {
+      if (n_days_first_restriction < n_days_lockdown) {
+        warn <- "Parameter n_days_first_restriction will be overriden."
+        n_days_first_restriction <- n_days_lockdown
+      } else {
+        warn <- "Parameter n_days_lockdown will be overriden."
+        n_days_lockdown <- n_days_first_restriction
+      }
+      warning(paste0("First restriction and lockdown were implemented simultaneously in ", country,
+                     ". ", warn))
+    }
   }
   
   # Combine n_days_first_restriction and n_days_lockdown parameters into dataframe,
@@ -440,7 +456,7 @@ Calculate_Date_Threshold_Reached <- function(country, thresholds, data_sim, date
 
 # Specify simulation parameters
 n_days_first_restriction <- 0
-n_days_lockdown <- 0
+n_days_lockdown <- 1
 max_t <- 548  # (1.5 years)
 n_runs <- 100000
 prob_equal <- FALSE 
