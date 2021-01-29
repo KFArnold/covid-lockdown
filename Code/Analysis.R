@@ -112,15 +112,18 @@ data_cases <- data_eur %>%
   full_join(., data_lockdown, by = "Country") %>% 
   filter(Date == Date_lockdown) %>%
   select(Country, Date_lockdown, all_of(exposures))
-## Country areas
+## Country areas and population
 data_area <- worldbank_eur %>% 
   filter(Country %in% countries) %>% 
   filter(Year == 2018) %>% select(Country, Area_sq_km)
-## Population, thresholds, and days since lockdown to reach threshold
+data_population <- worldbank_eur %>% 
+  filter(Country %in% countries) %>% 
+  filter(Year == 2018) %>% select(Country, Population)
+## Thresholds, and days since lockdown to reach threshold
 data_thresholds <- summary_thresholds_all %>% 
   filter(Country %in% countries) %>% 
   filter(History == "Natural history") %>%
-  select(Country, Population, Threshold, Threshold_exceeded, Days_since_lockdown)
+  select(Country, Threshold, Days_since_lockdown)
 ## Median growth factor under lockdown
 data_growth_factors <- median_growth_factors %>% 
   filter(Country %in% countries) %>% 
@@ -132,6 +135,7 @@ data_growth_factors <- median_growth_factors %>%
 # Combine all data for modelling into single dataframe, remove individual datasets
 data_model <- data_cases %>% 
   full_join(., data_area, by = "Country") %>%
+  full_join(., data_population, by = "Country") %>%
   full_join(., data_thresholds, by = "Country") %>%
   full_join(., data_growth_factors, by = "Country")
 rm(data_lockdown, data_cases, data_area, data_thresholds, data_growth_factors)
@@ -249,7 +253,7 @@ effect_days_to_threshold <- foreach(i = thresholds, .errorhandling = "pass") %do
                                     data = data_model,
                                     threshold = i) %>% 
   reduce(bind_rows) %>%
-  arrange(Outcome, Exposure, Covariates, desc(Threshold)) 
+  arrange(Outcome, Exposure, Covariates) 
 # (2) cases at lockdown on growth factor under lockdown
 effect_growth_factor_lockdown <- Estimate_effect_growth_factor_lockdown(exposures = exposures,
                                                                         covariates = covariates,
