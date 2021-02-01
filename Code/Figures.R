@@ -43,6 +43,9 @@ load(paste0(results_directory, "countries_eur.RData"))
 load(paste0(results_directory, "countries_eur_lockdown.RData"))
 load(paste0(results_directory, "countries_eur_modelled.RData"))
 
+# Define countries excluded from analysis
+countries_excluded <- c("Russia", "San Marino")
+
 ## Import simulated data -------------------------------------------------------
 
 # Define filenames which contain simulated data
@@ -447,7 +450,7 @@ Plot_Growth_Factor_Lockdown <- function(countries,
 ## Figures ---------------------------------------------------------------------
 
 # Specify countries and to display
-countries <- countries_eur_lockdown[countries_eur_lockdown != "Russia"]
+countries <- countries_eur_lockdown[!countries_eur_lockdown %in% countries_excluded]
 
 # Create figure
 figure_growth_factor <- Plot_Growth_Factor_Lockdown(countries = countries,
@@ -529,7 +532,7 @@ Plot_Time_To_Threshold <- function(countries, simulations, out) {
 ## Figures ---------------------------------------------------------------------
 
 # Specify countries to display
-countries <- countries_eur_lockdown[!countries_eur_lockdown %in% c("Russia", "San Marino")]
+countries <- countries_eur_lockdown[!countries_eur_lockdown %in% countries_excluded]
 
 # Specify simulations to include in figures and colours
 simulations <- bind_rows(tibble(History = "Natural history",
