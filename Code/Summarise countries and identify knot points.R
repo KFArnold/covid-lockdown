@@ -347,6 +347,7 @@ pct <- worldbank_eur %>% filter(Year == 2019) %>%
 summary_eur_cases <- full_join(data_eur, pct, by = "Country") %>% 
   group_by(Country) %>%
   mutate(Date_0 = Date[which(Daily_cases >= 1)[1]],
+         Date_5 = Date[which(Cumulative_cases_beg >= 5)[1]],
          Date_25 = Date[which(Cumulative_cases_beg >= 25)[1]],
          Date_50 = Date[which(Cumulative_cases_beg >= 50)[1]],
          Date_100 = Date[which(Cumulative_cases_beg >= 100)[1]],
@@ -406,13 +407,17 @@ if (length(countries_eur_lockdown) != length(countries_eur)) {
 } 
 
 # Define first date from which to include data (Date_start)
-summary_eur <- summary_eur %>% mutate(Date_start = Date_pop_pct) 
+#summary_eur <- summary_eur %>% mutate(Date_start = Date_pop_pct) 
+summary_eur <- summary_eur %>% group_by(Country) %>% 
+  mutate(Date_start = max(Date_5, Date_pop_pct)) %>% ungroup
 
-# Manually replace start date for Denmark, Norway, and Slovenia
+# Manually replace start date for Denmark, Estonia, Norway, Slovenia, and Sweden
 summary_eur <- summary_eur %>% 
   mutate(Date_start = if_else(Country == "Denmark", as.Date("2020-03-14") + 3, Date_start),
+         Date_start = if_else(Country == "Estonia", as.Date("2020-03-17") + 3, Date_start),
          Date_start = if_else(Country == "Norway", as.Date("2020-03-14") + 3, Date_start),
-         Date_start = if_else(Country == "Slovenia", as.Date("2020-03-18") + 3, Date_start))
+         Date_start = if_else(Country == "Slovenia", as.Date("2020-03-18") + 3, Date_start),
+         Date_start = if_else(Country == "Sweden", as.Date("2020-03-14") + 3, Date_start))
 
 # Calculate date_T (last date to include data from) as either:
 # Date_lockdown_eased + 28, 
