@@ -39,6 +39,9 @@ load(paste0(results_directory, "countries_eur.RData"))
 load(paste0(results_directory, "countries_eur_lockdown.RData"))
 load(paste0(results_directory, "countries_eur_modelled.RData"))
 
+# Define countries to exclude from analysis
+countries_excluded <- c("Russia", "San Marino")
+
 ## Import simulated data -------------------------------------------------------
 
 # Define filenames which contain simulated data
@@ -97,7 +100,7 @@ rm(summary_cumulative_cases_beg_sim_all, summary_daily_cases_sim_all, summary_cu
 ## Data preparation-------------------------------------------------------------
 
 # Define countries, exposures, and covariates to examine
-countries <- countries_eur_lockdown[countries_eur_lockdown != "Russia"]
+countries <- countries_eur_lockdown[!countries_eur_lockdown %in% countries_excluded]
 exposures <- c("Cumulative_cases_beg", "Cumulative_cases_beg_MA7", "Daily_cases", "Daily_cases_MA7")
 covariates <- c("Area_sq_km", "Population")
 
@@ -349,7 +352,7 @@ Calculate_pct_change_cases <- function(country, simulations) {
 ## Analysis --------------------------------------------------------------------
 
 # Define countries to be included in analysis
-countries <- countries_eur_modelled[countries_eur_modelled != "Russia"]
+countries <- countries_eur_modelled[!countries_eur_modelled %in% countries_excluded]
 
 # Specify simulations to include in analysis
 simulations <- bind_rows(tibble(History = "Natural history",
