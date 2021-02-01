@@ -32,9 +32,10 @@ results_directory <- paste0("./Results/")
 data_eur <- read_csv(paste0(data_directory_f, "Cases_deaths_data_europe.csv"))
 worldbank_eur <- read_csv(paste0(data_directory_f, "Worldbank_data_europe.csv"))
 
-# Import files containing best knot point pairs and country summaries
+# Import files containing best knot point pairs, country summaries, and threshold values
 knots_best <- read_csv(paste0(results_directory, "knots_best.csv"))
 summary_eur <- read_csv(paste0(results_directory, "summary_eur.csv"))
+thresholds_all <- read_csv(paste0(results_directory, "thresholds_all.csv"))
 
 # Import file containing possible counterfactual conditions
 possible_days_counterfactual <- read_csv(paste0(results_directory, "possible_days_counterfactual.csv"))
@@ -60,48 +61,53 @@ load(paste0(results_directory, "countries_eur_modelled.RData"))
 # (4) max_t = maximum number of days to simulate
 # (5) n_runs = number of simulation runs
 # (6) prob_equal = whether knot dates should be used with equal probabilities
-# Returns: list of two dataframes - (1) daily and (2) cumulative cases of COVID-19
+# Returns: list of three summary dataframes - (1) daily cases, (2) cumulative cases,
+# and (3) summary of when significant thresholds for incident cases reached
 Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lockdown,
                                     max_t, n_runs, prob_equal = c(TRUE, FALSE)) {
-  
-  # Initialise progress bar
-  progress_bar <- txtProgressBar(min = 0, max = 1, style = 3, char = paste(country, " "))
   
   # Print warning and stop if n_days_first_restriction or n_days_lockdown are less than zero
   if (n_days_first_restriction < 0 | n_days_lockdown < 0) {
     stop("The following arguments must be >= 0: n_days_first_restriction, n_days_lockdown.")
   }
   
-  # Filter cases/deaths, summary, best knots, and possible counterfactual dataframes by country
+  # Initialise progress bar
+  progress_bar <- txtProgressBar(min = 0, max = 1, style = 3, char = paste(country, " "))
+  
+  # Filter cases/deaths, summary, thresholds, best knots, and 
+  # possible counterfactual dataframes by country
   data_eur_country <- data_eur %>% filter(Country == country)
   summary_eur_country <- summary_eur %>% filter(Country == country)
+  thresholds_country <- thresholds_all %>% filter(Country == country)
   knots_best_country <- knots_best %>% filter(Country == country)
   possible_days_counterfactual_country <- possible_days_counterfactual %>% filter(Country == country)
   
-  # Record dates of first restriction and lockdown in country
+  # Record dates of first restriction and lockdown (natural history) in country
   date_first_restriction <- summary_eur_country %>% pull(Date_first_restriction)
   date_lockdown <- summary_eur_country %>% pull(Date_lockdown)
   
-  # Record max number of knots 
-  max_n_knots <- possible_days_counterfactual_country %>% pull(Max_n_knots) %>% head(1)
-  
-  # Print message that n_days_lockdown will be ignored if: 
-  # Country didn't enter lockdown, lockdown was implemented immediately, or
-  # country did enter lockdown but all of best knot pairs only have one knot.
+  # Print message that n_days_lockdown will be ignored if country didn't enter lockdown
   # Set value of n_days_lockdown to NA
-  if (max_n_knots == 1) {
-    if (is.na(date_lockdown)) {
-      warning(paste0("Lockdown was not implemented in ", country, 
-                     ". Parameter n_days_lockdown will be ignored."))
-    } else if (date_first_restriction == date_lockdown) {
-      warning(paste0("Lockdown was implemented immediately in ", country, 
-                     " and thus did not have a unique effect on growth", 
-                     ". Parameter n_days_lockdown will be ignored."))
-    } else {
-      warning(paste0("Lockdown did not have a unique effect on growth in ", country,
-                     ". Parameter n_days_lockdown will be ignored."))
-    }
+  if (is.na(date_lockdown)) {
+    warning(paste0("Lockdown was not implemented in ", country, 
+                   ". Parameter n_days_lockdown will be ignored."))
     n_days_lockdown <- as.numeric(NA)
+  } else {
+    # Print message that smaller n_days parameter will be overriden
+    # if country implemented first restriction and lockdown on same day
+    # Set smaller n_days parameter to value of other
+    if (date_first_restriction == date_lockdown & 
+        n_days_first_restriction != n_days_lockdown) {
+      if (n_days_first_restriction < n_days_lockdown) {
+        warn <- "Parameter n_days_first_restriction will be overriden."
+        n_days_first_restriction <- n_days_lockdown
+      } else {
+        warn <- "Parameter n_days_lockdown will be overriden."
+        n_days_lockdown <- n_days_first_restriction
+      }
+      warning(paste0("First restriction and lockdown were implemented simultaneously in ", country,
+                     ". ", warn))
+    }
   }
   
   # Combine n_days_first_restriction and n_days_lockdown parameters into dataframe,
@@ -120,6 +126,10 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
   # Label simulation as natural or counterfactual history
   history <- ifelse(n_days_first_restriction == 0 & (is.na(n_days_lockdown) | n_days_lockdown == 0), 
                     "Natural history", "Counterfactual history")
+  
+  # Calculate counterfactual lockdown date
+  date_lockdown_counterfactual <- summary_eur_country %>% 
+    pull(Date_lockdown) - n_days_lockdown
   
   # Calculate knot dates to be used for simulation
   knots_best_country_sim <- Modify_Knot_Dates(df_knots = knots_best_country, 
@@ -206,13 +216,23 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
            N_days_lockdown = n_days_lockdown) %>% 
     relocate(Country, History, N_days_first_restriction, N_days_lockdown)
   
+  # Calculate dates for which thresholds reached
+  summary_thresholds <- Calculate_Date_Threshold_Reached(thresholds = thresholds_country, 
+                                                         data_sim = summary_daily_cases_sim,
+                                                         date_lockdown_counterfactual = date_lockdown_counterfactual) %>%
+    mutate(History = history, 
+           N_days_first_restriction = n_days_first_restriction,
+           N_days_lockdown = n_days_lockdown) %>%
+    relocate(c(History, N_days_first_restriction, N_days_lockdown), .after = Country)
+  
   # Update progress bar
   setTxtProgressBar(progress_bar, 1)
   close(progress_bar)
   
   # Return list of summary dataframes: simulated daily and cumulative cases
   return(list("summary_daily_cases_sim" = summary_daily_cases_sim, 
-              "summary_cumulative_cases_end_sim" = summary_cumulative_cases_end_sim))
+              "summary_cumulative_cases_end_sim" = summary_cumulative_cases_end_sim,
+              "summary_thresholds" = summary_thresholds))
   
 }
 
@@ -366,42 +386,22 @@ Summarise_centiles <- function(x) {
 # Function to calculate the first date for which mean simulated incidence data goes below
 # one or more thresholds (expressed as a proportion of the total population)
 # Arguments:
-# (1) country = country to calculate
-# (2) thresholds = vector of threshold(s), representing proportion of total population
-# (3) data_sim = dataframe containing summary of simulated incidence data
+# (1) thresholds = dataframe of threshold values
+# (2) data_sim = dataframe containing summary of simulated incidence data
+# (3) date_lockdown_counterfactual = date of lockdown in simulation
 # Returns: summary dataframe containing threshold values, dates cases exceeded thresholds,
 # and days since lockdown since threshold values reached
-Calculate_Date_Threshold_Reached <- function(country, thresholds, data_sim) {
-  
-  # Filter simulated cases data and summary data by country
-  data_sim_country <- data_sim %>% filter(Country == country)
-  summary_eur_country <- summary_eur %>% filter(Country == country)
-  
-  # Print warning and stop if there is no simulated incidience data for specified country
-  if (nrow(data_sim_country) == 0) {
-    stop(paste("No data provided for", country))
-  }
-  
-  # Record type of simulation (natural vs counterfactual) and specified interventions
-  history <- data_sim_country %>% pull(History) %>% head(1)
-  n_days_first_restriction <- data_sim_country %>% pull(N_days_first_restriction) %>% head(1)
-  n_days_lockdown <- data_sim_country %>% pull(N_days_lockdown) %>% head(1)
-  
-  # Record lockdown date
-  date_lockdown <- summary_eur_country %>% pull(Date_lockdown)  
+Calculate_Date_Threshold_Reached <- function(thresholds, data_sim, date_lockdown_counterfactual) {
   
   # Create empty table to store dates for which specified thresholds reached,
   # and number of days since lockdown
-  summary_thresholds <- worldbank_eur %>% filter(Country == country, Year == 2019) %>%
-    select(Country, Year, Population) %>% expand_grid(Threshold = thresholds) %>%
-    mutate(Threshold_value = Population * Threshold,
-           Threshold_exceeded = as.logical(NA),
-           Date_cases_below_threshold = as.Date(NA),
-           Days_since_lockdown = as.numeric(NA))
+  summary_thresholds <- thresholds %>% mutate(Threshold_exceeded = as.logical(NA),
+                                              Date_cases_below_threshold = as.Date(NA),
+                                              Days_since_lockdown = as.numeric(NA))
   
   # Calculate maximum mean number of simulated daily cases, and first date this number was reached
-  max_daily_cases_sim <- data_sim_country %>% select(Mean) %>% max
-  date_max_daily_cases_sim <- data_sim_country %>% 
+  max_daily_cases_sim <- data_sim %>% select(Mean) %>% max
+  date_max_daily_cases_sim <- data_sim %>% 
     filter(Mean == max_daily_cases_sim) %>% slice(1) %>% pull(Date)
   
   # Calculate and record dates for which thresholds reached
@@ -419,15 +419,15 @@ Calculate_Date_Threshold_Reached <- function(country, thresholds, data_sim) {
     if (threshold_exceeded_i == TRUE) {
       
       # Filter dataset by dates >= date of max number of daily cases
-      data_sim_country_i <- data_sim_country %>% 
+      data_sim_i <- data_sim %>% 
         filter(Date >= date_max_daily_cases_sim)
       
       # Calculate and record first date cases fall below threshold and days since lockdown, if they exist
-      date_cases_below_threshold <- data_sim_country_i %>% 
+      date_cases_below_threshold <- data_sim_i %>% 
         filter(Mean <= threshold_value_i) %>% slice(1) %>% pull(Date)
       if (length(date_cases_below_threshold) != 0) {
         summary_thresholds[[i, "Date_cases_below_threshold"]] <- date_cases_below_threshold
-        summary_thresholds[[i, "Days_since_lockdown"]] <- as.numeric(date_cases_below_threshold - date_lockdown)
+        summary_thresholds[[i, "Days_since_lockdown"]] <- as.numeric(date_cases_below_threshold - date_lockdown_counterfactual)
       }
       
     } else {
@@ -436,15 +436,8 @@ Calculate_Date_Threshold_Reached <- function(country, thresholds, data_sim) {
     
   }  # (close loop k)
   
-  # Label table with type of simulation and specified interventions
-  summary_thresholds <- summary_thresholds %>% 
-    mutate(History = history, 
-           N_days_first_restriction = n_days_first_restriction,
-           N_days_lockdown = n_days_lockdown) %>%
-    relocate(c(History, N_days_first_restriction, N_days_lockdown), .after = Country)
-  
   # Return summary table of thresholds
-  return(list("summary_thresholds" = summary_thresholds))
+  return(summary_thresholds)
   
 }
 
@@ -508,6 +501,8 @@ summary_daily_cases_sim <- map(.x = sim_data,
                                .f = ~.x$summary_daily_cases_sim) %>% reduce(bind_rows)
 summary_cumulative_cases_end_sim <- map(.x = sim_data, 
                                         .f = ~.x$summary_cumulative_cases_end_sim) %>% reduce(bind_rows)
+summary_thresholds <- map(.x = sim_data, 
+                          .f = ~.x$summary_thresholds) %>% reduce(bind_rows)
 
 ### Sequential -----------------------------------------------------------------
 
@@ -531,21 +526,8 @@ summary_cumulative_cases_end_sim <- map(.x = sim_data,
 #                               .f = ~.x$summary_daily_cases_sim) %>% reduce(bind_rows)
 #summary_cumulative_cases_end_sim <- map(.x = sim_data, 
 #                                        .f = ~.x$summary_cumulative_cases_end_sim) %>% reduce(bind_rows)
-
-## Calculate dates for which thresholds reached --------------------------------
-
-# Specify population-based thresholds 
-thresholds <- c(0.0001, 0.00005, 0.00001)
-
-# Calculate dates for which thresholds reached
-summary_thresholds <- foreach(i = countries_eur_modelled, .errorhandling = "pass") %do%
-  Calculate_Date_Threshold_Reached(country = i, 
-                                   thresholds = thresholds, 
-                                   data_sim = summary_daily_cases_sim)
-
-# Combine summary results for all countries
-summary_thresholds <- map(.x = summary_thresholds, 
-                          .f = ~.x$summary_thresholds) %>% reduce(bind_rows)
+#summary_thresholds <- map(.x = sim_data, 
+#                          .f = ~.x$summary_thresholds) %>% reduce(bind_rows)
 
 ## SAVE all output -------------------------------------------------------------
 
