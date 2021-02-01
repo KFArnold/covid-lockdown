@@ -6,7 +6,9 @@
 # (1) Important dates 
 # (2) Exponential growth (i.e. cumulative vs incident cases), with fitted splines
 # (3) Growth factors under lockdown
-# (4) Simulated incident and cumulative cases (natural and counterfactual), and model residuals
+# (4) Length of time to reach important thresholds
+# (5) Simulated incident and cumulative cases (natural and counterfactual), and model residuals
+# (6) Estimated between-country and within-country effect sizes
 
 # All figures are saved to the project directory (./Results/).
 
@@ -40,6 +42,65 @@ summary_eur <- read_csv(paste0(results_directory, "summary_eur.csv"))
 load(paste0(results_directory, "countries_eur.RData"))
 load(paste0(results_directory, "countries_eur_lockdown.RData"))
 load(paste0(results_directory, "countries_eur_modelled.RData"))
+
+## Import simulated data -------------------------------------------------------
+
+# Define filenames which contain simulated data
+files <- c("summary_daily_cases_sim", "summary_cumulative_cases_end_sim", "summary_thresholds")
+
+# Import all simulation files (i.e. natural and counterfactual histories) from Results subfolders
+sim_data_all <- list()
+for (i in files) {
+  
+  # Get names of files in subfolders which contain designated simualtion results
+  sim_files <- list.files(path = "./Results",
+                          recursive = TRUE, 
+                          pattern = paste0(i, ".csv"),
+                          full.names = TRUE)
+  
+  # Read in all files and bind together
+  sim_data_all[[i]] <- lapply(sim_files, read_csv, col_types = cols(Simulation = col_character(),
+                                                                    N_days_first_restriction = col_double(),
+                                                                    N_days_lockdown = col_double())) %>% 
+    reduce(bind_rows) %>% 
+    mutate(across(where(is.character), as.factor)) %>%
+    arrange(N_days_first_restriction, N_days_lockdown)
+  
+}
+
+# Append file names with '_all' and save simulation results as separate objects in global environment
+names(sim_data_all) <- paste0(names(sim_data_all), "_all")
+list2env(sim_data_all, globalenv()); rm(sim_data_all)
+
+# Create dataframe for simulated cumulative cases at beginning of time t
+summary_cumulative_cases_beg_sim_all <- summary_cumulative_cases_end_sim_all %>% 
+  group_by(Country, History, N_days_first_restriction, N_days_lockdown) %>%
+  mutate(across(c(Mean, C_025, C_975), ~lag(., n = 1, default = NA))) %>% ungroup
+
+# Combine all daily/cumulative cases data into single dataframe,
+# and remove individual files
+names <- colnames(summary_daily_cases_sim_all)
+col_join <- names[! names %in% c("Mean", "C_025", "C_975")]
+summary_cases_sim_all <- full_join(summary_cumulative_cases_beg_sim_all,
+                                   summary_daily_cases_sim_all,
+                                   by = col_join,
+                                   suffix = c("_cumulative_cases_beg", "_daily_cases")) %>%
+  full_join(., summary_cumulative_cases_end_sim_all,
+            by = col_join) %>%
+  rename_at(vars(Mean, C_025, C_975), function(x) {paste0(x, "_cumulative_cases_end")})
+rm(summary_cumulative_cases_beg_sim_all, summary_daily_cases_sim_all, summary_cumulative_cases_end_sim_all)
+
+## Formatting ------------------------------------------------------------------
+
+# Reorder levels of Threshold factor in thresholds dataframe
+summary_thresholds_all <- summary_thresholds_all %>%
+  mutate(Threshold = factor(Threshold, levels(Threshold)[c(4, 1:3)]))
+
+# Create keys for threshold labels
+threshold_labels <- c("Lockdown eased" = "Cases when\nlockdown eased",
+                      "0.0010%" = "0.0010%\nof population",
+                      "0.0050%" = "0.0050%\nof population",
+                      "0.0100%" = "0.0100%\nof population")
 
 # ------------------------------------------------------------------------------
 # Important dates
@@ -393,54 +454,102 @@ figure_growth_factor <- Plot_Growth_Factor_Lockdown(countries = countries,
                                                     out = results_directory)
 
 # ------------------------------------------------------------------------------
-# Simulation results: natural vs counterfactual histories, model residuals
+# Length of time to reach threshold
 # ------------------------------------------------------------------------------
 
-## Data import -----------------------------------------------------------------
+## Functions -------------------------------------------------------------------
 
-# Define filenames which contain simulated data
-files <- c("summary_daily_cases_sim", "summary_cumulative_cases_end_sim", "summary_thresholds")
-
-# Import all simulation files (i.e. natural and counterfactual histories) from Results subfolders
-sim_data_all <- list()
-for (i in files) {
+# Figure to create faceted plot of the time taken for a group of countries 
+# to reach important thresholds in different simulations
+# Arguments:
+# (1) countries = list of countries
+# (2) simulations = dataframe containing descriptions of simulations to include in figures, with colours
+# (3) out = folder to save figure
+Plot_Time_To_Threshold <- function(countries, simulations, out) {
   
-  # Get names of files in subfolders which contain designated simualtion results
-  sim_files <- list.files(path = "./Results",
-                          recursive = TRUE, 
-                          pattern = paste0(i, ".csv"),
-                          full.names = TRUE)
+  # Filter thresholds dataframe by specified countries and simulations,
+  # and order Simulation and History factor levels
+  summary_thresholds_sim <- summary_thresholds_all %>% 
+    filter(Country %in% countries, Simulation %in% simulations$Simulation) %>%
+    mutate(Simulation = factor(Simulation, levels = simulations$Simulation),
+           History = factor(History, levels = unique(simulations$History)))
   
-  # Read in all files and bind together
-  sim_data_all[[i]] <- lapply(sim_files, read_csv, col_types = cols(Simulation = col_character(),
-                                                                    N_days_first_restriction = col_double(),
-                                                                    N_days_lockdown = col_double())) %>% 
-    reduce(bind_rows) %>% 
-    arrange(N_days_first_restriction, N_days_lockdown)
+  # Define thresholds
+  thresholds <- summary_thresholds_sim %>% pull(Threshold) %>% levels
+  
+  # Order countries by number of days to reaching lowest threshold
+  countries_ordered <- summary_thresholds_sim %>% 
+    filter(History == "Natural history",
+           Threshold == "0.0010%") %>%
+    arrange(Days_since_lockdown) %>% pull(Country) %>% as.character
+  
+  # Relevel thresholds dataframe using ordered countries
+  summary_thresholds_sim <- summary_thresholds_sim %>% 
+    mutate(Country = factor(Country, levels = countries_ordered))
+  
+  # Create dataframe which maps alpha (transparency) values onto thresholds
+  threshold_transparency <- data.frame(Threshold = thresholds,
+                                       alpha = seq(from = 0.4, to = 1, length.out = length(thresholds)))
+  
+  # Create plot
+  plot <- ggplot(data = summary_thresholds_sim,
+                 aes(x = Days_since_lockdown, y = Country,
+                     color = Simulation,
+                     alpha = Threshold)) +
+    theme_light() +
+    theme(axis.title.y = element_blank(),
+          strip.text.y.left = element_text(angle = 0, hjust = 0.95, vjust = 0.5),
+          panel.background = element_rect(fill = "gray90"),
+          panel.grid.major = element_line(color = "white"),
+          strip.text = element_text(color = "gray20"),
+          legend.position = "bottom",
+          plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm")) +
+    guides(color = FALSE) +
+    geom_point(shape = 16) +
+    facet_wrap(History + Simulation ~ ., ncol = 3) +
+    labs(title = "Length of time to reach threshold") +
+    scale_alpha_manual(name = "Threshold",
+                       values = threshold_transparency$alpha,
+                       labels = threshold_labels) +
+    scale_color_manual(name = "Simulation",
+                       values = simulations$Color, 
+                       breaks = simulations$Simulation) +
+    scale_x_continuous(name = "Days since lockdown") +
+    scale_y_discrete(limits = rev(levels(summary_thresholds_sim$Country)))
+  
+  # Save plot to output folder
+  ggsave(paste0(out, "Figure - Days to threshold.png"),
+         plot = plot, width = 12, height = 7)
+  
+  # Return plot
+  return(plot)
   
 }
 
-# Append file names with '_all' and save simulation results as separate objects in global environment
-names(sim_data_all) <- paste0(names(sim_data_all), "_all")
-list2env(sim_data_all, globalenv()); rm(sim_data_all)
+## Figures ---------------------------------------------------------------------
 
-# Create dataframe for simulated cumulative cases at beginning of time t
-summary_cumulative_cases_beg_sim_all <- summary_cumulative_cases_end_sim_all %>% 
-  group_by(Country, History, N_days_first_restriction, N_days_lockdown) %>%
-  mutate(across(c(Mean, C_025, C_975), ~lag(., n = 1, default = NA))) %>% ungroup
+# Specify countries to display
+countries <- countries_eur_lockdown[!countries_eur_lockdown %in% c("Russia", "San Marino")]
 
-# Combine all daily/cumulative cases data into single dataframe,
-# and remove individual files
-names <- colnames(summary_daily_cases_sim_all)
-col_join <- names[! names %in% c("Mean", "C_025", "C_975")]
-summary_cases_sim_all <- full_join(summary_cumulative_cases_beg_sim_all,
-                                   summary_daily_cases_sim_all,
-                                   by = col_join,
-                                   suffix = c("_cumulative_cases_beg", "_daily_cases")) %>%
-  full_join(., summary_cumulative_cases_end_sim_all,
-            by = col_join) %>%
-  rename_at(vars(Mean, C_025, C_975), function(x) {paste0(x, "_cumulative_cases_end")})
-rm(summary_cumulative_cases_beg_sim_all, summary_daily_cases_sim_all, summary_cumulative_cases_end_sim_all)
+# Specify simulations to include in figures and colours
+simulations <- bind_rows(tibble(History = "Natural history",
+                                Simulation = "0,0",
+                                Color = "navyblue"),
+                         tibble(History = "Counterfactual history",
+                                Simulation = "7,7",
+                                Color = "darkorchid"),
+                         tibble(History = "Counterfactual history",
+                                Simulation = "14,14",
+                                Color = "forestgreen"))
+
+# Create figure
+plot_time_to_threshold <- Plot_Time_To_Threshold(countries = countries,
+                                                 simulations = simulations,
+                                                 out = results_directory)
+
+# ------------------------------------------------------------------------------
+# Simulation results: natural vs counterfactual histories, model residuals
+# ------------------------------------------------------------------------------
 
 ## Functions: natural vs counterfactual histories ------------------------------
 
@@ -450,8 +559,9 @@ rm(summary_cumulative_cases_beg_sim_all, summary_daily_cases_sim_all, summary_cu
 # Arguments:
 # (1) country = country to plot
 # (2) simulations = dataframe containing descriptions of simulations to include in figures, with colours
-# (3) out = folder to save combined figure
-Plot_Simulation_Results <- function(country, simulations, out) {
+# (3) thresholds = vector of thresholds to display in figures
+# (4) out = folder to save combined figure
+Plot_Simulation_Results <- function(country, simulations, thresholds, out) {
   
   # Filter observed cases/deaths, best knots, and summary dataframes by country
   data_eur_country <- data_eur %>% filter(Country == country)
@@ -462,7 +572,8 @@ Plot_Simulation_Results <- function(country, simulations, out) {
   summary_cases_sim_country <- summary_cases_sim_all %>%
     filter(Country == country, Simulation %in% simulations$Simulation) 
   summary_thresholds_country <- summary_thresholds_all %>% 
-    filter(Country == country, Simulation %in% simulations$Simulation) 
+    filter(Country == country, Simulation %in% simulations$Simulation,
+           Threshold %in%thresholds) 
   
   # If no simulated data for country, print warning and stop
   if (nrow(summary_cases_sim_country) == 0) { 
@@ -574,8 +685,8 @@ Plot_Daily_Cases_Sim <- function(min_date, max_date, obs_data, sim_data,
   
   # Create dataframe which maps alpha (transparency) values onto thresholds
   threshold_value <- data.frame(yint_threshold = threshold_values,
-                                Threshold = percent(thresholds),
-                                alpha = c(0.65, 0.8, 0.95))
+                                Threshold = thresholds,
+                                alpha = seq(from = 0.95, to = 0.65, length.out = length(thresholds)))
   
   # Plot observed cases and threshold values
   plot <- ggplot(data = obs_data,
@@ -834,10 +945,15 @@ simulations <- bind_rows(tibble(History = "Natural history",
                                 Simulation = "14,14",
                                 Color = "forestgreen"))
 
+# Specify thresholds to include in figure
+thresholds <- summary_thresholds_all %>% filter(str_detect(Threshold, "%")) %>%
+  pull(Threshold) %>% unique
+
 # Create figures
 figure_sim_results <- foreach(i = countries_eur_modelled, .errorhandling = "pass") %do% 
   Plot_Simulation_Results(country = i, 
-                          simulations = simulations, 
+                          simulations = simulations,
+                          thresholds = thresholds, 
                           out = out_folder)
 
 ## Functions: model residuals --------------------------------------------------
@@ -992,29 +1108,32 @@ ggsave(paste0(results_directory, "Figure - Model residuals (cumulative cases).pn
 ## Data import -----------------------------------------------------------------
 
 # Import between- and within-country effect estimates
-effects_between_countries <- read_csv(paste0(results_directory, "effects_between_countries.csv")) %>%
-  mutate(Threshold = format(Threshold, scientific = FALSE))
-effects_within_countries <- read_csv(paste0(results_directory, "effects_within_countries.csv")) %>%
-  mutate(Threshold = format(Threshold, scientific = FALSE))
+effects_between_countries <- read_csv(paste0(results_directory, "effects_between_countries.csv")) 
+effects_within_countries <- read_csv(paste0(results_directory, "effects_within_countries.csv")) 
 
 # Convert variables to factors
 effects_between_countries <- effects_between_countries %>% 
-  mutate(across(c(Outcome, Exposure, Covariates, Threshold), as.factor))
+  mutate(across(where(is.character), as.factor))
 effects_within_countries <- effects_within_countries %>% 
-  mutate(across(c(Country, Simulation, History, Threshold), as.factor))
+  mutate(across(where(is.character), as.factor))
 
 # Create variable for adjusted vs unadjusted in between-country dataframe
 effects_between_countries <- effects_between_countries %>% 
   mutate(Adjusted = ifelse(is.na(Covariates), "Unadjusted", "Adjusted"),
          Adjusted = as.factor(Adjusted))
 
-# Reorder levels of Simulation factor in within-country dataframe
+# Reorder levels of Threshold factor in between-country dataframe
+effects_between_countries <- effects_between_countries %>%
+  mutate(Threshold = factor(Threshold, levels(Threshold)[c(4, 1:3)]))
+
+# Reorder levels of Simulation and Threshold factors in within-country dataframe
 effects_within_countries <- effects_within_countries %>% 
-  mutate(Simulation = factor(Simulation, levels = c("0,0", "7,7", "14,14")))
+  mutate(Simulation = factor(Simulation, levels = c("0,0", "7,7", "14,14")),
+         Threshold = factor(Threshold, levels(Threshold)[c(4, 1:3)]))
 
 ## Figures: between-country effects --------------------------------------------
 
-# Create key for exposure labels
+# Create keys for exposure labels
 exposure_labels <- c(Cumulative_cases_beg = "Cumulative cases", 
                      Cumulative_cases_beg_MA7 = "Cumulative cases (MA7)",
                      Daily_cases = "Daily cases", 
@@ -1026,7 +1145,7 @@ figure_between_country_effects_1 <- ggplot(data = filter(effects_between_countri
        aes(x = Threshold, y = Effect, color = Adjusted, shape = Adjusted)) +
   theme_light() +
   theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
-        axis.text.x = element_text(angle = 90),
+        axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5),
         panel.background = element_rect(fill = "gray90"),
         panel.grid.major = element_line(color = "white"),
         strip.text = element_text(color = "gray20")) +
@@ -1040,7 +1159,8 @@ figure_between_country_effects_1 <- ggplot(data = filter(effects_between_countri
   scale_color_manual(values = c("firebrick", "royalblue"),
                      breaks = c("Unadjusted", "Adjusted")) +
   scale_shape_manual(values = c(15, 16),
-                     breaks = c("Unadjusted", "Adjusted"))
+                     breaks = c("Unadjusted", "Adjusted")) +
+  scale_x_discrete(labels = threshold_labels)
 
 # Figure: outcome = growth factor under lockdown
 figure_between_country_effects_2 <- ggplot(data = filter(effects_between_countries, 
@@ -1048,9 +1168,9 @@ figure_between_country_effects_2 <- ggplot(data = filter(effects_between_countri
        aes(x = Exposure, y = Effect, color = Adjusted, shape = Adjusted)) +
   theme_light() +
   theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
-        axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
         panel.background = element_rect(fill = "gray90"),
         panel.grid.major = element_line(color = "white"),
         strip.text = element_text(color = "gray20")) +
@@ -1079,7 +1199,7 @@ figure_between_country_effects_all_annotated <-
 
 # Save combined plot to Results folder
 ggsave(paste0(results_directory, "Figure - Between-country effects.png"), 
-       plot = figure_between_country_effects_all_annotated, width = 7*2, height = 7)
+       plot = figure_between_country_effects_all_annotated, width = 8*2, height = 7)
 
 ## Figures: within-country effects ---------------------------------------------
 
@@ -1089,7 +1209,7 @@ figure_within_country_effects_1 <- ggplot(data = filter(effects_within_countries
        aes(x = Threshold, y = Pct_change_days_since_lockdown)) +
   theme_light() +
   theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
-        axis.text.x = element_text(angle = 90),
+        axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5),
         panel.background = element_rect(fill = "gray90"),
         panel.grid.major = element_line(color = "white"),
         strip.text = element_text(color = "gray20")) +
@@ -1097,8 +1217,9 @@ figure_within_country_effects_1 <- ggplot(data = filter(effects_within_countries
   labs(title = "Effect on length of lockdown",
        y = "Percentage change compared to natural history (0,0)") +
   geom_point() +
-  stat_summary(fun = mean, color = "firebrick", size = 1) +
+  stat_summary(fun = median, color = "firebrick", shape = 17, size = 1) +
   facet_grid(. ~ History + Simulation) +
+  scale_x_discrete(labels = threshold_labels) +
   scale_y_continuous(limits = c(NA, 0))
 
 # Figure: outcome = percentage change in total cases
@@ -1117,7 +1238,7 @@ figure_within_country_effects_2 <- ggplot(data = filter(effects_within_countries
   labs(title = "Effect on total cases",
        y = "Percentage change compared to natural history (0,0)") +
   geom_point() +
-  stat_summary(fun = mean, color = "firebrick", size = 1) +
+  stat_summary(fun = median, color = "firebrick", shape = 17, size = 1) +
   facet_grid(. ~ History + Simulation,
              scale = "free",) +
   scale_y_continuous(limits = c(NA, 0))
@@ -1132,6 +1253,6 @@ figure_within_country_effects_all_annotated <-
 
 # Save combined plot to Results folder
 ggsave(paste0(results_directory, "Figure - Within-country effects.png"), 
-       plot = figure_within_country_effects_all_annotated, width = 7*2, height = 7)
+       plot = figure_within_country_effects_all_annotated, width = 5*2, height = 7)
 
 
