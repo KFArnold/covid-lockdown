@@ -93,11 +93,34 @@ summary_cases_sim_all <- full_join(summary_cumulative_cases_beg_sim_all,
   rename_at(vars(Mean, C_025, C_975), function(x) {paste0(x, "_cumulative_cases_end")})
 rm(summary_cumulative_cases_beg_sim_all, summary_daily_cases_sim_all, summary_cumulative_cases_end_sim_all)
 
+## Import estimated effects ----------------------------------------------------
+
+# Import between- and within-country effect estimates
+effects_between_countries <- read_csv(paste0(results_directory, "effects_between_countries.csv")) %>% 
+  mutate(across(where(is.character), as.factor))
+effects_within_countries <- read_csv(paste0(results_directory, "effects_within_countries.csv")) %>% 
+  mutate(across(where(is.character), as.factor))
+
+# Create variable for adjusted vs unadjusted in between-country dataframe
+effects_between_countries <- effects_between_countries %>% 
+  mutate(Adjusted = ifelse(is.na(Covariates), "Unadjusted", "Adjusted"),
+         Adjusted = as.factor(Adjusted))
+
 ## Formatting ------------------------------------------------------------------
 
-# Reorder levels of Threshold factor in thresholds dataframe
+# Define ordering of threshold and simulation levels
+threshold_levels <- c("Lockdown eased", "0.0010%", "0.0050%", "0.0100%")
+simulation_levels <- c("0,0", "0,1", "0,3", "0,5", "0,7", "7,7", "14,14")
+
+# Reorder levels of Threshold and Simulation factors in dataframes
 summary_thresholds_all <- summary_thresholds_all %>%
-  mutate(Threshold = factor(Threshold, levels(Threshold)[c(4, 1:3)]))
+  mutate(Threshold = factor(Threshold, levels = threshold_levels),
+         Simulation = factor(Simulation, levels = simulation_levels))
+effects_between_countries <- effects_between_countries %>%
+  mutate(Threshold = factor(Threshold, levels = threshold_levels))
+effects_within_countries <- effects_within_countries %>% 
+  mutate(Threshold = factor(Threshold, levels = threshold_levels),
+         Simulation = factor(Simulation, levels = simulation_levels))
 
 # Create keys for threshold labels
 threshold_labels <- c("Lockdown eased" = "Cases when\nlockdown eased",
@@ -1107,32 +1130,6 @@ ggsave(paste0(results_directory, "Figure - Model residuals (cumulative cases).pn
 # ------------------------------------------------------------------------------
 # Analysis: effect sizes
 # ------------------------------------------------------------------------------
-
-## Data import -----------------------------------------------------------------
-
-# Import between- and within-country effect estimates
-effects_between_countries <- read_csv(paste0(results_directory, "effects_between_countries.csv")) 
-effects_within_countries <- read_csv(paste0(results_directory, "effects_within_countries.csv")) 
-
-# Convert variables to factors
-effects_between_countries <- effects_between_countries %>% 
-  mutate(across(where(is.character), as.factor))
-effects_within_countries <- effects_within_countries %>% 
-  mutate(across(where(is.character), as.factor))
-
-# Create variable for adjusted vs unadjusted in between-country dataframe
-effects_between_countries <- effects_between_countries %>% 
-  mutate(Adjusted = ifelse(is.na(Covariates), "Unadjusted", "Adjusted"),
-         Adjusted = as.factor(Adjusted))
-
-# Reorder levels of Threshold factor in between-country dataframe
-effects_between_countries <- effects_between_countries %>%
-  mutate(Threshold = factor(Threshold, levels(Threshold)[c(4, 1:3)]))
-
-# Reorder levels of Simulation and Threshold factors in within-country dataframe
-effects_within_countries <- effects_within_countries %>% 
-  mutate(Simulation = factor(Simulation, levels = c("0,0", "7,7", "14,14")),
-         Threshold = factor(Threshold, levels(Threshold)[c(4, 1:3)]))
 
 ## Figures: between-country effects --------------------------------------------
 
