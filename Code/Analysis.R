@@ -284,19 +284,19 @@ write_csv(effects_between_countries, file = paste0(results_directory, "effects_b
 # compared to the natural history for a particular country
 # Arguments:
 # (1) country = country to estimate
-# (2) simulations = dataframe containing descriptions of simulations to include in analysis 
 ##### (including natural history)
 # Returns: summary table containing thresholds for each specified history, 
 # and percentage change in cumulative cases from natural history
-Calculate_pct_change_days_to_threshold <- function(country, simulations) {
+Calculate_pct_change_days_to_threshold <- function(country) {
   
-  # Filter thresholds table by given country and simulations
+  # Filter thresholds table by given country
   summary_thresholds_country <- summary_thresholds_all %>% 
-    filter(Country == country, Simulation %in% simulations$Simulation) %>%
+    filter(Country == country) %>%
     select(Country:N_days_lockdown, Threshold, Days_since_lockdown)
   
   # Calculate number of days to reach thresholds in natural history
-  thresholds_nat_hist <- summary_thresholds_country %>% filter(History == "Natural history") %>%
+  thresholds_nat_hist <- summary_thresholds_country %>% 
+    filter(History == "Natural history") %>%
     select(Threshold, Days_since_lockdown) %>%
     rename(Days_since_lockdown_nat_hist = Days_since_lockdown)
   
@@ -315,11 +315,9 @@ Calculate_pct_change_days_to_threshold <- function(country, simulations) {
 # for various counterfactual histories, compared to the natural history for a particular country
 # Arguments:
 # (1) country = country to estimate
-# (2) simulations = dataframe containing descriptions of simulations to include in analysis 
-##### (including natural history)
 # Returns: summary table containing number of cumulative cases on date_T 
 # for each specified history, and percentage change in cumulative cases from natural history
-Calculate_pct_change_cases <- function(country, simulations) {
+Calculate_pct_change_cases <- function(country) {
   
   # Filter summary dataframe by country
   summary_eur_country <- summary_eur %>% filter(Country == country)
@@ -327,9 +325,9 @@ Calculate_pct_change_cases <- function(country, simulations) {
   # Record final date of cases included in analysis (date_T)
   date_T <- summary_eur_country %>% pull(Date_T)
   
-  # Filter simulated data by country and simulations
+  # Filter simulated data by country
   summary_cases_sim_country <- summary_cases_sim_all %>% 
-    filter(Country == country, Simulation %in% simulations$Simulation)
+    filter(Country == country)
   
   # Create summary table of cumulative cases on date_T
   summary_cases_sim_country_T <- summary_cases_sim_country %>% filter(Date == date_T) %>%
@@ -342,7 +340,9 @@ Calculate_pct_change_cases <- function(country, simulations) {
   
   # Calculate percent change in cumulative cases from natural history
   summary_cases_sim_country_T <- summary_cases_sim_country_T %>% 
-    mutate(Pct_change_cumulative_cases_end = ((Mean_cumulative_cases_end - cases_nat_hist) / cases_nat_hist))
+    group_by(Simulation) %>%
+    mutate(Pct_change_cumulative_cases_end = ((Mean_cumulative_cases_end - cases_nat_hist) / cases_nat_hist)) %>%
+    ungroup
   
   # Return dataframe
   return(summary_cases_sim_country_T)
@@ -354,28 +354,18 @@ Calculate_pct_change_cases <- function(country, simulations) {
 # Define countries to be included in analysis
 countries <- countries_eur_modelled[!countries_eur_modelled %in% countries_excluded]
 
-# Specify simulations to include in analysis
-simulations <- bind_rows(tibble(History = "Natural history",
-                                Simulation = "0,0"),
-                         tibble(History = "Counterfactual history",
-                                Simulation = "7,7"),
-                         tibble(History = "Counterfactual history",
-                                Simulation = "14,14"))
-
 # Estimate effects:
 # (1) percentage change in the number of days since lockdown to reach thresholds 
 # under natural vs counterfactual histories
 pct_change_days_to_threshold <- foreach(i = countries,
                                         .errorhandling = "pass") %do%
-  Calculate_pct_change_days_to_threshold(country = i,
-                                         simulations = simulations) %>%
+  Calculate_pct_change_days_to_threshold(country = i) %>%
   bind_rows
 # (2) percentage change in the number of cumulative cases 
 # under counterfactual vs natural histories
 pct_change_cases <- foreach(i = countries,
                             .errorhandling = "pass") %do%
-  Calculate_pct_change_cases(country = i,
-                             simulations = simulations) %>%
+  Calculate_pct_change_cases(country = i) %>%
   bind_rows
 
 # Estimate mean effects:
