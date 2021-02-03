@@ -119,8 +119,8 @@ Requires: bitops
 
 Package: callr
 Source: CRAN
-Version: 3.4.3
-Hash: e9b50bc56e655025fde6f2f4b65154de
+Version: 3.5.1
+Hash: f9c95688940b93248943b187e998d743
 Requires: R6, processx
 
 Package: car
@@ -221,8 +221,8 @@ Requires: R6, ellipsis, generics, glue, lifecycle, magrittr, rlang,
 
 Package: ellipsis
 Source: CRAN
-Version: 0.3.0
-Hash: 30b58109e4d7c6184a9c2e32f9ae38c6
+Version: 0.3.1
+Hash: b294fcc92985c6235df03c1c34f25e99
 Requires: rlang
 
 Package: evaluate
@@ -296,9 +296,9 @@ Requires: cowplot, dplyr, ggplot2, ggrepel, ggsci, ggsignif, glue,
 
 Package: ggrepel
 Source: CRAN
-Version: 0.8.2
-Hash: b240026d0e6cbcb8c8c9078514401c25
-Requires: Rcpp, ggplot2, scales
+Version: 0.9.1
+Hash: b117ca592a674b20c088b4fa1e54ab50
+Requires: Rcpp, ggplot2, rlang, scales
 
 Package: ggsci
 Source: CRAN
@@ -353,8 +353,8 @@ Requires: Rcpp, digest, rlang
 
 Package: httr
 Source: CRAN
-Version: 1.4.1
-Hash: cc16de93eaabd3c6d0785cb8e6d059ab
+Version: 1.4.2
+Hash: 2ad813eba37ce1f357434789aa8b6132
 Requires: R6, curl, jsonlite, mime, openssl
 
 Package: insight
@@ -375,8 +375,8 @@ Hash: 750adbdf6750e2dbcf2066c443d64892
 
 Package: jsonlite
 Source: CRAN
-Version: 1.6.1
-Hash: bfde5e6072ca0f5226f49e457a9ba62d
+Version: 1.7.2
+Hash: a5965fb563ba3643e75c425a82f935e6
 
 Package: knitr
 Source: CRAN
@@ -518,8 +518,8 @@ Requires: cli, crayon, fansi, rlang, utf8, vctrs
 
 Package: pkgbuild
 Source: CRAN
-Version: 1.0.7
-Hash: 159cdcc8111d397fdefd30ce0269646d
+Version: 1.2.0
+Hash: 5b2b394083875853add40c2d264523f7
 Requires: R6, callr, cli, crayon, desc, prettyunits, rprojroot, withr
 
 Package: pkgconfig
@@ -529,9 +529,10 @@ Hash: 5ff5f2361851a49534c96caa2a8071c7
 
 Package: pkgload
 Source: CRAN
-Version: 1.0.2
-Hash: 41eb2db35be61f6f9e8864cf87a1ecb0
-Requires: desc, pkgbuild, rlang, rprojroot, rstudioapi, withr
+Version: 1.1.0
+Hash: a65ac8a100a65cff8e5e4a122d2a51af
+Requires: cli, crayon, desc, pkgbuild, rlang, rprojroot, rstudioapi,
+    withr
 
 Package: plyr
 Source: CRAN
@@ -556,8 +557,8 @@ Hash: 20669cd8bb8b3207f6371edf8cf510af
 
 Package: processx
 Source: CRAN
-Version: 3.4.2
-Hash: e1671b1ca2f6c66f29ffb2828e98dc02
+Version: 3.4.5
+Hash: f136ca3e48b88288669ee4f6c2fe199a
 Requires: R6, ps
 
 Package: progress
@@ -632,8 +633,8 @@ Requires: curl, data.table, foreign, haven, openxlsx, readxl, tibble
 
 Package: rlang
 Source: CRAN
-Version: 0.4.6
-Hash: 961439fc46343c94eb50973664feee76
+Version: 0.4.10
+Hash: eb6b577ea2302f9617b010ae4f64a912
 
 Package: rmarkdown
 Source: CRAN
@@ -806,8 +807,8 @@ Hash: 5b1ec05cd96c1e0c6048bab49abee3aa
 
 Package: withr
 Source: CRAN
-Version: 2.2.0
-Hash: 709a3da4deef928ab299f4ff52caf66b
+Version: 2.4.1
+Hash: 490523cef72232b12a66f0e307e4ee7e
 
 Package: xfun
 Source: CRAN
@@ -832,8 +833,8 @@ Hash: 424bc11cc358f23187feaa7978628196
 
 Package: zip
 Source: CRAN
-Version: 2.0.4
-Hash: f86b0ae5776b2e3880871fb0e34e5e48
+Version: 2.1.1
+Hash: 127ef4d13fcabd6851527e5570b7aa5c
 
 Package: zoo
 Source: CRAN
