@@ -368,21 +368,21 @@ pct_change_cases <- foreach(i = countries,
   Calculate_pct_change_cases(country = i) %>%
   bind_rows
 
-# Estimate mean effects:
+# Estimate median effects:
 # (1) percentage change in the number of days since lockdown to reach thresholds 
 # under natural vs counterfactual histories
-pct_change_days_to_threshold_mean <- pct_change_days_to_threshold %>% 
+pct_change_days_to_threshold_median <- pct_change_days_to_threshold %>% 
   group_by(Simulation, History, Threshold) %>%
-  summarise(Mean_pct_change_days_since_lockdown = mean(Pct_change_days_since_lockdown, na.rm = TRUE),
-            SD_pct_change_days_since_lockdown = sd(Pct_change_days_since_lockdown, na.rm = TRUE),
+  summarise(Median_pct_change_days_since_lockdown = median(Pct_change_days_since_lockdown, na.rm = TRUE),
+            IQR_pct_change_days_since_lockdown = IQR(Pct_change_days_since_lockdown, na.rm = TRUE),
             N_countries_days_since_lockdown = n(),
             .groups = "keep")
 # (2) percentage change in the number of cumulative cases 
 # under counterfactual vs natural histories
-pct_change_cases_mean <- pct_change_cases %>% 
+pct_change_cases_median <- pct_change_cases %>% 
   group_by(Simulation, History) %>%
-  summarise(Mean_pct_change_cumulative_cases_end = mean(Pct_change_cumulative_cases_end, na.rm = TRUE),
-            SD_pct_change_cumulative_cases_end = sd(Pct_change_cumulative_cases_end, na.rm = TRUE),
+  summarise(Median_pct_change_cumulative_cases_end = median(Pct_change_cumulative_cases_end, na.rm = TRUE),
+            IQR_pct_change_cumulative_cases_end = IQR(Pct_change_cumulative_cases_end, na.rm = TRUE),
             N_countries_cumulative_cases_end = n(),
             .groups = "keep")
 
@@ -390,11 +390,11 @@ pct_change_cases_mean <- pct_change_cases %>%
 ## Effects
 effects_within_countries <- full_join(pct_change_days_to_threshold, pct_change_cases,
                                     by = c("Country", "Simulation", "History", "N_days_first_restriction", "N_days_lockdown"))
-## Mean effects
-effects_within_countries_mean <- full_join(pct_change_days_to_threshold_mean, pct_change_cases_mean,
+## Median effects
+effects_within_countries_median <- full_join(pct_change_days_to_threshold_median, pct_change_cases_median,
                                          by = c("Simulation", "History"))
 
 # Save results
 write_csv(effects_within_countries, file = paste0(results_directory, "effects_within_countries.csv"))
-write_csv(effects_within_countries_mean, file = paste0(results_directory, "effects_within_countries_mean.csv"))
+write_csv(effects_within_countries_median, file = paste0(results_directory, "effects_within_countries_median.csv"))
 
