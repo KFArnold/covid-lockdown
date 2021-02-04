@@ -40,7 +40,7 @@ load(paste0(results_directory, "countries_eur_lockdown.RData"))
 load(paste0(results_directory, "countries_eur_modelled.RData"))
 
 # Define countries to exclude from analysis
-countries_excluded <- c("Russia", "San Marino")
+countries_excluded <- c("Russia")
 
 ## Import simulated data -------------------------------------------------------
 

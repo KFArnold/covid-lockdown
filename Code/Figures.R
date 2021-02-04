@@ -45,7 +45,7 @@ load(paste0(results_directory, "countries_eur_lockdown.RData"))
 load(paste0(results_directory, "countries_eur_modelled.RData"))
 
 # Define countries excluded from analysis
-countries_excluded <- c("Russia", "San Marino")
+countries_excluded <- c("Russia")
 
 ## Import simulated data -------------------------------------------------------
 
@@ -1440,7 +1440,7 @@ Plot_Within_Country_Effects <- function(simulations,
   
   # Save combined plot to Results folder
   ggsave(paste0(out, "Figure - Effects within countries.png"), 
-         plot = plots_all_annotated, width = 1.8*n_exp*n_plots, height = 7)
+         plot = plots_all_annotated, width = 1.8*n_sim*n_plots, height = 7)
   
   # Return list of individual and combined plots
   return(list(plot_time_to_thresholds = plot_time_to_thresholds,
