@@ -40,7 +40,9 @@ load(paste0(results_directory, "countries_eur_lockdown.RData"))
 load(paste0(results_directory, "countries_eur_modelled.RData"))
 
 # Define countries to exclude from analysis
-countries_excluded <- c("Russia")
+countries_excluded_all <- c("Russia")  # exclude from all analyses
+countries_excluded_time_to_threshold <- c(countries_excluded_all, "San Marino")
+countries_excluded_length_lockdown <- countries_excluded_all
 
 ## Import simulated data -------------------------------------------------------
 
@@ -100,7 +102,7 @@ rm(summary_cumulative_cases_beg_sim_all, summary_daily_cases_sim_all, summary_cu
 ## Data preparation-------------------------------------------------------------
 
 # Define countries, exposures, and covariates to examine
-countries <- countries_eur_lockdown[!countries_eur_lockdown %in% countries_excluded]
+countries <- countries_eur_lockdown[!countries_eur_lockdown %in% countries_excluded_all]
 exposures <- c("Cumulative_cases_beg", "Cumulative_cases_beg_MA7", "Daily_cases", "Daily_cases_MA7")
 covariates <- c("Area_sq_km", "Population")
 
@@ -154,7 +156,7 @@ rm(data_lockdown, data_cases, data_area, data_thresholds, data_growth_factors)
 # (4) data = dataframe containing data for all exposures, covariates, outcome, and threshold
 # (5) threshold = threshold to consider
 # Returns: table of adjusted and unadjusted effects for each exposure on the outcome, for the given threshold
-Estimate_effect_days_to_threshold <- function(outcome = "Days_since_lockdown", 
+Estimate_effect_time_to_threshold <- function(outcome = "Days_since_lockdown", 
                                               exposures = c("Cumulative_cases_beg", 
                                                             "Cumulative_cases_beg_MA7", 
                                                             "Daily_cases", 
@@ -250,8 +252,8 @@ thresholds <- data_model %>% pull(Threshold) %>% unique
 
 # Estimate effects: 
 # (1) cases at lockdown on length of time under lockdown 
-effect_days_to_threshold <- foreach(i = thresholds, .errorhandling = "pass") %do%
-  Estimate_effect_days_to_threshold(exposures = exposures,
+effect_time_to_threshold <- foreach(i = thresholds, .errorhandling = "pass") %do%
+  Estimate_effect_time_to_threshold(exposures = exposures,
                                     covariates = covariates,
                                     data = data_model,
                                     threshold = i) %>% 
@@ -264,10 +266,13 @@ effect_growth_factor_lockdown <- Estimate_effect_growth_factor_lockdown(exposure
   arrange(Outcome, Exposure, Covariates) 
 
 # Bind all effects together
-effects_between_countries <- bind_rows(effect_days_to_threshold, effect_growth_factor_lockdown)
+effects_between_countries <- bind_rows(effect_time_to_threshold, effect_growth_factor_lockdown)
 
 # Save results
 write_csv(effects_between_countries, file = paste0(results_directory, "effects_between_countries.csv"))
+
+# Save list of countries excluded
+save(countries_excluded_all, file = paste0(results_directory, "countries_excluded_all.RData"))
 
 # ------------------------------------------------------------------------------
 # Analysis: lockdown timing - within-country
@@ -275,9 +280,41 @@ write_csv(effects_between_countries, file = paste0(results_directory, "effects_b
 
 # Effects of interest:
 # (1) Effect of timing of lockdown on length of time under lockdown
-# (2) Effect of timing of lockdown on total cases at end of simulation period
+# (2) Effect of timing of lockdown on time to reach population-based thresholds
+# (3) Effect of timing of lockdown on total cases at end of simulation period
 
 ## Functions -------------------------------------------------------------------
+
+# Function to estimate the percentage change in the length of lockdown
+# for various counterfactual histories, compared to the natural history for a particular country
+# Arguments:
+# (1) country = country to estimate
+##### (including natural history)
+# Returns: summary table containing thresholds for each specified history, 
+# and percentage change in length of lockdown compared to natural history
+Calculate_pct_change_length_lockdown <- function(country) {
+  
+  # Filter thresholds table by given country and lockdown threshold
+  summary_thresholds_country <- summary_thresholds_all %>% 
+    filter(Country == country, Threshold == "Lockdown eased") %>%
+    select(Country:N_days_lockdown, Threshold, Days_since_lockdown)
+  
+  # Calculate number of days to reach threshold in natural history
+  threshold_nat_hist <- summary_thresholds_country %>% 
+    filter(History == "Natural history") %>%
+    select(Threshold, Days_since_lockdown) %>%
+    rename(Days_since_lockdown_nat_hist = Days_since_lockdown)
+  
+  # Calculate percent change in days to reach thresholds from natural history
+  summary_thresholds_country <- full_join(summary_thresholds_country, threshold_nat_hist, by = "Threshold") %>%
+    mutate(Pct_change_days_since_lockdown = 
+             ((Days_since_lockdown - Days_since_lockdown_nat_hist) / Days_since_lockdown_nat_hist)) %>%
+    select(-Days_since_lockdown_nat_hist)
+  
+  # Return dataframe
+  return(summary_thresholds_country)
+  
+}
 
 # Function to estimate the percentage change in the number of days since lockdown
 # required to reach population-based threshold values for various counterfactual histories, 
@@ -286,12 +323,12 @@ write_csv(effects_between_countries, file = paste0(results_directory, "effects_b
 # (1) country = country to estimate
 ##### (including natural history)
 # Returns: summary table containing thresholds for each specified history, 
-# and percentage change in cumulative cases from natural history
-Calculate_pct_change_days_to_threshold <- function(country) {
+# and percentage change in number of days required to reach thresholds compared natural history
+Calculate_pct_change_time_to_threshold <- function(country) {
   
-  # Filter thresholds table by given country
+  # Filter thresholds table by given country and population-based thresholds
   summary_thresholds_country <- summary_thresholds_all %>% 
-    filter(Country == country) %>%
+    filter(Country == country, str_detect(Threshold, "%")) %>%
     select(Country:N_days_lockdown, Threshold, Days_since_lockdown)
   
   # Calculate number of days to reach thresholds in natural history
@@ -316,7 +353,7 @@ Calculate_pct_change_days_to_threshold <- function(country) {
 # Arguments:
 # (1) country = country to estimate
 # Returns: summary table containing number of cumulative cases on date_T 
-# for each specified history, and percentage change in cumulative cases from natural history
+# for each specified history, and percentage change in cumulative cases compared to natural history
 Calculate_pct_change_cases <- function(country) {
   
   # Filter summary dataframe by country
@@ -351,33 +388,47 @@ Calculate_pct_change_cases <- function(country) {
 
 ## Analysis --------------------------------------------------------------------
 
-# Define countries to be included in analysis
-countries <- countries_eur_modelled[!countries_eur_modelled %in% countries_excluded]
-
 # Estimate effects:
-# (1) percentage change in the number of days since lockdown to reach thresholds 
+# (1) percentage change in length of lockdown
 # under natural vs counterfactual histories
-pct_change_days_to_threshold <- foreach(i = countries,
-                                        .errorhandling = "pass") %do%
-  Calculate_pct_change_days_to_threshold(country = i) %>%
+countries <- countries_eur_modelled[!countries_eur_modelled %in% countries_excluded_length_lockdown]
+pct_change_length_lockdown <- foreach(i = countries,
+                                      .errorhandling = "pass") %do%
+  Calculate_pct_change_length_lockdown(country = i) %>%
   bind_rows
-# (2) percentage change in the number of cumulative cases 
+# (2) percentage change in the number of days since lockdown to reach thresholds 
+# under natural vs counterfactual histories
+countries <- countries_eur_modelled[!countries_eur_modelled %in% countries_excluded_time_to_threshold]
+pct_change_time_to_threshold <- foreach(i = countries,
+                                        .errorhandling = "pass") %do%
+  Calculate_pct_change_time_to_threshold(country = i) %>%
+  bind_rows
+# (3) percentage change in the number of cumulative cases 
 # under counterfactual vs natural histories
+countries <- countries_eur_modelled[!countries_eur_modelled %in% countries_excluded_all]
 pct_change_cases <- foreach(i = countries,
                             .errorhandling = "pass") %do%
   Calculate_pct_change_cases(country = i) %>%
   bind_rows
 
 # Estimate median effects:
-# (1) percentage change in the number of days since lockdown to reach thresholds 
+# (1) percentage change in length of lockdown
 # under natural vs counterfactual histories
-pct_change_days_to_threshold_median <- pct_change_days_to_threshold %>% 
+pct_change_length_lockdown_median <- pct_change_length_lockdown %>%
   group_by(Simulation, History, Threshold) %>%
   summarise(Median_pct_change_days_since_lockdown = median(Pct_change_days_since_lockdown, na.rm = TRUE),
             IQR_pct_change_days_since_lockdown = IQR(Pct_change_days_since_lockdown, na.rm = TRUE),
             N_countries_days_since_lockdown = n(),
             .groups = "keep")
-# (2) percentage change in the number of cumulative cases 
+# (2) percentage change in the number of days since lockdown to reach thresholds
+# under natural vs counterfactual histories
+pct_change_time_to_threshold_median <- pct_change_time_to_threshold %>% 
+  group_by(Simulation, History, Threshold) %>%
+  summarise(Median_pct_change_days_since_lockdown = median(Pct_change_days_since_lockdown, na.rm = TRUE),
+            IQR_pct_change_days_since_lockdown = IQR(Pct_change_days_since_lockdown, na.rm = TRUE),
+            N_countries_days_since_lockdown = n(),
+            .groups = "keep")
+# (3) percentage change in the number of cumulative cases 
 # under counterfactual vs natural histories
 pct_change_cases_median <- pct_change_cases %>% 
   group_by(Simulation, History) %>%
@@ -388,13 +439,20 @@ pct_change_cases_median <- pct_change_cases %>%
 
 # Combine separate effect dataframes 
 ## Effects
-effects_within_countries <- full_join(pct_change_days_to_threshold, pct_change_cases,
-                                    by = c("Country", "Simulation", "History", "N_days_first_restriction", "N_days_lockdown"))
+effects_within_countries <- pct_change_length_lockdown %>%
+  full_join(., pct_change_time_to_threshold) %>%
+  full_join(., pct_change_cases) %>%
+  arrange(Country, Simulation, History, Threshold)
 ## Median effects
-effects_within_countries_median <- full_join(pct_change_days_to_threshold_median, pct_change_cases_median,
-                                         by = c("Simulation", "History"))
+effects_within_countries_median <- pct_change_length_lockdown_median %>%
+  full_join(., pct_change_time_to_threshold_median) %>%
+  full_join(., pct_change_cases_median) %>%
+  arrange(Simulation, History, Threshold)
 
 # Save results
 write_csv(effects_within_countries, file = paste0(results_directory, "effects_within_countries.csv"))
 write_csv(effects_within_countries_median, file = paste0(results_directory, "effects_within_countries_median.csv"))
 
+# Save list of countries excluded
+save(countries_excluded_length_lockdown, file = paste0(results_directory, "countries_excluded_length_lockdown.RData"))
+save(countries_excluded_time_to_threshold, file = paste0(results_directory, "countries_excluded_time_to_threshold.RData"))
