@@ -123,7 +123,7 @@ data_area <- worldbank_eur %>%
   filter(Year == 2018) %>% select(Country, Area_sq_km)
 data_population <- worldbank_eur %>% 
   filter(Country %in% countries) %>% 
-  filter(Year == 2018) %>% select(Country, Population)
+  filter(Year == 2019) %>% select(Country, Population)
 ## Thresholds, and days since lockdown to reach threshold
 data_thresholds <- summary_thresholds_all %>% 
   filter(Country %in% countries) %>% 
