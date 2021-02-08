@@ -111,12 +111,14 @@ effects_between_countries <- effects_between_countries %>%
 
 ## Formatting ------------------------------------------------------------------
 
-# Define ordering of threshold and simulation levels
+# Define ordering of threshold, simulation, history, and exposure levels
 threshold_levels <- c("Lockdown eased", "0.0010%", "0.0050%", "0.0100%")
 simulation_levels <- c("0,0", "0,1", "0,3", "0,5", "0,7", "7,7", "14,14")
 history_levels <- c("Natural history", "Counterfactual history")
+exposure_levels <- c("Daily_cases", "Daily_cases_MA7", 
+                     "Cumulative_cases_beg", "Cumulative_cases_beg_MA7")
 
-# Reorder levels of Threshold, Simulation, and History factors in dataframes
+# Reorder levels of Threshold, Simulation, History, and Exposure factors in dataframes
 summary_cases_sim_all <- summary_cases_sim_all %>%
   mutate(Simulation = factor(Simulation, levels = simulation_levels),
          History = factor(History, levels = history_levels))
@@ -125,7 +127,8 @@ summary_thresholds_all <- summary_thresholds_all %>%
          Simulation = factor(Simulation, levels = simulation_levels),
          History = factor(History, levels = history_levels))
 effects_between_countries <- effects_between_countries %>%
-  mutate(Threshold = factor(Threshold, levels = threshold_levels))
+  mutate(Threshold = factor(Threshold, levels = threshold_levels),
+         Exposure = factor(Exposure, levels = exposure_levels))
 effects_within_countries <- effects_within_countries %>% 
   mutate(Threshold = factor(Threshold, levels = threshold_levels),
          Simulation = factor(Simulation, levels = simulation_levels),
@@ -138,10 +141,10 @@ threshold_labels <- c("Lockdown eased" = "Cases when\nlockdown eased",
                       "0.0100%" = "0.0100%\nof population")
 
 # Create keys for exposure labels
-exposure_labels <- c("Cumulative_cases_beg" = "Cumulative cases", 
-                     "Cumulative_cases_beg_MA7" = "Cumulative cases (MA7)",
-                     "Daily_cases" = "Daily cases", 
-                     "Daily_cases_MA7" = "Daily cases (MA7)")
+exposure_labels <- c("Daily_cases" = "Daily cases", 
+                     "Daily_cases_MA7" = "Daily cases\n(MA7)",
+                     "Cumulative_cases_beg" = "Cumulative cases", 
+                     "Cumulative_cases_beg_MA7" = "Cumulative cases\n(MA7)")
 
 # Create color key for simulations
 color_brewer <- colorRampPalette(brewer.pal(n = 7, name = "Dark2"))
@@ -437,16 +440,19 @@ rm(rows, cols, p, p_annotated)
 # (2) cases = type of cases to display (cumulative or incident, moving average or raw)
 # (3) out = folder to save figure
 Plot_Growth_Factor_Lockdown <- function(countries,
-                                        cases = c("Cumulative_cases_beg", 
-                                                  "Cumulative_cases_beg_MA7", 
-                                                  "Daily_cases",
-                                                  "Daily_cases_MA7"),
+                                        cases = c("Daily_cases",
+                                                  "Daily_cases_MA7",
+                                                  "Cumulative_cases_beg", 
+                                                  "Cumulative_cases_beg_MA7"),
                                         out) {
+  
+  # Record number of specified cases
+  n_cases <- length(cases)
   
   # Filter cases/deaths, summary, best knots, and median growth factor dataframes 
   # by countries and select relevant variables
   data_eur_lockdown <- data_eur %>% filter(Country %in% countries) %>%
-    select(Country, Date, all_of(cases))
+    select(Country, Date, all_of(cases)) 
   summary_eur_lockdown <- summary_eur %>% filter(Country %in% countries) %>%
     select(Country, Date_lockdown)
   knots_best_lockdown <- knots_best %>% filter(Country %in% countries)
@@ -467,13 +473,15 @@ Plot_Growth_Factor_Lockdown <- function(countries,
   
   # Convert data to long format
   all_data_lockdown <- all_data_lockdown %>% 
-    gather(Case_type, Cases, contains("cases")) %>% arrange(Country)
+    gather(Case_type, Cases, contains("cases")) %>% 
+    mutate(Case_type = factor(Case_type, levels = cases)) %>%
+    arrange(Country)
   
   # Create key for case labels
-  case_labels <- c(Cumulative_cases_beg = "Cumulative cases", 
-                   Cumulative_cases_beg_MA7 = "Cumulative cases (MA7)",
-                   Daily_cases = "Daily cases", 
-                   Daily_cases_MA7 = "Daily cases (MA7)")
+  case_labels <- c(Daily_cases = "Daily cases", 
+                   Daily_cases_MA7 = "Daily cases (MA7)",
+                   Cumulative_cases_beg = "Cumulative cases", 
+                   Cumulative_cases_beg_MA7 = "Cumulative cases (MA7)")
   
   # Plot cases on date of lockdown vs growth factor
   plot <- ggplot(data = all_data_lockdown,
@@ -486,15 +494,16 @@ Plot_Growth_Factor_Lockdown <- function(countries,
           panel.grid.major = element_line(color = "grey95")) +
     labs(title = "Relationship between number of cases of COVID-19 on the date of lockdown and growth factor under lockdown") +
     geom_point() +
-    geom_text_repel(aes(label = Country), size = 2, alpha = 0.4) +
-    facet_wrap(. ~ Case_type, scales = "free",
+    geom_text_repel(aes(label = Country), size = 2, alpha = 0.4,
+                    max.overlaps = Inf) +
+    facet_wrap(. ~ Case_type, scales = "free", ncol = 2,
                labeller = labeller(Case_type = case_labels)) +
     scale_x_continuous(labels = comma_format(accuracy = 1)) +
     scale_y_continuous(name = "Growth factor under lockdown") 
   
   # Save plot to subfolder
   ggsave(paste0(out, "Figure - Cases at lockdown vs growth factor under lockdown.png"), 
-         plot = plot, width = 10, height = 8)
+         plot = plot, width = 10, height = 2.5*n_cases)
   
   # Return plot
   return(plot)
@@ -508,6 +517,8 @@ countries <- countries_eur_lockdown[!countries_eur_lockdown %in% countries_exclu
 
 # Create figure
 figure_growth_factor <- Plot_Growth_Factor_Lockdown(countries = countries,
+                                                    cases = c("Daily_cases_MA7",
+                                                              "Cumulative_cases_beg_MA7"),
                                                     out = results_directory)
 
 # ------------------------------------------------------------------------------
@@ -1242,8 +1253,7 @@ Plot_Between_Country_Effects <- function(exposures = c("Cumulative_cases_beg",
   plots_all <- ggarrange(plotlist = plot_list,
                          align = "hv", common.legend = TRUE, legend = "bottom", ncol = n_plots)
   plots_all_annotated <- annotate_figure(plots_all,
-                                         top = text_grob("Estimated effects of each additional case of COVID-19 at lockdown", 
-                                                         size = 20))
+                                         top = text_grob("Estimated effects of each additional case of COVID-19 at lockdown"))
   
   # Save combined plot to Results folder
   ggsave(paste0(results_directory, "Figure - Effects between countries.png"), 
@@ -1277,6 +1287,7 @@ Plot_Between_Time_To_Thresholds <- function(effects) {
                      color = Adjusted, shape = Adjusted)) +
     theme_light() +
     theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
+          plot.title = element_text(size = 10),
           axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5),
           panel.background = element_rect(fill = "gray90"),
           panel.grid.major = element_line(color = "white"),
@@ -1320,6 +1331,7 @@ Plot_Between_Length_Lockdown <- function(effects) {
                      color = Adjusted, shape = Adjusted)) +
     theme_light() +
     theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
+          plot.title = element_text(size = 10),
           axis.title.x = element_blank(),
           axis.text.x = element_blank(),
           axis.ticks.x = element_blank(),
@@ -1364,6 +1376,7 @@ Plot_Between_Growth_Factor <- function(effects) {
                      color = Adjusted, shape = Adjusted)) +
     theme_light() +
     theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
+          plot.title = element_text(size = 10),
           axis.title.x = element_blank(),
           axis.text.x = element_blank(),
           axis.ticks.x = element_blank(),
@@ -1394,7 +1407,9 @@ Plot_Between_Growth_Factor <- function(effects) {
 ## Figures: between-country effects --------------------------------------------
 
 # Create figures
-figure_between_country_effects <- Plot_Between_Country_Effects(plots = c("plot_length_lockdown",
+figure_between_country_effects <- Plot_Between_Country_Effects(exposures = c("Daily_cases_MA7",
+                                                                             "Cumulative_cases_beg_MA7"),
+                                                               plots = c("plot_length_lockdown",
                                                                          "plot_growth_factor"),
                                                                out = results_directory)
 
@@ -1443,7 +1458,7 @@ Plot_Within_Country_Effects <- function(simulations,
   
   # Save combined plot to Results folder
   ggsave(paste0(out, "Figure - Effects within countries.png"), 
-         plot = plots_all_annotated, width = 1.8*n_sim*n_plots, height = 7)
+         plot = plots_all_annotated, width = 1.5*n_sim*n_plots, height = 7)
   
   # Return list of individual and combined plots
   return(list(plot_time_to_thresholds = plot_time_to_thresholds,
@@ -1573,7 +1588,7 @@ Plot_Within_Total_Cases <- function(effects) {
 
 # Specify simulations to include in figures (comparison is natural history 0,0)
 #simulations <- c("7,7", "14,14")
-simulations <- c("0,3", "0,7", "7,7", "14,14")
+simulations <- c("0,1", "0,3", "0,5", "0,7", "7,7", "14,14")
 
 # Create figures
 figure_within_country_effects <- Plot_Within_Country_Effects(simulations = simulations,
