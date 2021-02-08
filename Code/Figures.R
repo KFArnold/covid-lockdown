@@ -174,7 +174,7 @@ Plot_Important_Dates <- function(countries, dates, order, out) {
   # Filter observed dataset and summary data by specified countries and dates
   data_eur_filt <- data_eur %>% filter(Country %in% countries)
   summary_eur_filt <- summary_eur %>% filter(Country %in% countries) %>% 
-    select(c("Country", dates$Date))
+    select(c(Country, dates$Date, Date_start, Date_T))
   
   # Order countries by date of first restriction
   countries_ordered <- summary_eur_filt %>% arrange(eval(parse(text = order))) %>% 
@@ -182,29 +182,35 @@ Plot_Important_Dates <- function(countries, dates, order, out) {
   
   # Convert summary data to long form
   summary_eur_filt_long <- summary_eur_filt %>% 
-    pivot_longer(contains("Date"), names_to = "Date", values_to = "Value")
+    pivot_longer(contains("Date"), names_to = "Date", values_to = "Value") %>%
+    mutate(Date = factor(Date, levels = c(dates$Date, "Date_start", "Date_T")))
   
   # Get min and max dates from summary table
   date_min <- summary_eur_filt_long %>% pull(Value) %>% min(na.rm = TRUE)
   date_max <- summary_eur_filt_long %>% pull(Value) %>% max(na.rm = TRUE)
   
   # Plot specified countries and dates
-  plot <- ggplot(data = summary_eur_filt_long, aes(x = Value, y = Country)) + 
+  plot <- ggplot(data = summary_eur_filt_long %>% filter(Date %in% dates$Date), 
+                 aes(x = Value, y = Country)) + 
     theme_minimal() +
-    theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm")) +
+    theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
+          legend.position = "bottom") +
     labs(title = "Important dates in COVID-19 European policy responses",
          #subtitle = paste("Dates when:", paste(dates$Description, collapse = ", ")),
          caption = "Data from Oxford Covid-19 Government Response Tracker (https://github.com/OxCGRT/covid-policy-tracker).") +
     theme(plot.caption = element_text(size = 7),
           plot.subtitle = element_text(size = 10)) +
+    geom_line(data = summary_eur_filt_long %>% filter(Date %in% c("Date_start", "Date_T")),
+              aes(group = Country),
+              color = "grey70", alpha = 0.5, size = 2) +
     geom_point(aes(color = Date, shape = Date, size = Date)) +
-    scale_color_manual(name = "Date:",
+    scale_color_manual(name = "Date of:",
                        values = dates$Color,
                        labels = dates$Description) +
-    scale_shape_manual(name = "Date:",
+    scale_shape_manual(name = "Date of:",
                        values = dates$Shape,
                        labels = dates$Description) +
-    scale_size_manual(name = "Date:",
+    scale_size_manual(name = "Date of:",
                       values = dates$Size,
                       labels = dates$Description) +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
@@ -217,7 +223,7 @@ Plot_Important_Dates <- function(countries, dates, order, out) {
                      limits = rev(countries_ordered)) 
   
   # Save plot to subfolder
-  ggsave(paste0(out, "Figure - Important dates.png"), plot = plot, width = 12, height = 8)
+  ggsave(paste0(out, "Figure - Important dates.png"), plot = plot, width = 10, height = 8)
   
   # Return plot
   return(plot)
@@ -233,24 +239,19 @@ dates <- bind_rows(tibble(Date = "Date_0",
                           Shape = "\u25CB",
                           Size = 4),
                    tibble(Date = "Date_first_restriction",
-                          Description = "first restriction imposed",
+                          Description = "first restriction",
                           Color = "navyblue",
                           Shape = "\u25A0",
                           Size = 4),
                    tibble(Date = "Date_lockdown",
-                          Description = "lockdown imposed",
+                          Description = "lockdown",
                           Color = "darkorange",
                           Shape = "\u25CF",
                           Size = 4),
-                   tibble(Date = "Date_lockdown_eased",
-                          Description = "lockdown eased",
-                          Color = "firebrick",
-                          Shape = "\u25BC",
-                          Size = 3),
-                   tibble(Date = "Date_lockdown_end",
-                          Description = "lockdown lifted",
+                   tibble(Date = "Date_eased",
+                          Description = "lockdown (restrictions) eased",
                           Color = "forestgreen",
-                          Shape = "\u25B2",
+                          Shape = "\u25BC",
                           Size = 3))
 
 # Specify ordering variable
