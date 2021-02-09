@@ -125,7 +125,7 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
   
   # Calculate counterfactual first restriction and lockdown dates
   date_first_restriction_counterfactual <- summary_eur_country %>% 
-    pull(Date_lockdown) - nn_days_first_restriction
+    pull(Date_lockdown) - n_days_first_restriction
   date_lockdown_counterfactual <- summary_eur_country %>% 
     pull(Date_lockdown) - n_days_lockdown
   
