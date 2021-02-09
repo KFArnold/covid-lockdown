@@ -125,7 +125,7 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
   
   # Calculate counterfactual first restriction and lockdown dates
   date_first_restriction_counterfactual <- summary_eur_country %>% 
-    pull(Date_lockdown) - n_days_first_restriction
+    pull(Date_first_restriction) - n_days_first_restriction
   date_lockdown_counterfactual <- summary_eur_country %>% 
     pull(Date_lockdown) - n_days_lockdown
   
@@ -204,15 +204,19 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
     round(digits = 2) %>% t %>% as_tibble(rownames = "Date") %>% 
     mutate(Date = as.Date(Date), Country = country,
            N_days_first_restriction = n_days_first_restriction,
-           N_days_lockdown = n_days_lockdown) %>% 
-    relocate(Country, N_days_first_restriction, N_days_lockdown)
+           N_days_lockdown = n_days_lockdown,
+           Date_first_restriction = date_first_restriction_counterfactual,
+           Date_lockdown = date_lockdown_counterfactual) %>% 
+    relocate(Country, N_days_first_restriction, N_days_lockdown, Date_first_restriction, Date_lockdown)
   ## Cumulative cases:
   summary_cumulative_cases_end_sim <- apply(X = cumulative_cases_end_sim, MARGIN = 2, FUN = Summarise_centiles) %>% 
     round(digits = 2) %>% t %>% as_tibble(rownames = "Date") %>% 
     mutate(Date = as.Date(Date), Country = country,
            N_days_first_restriction = n_days_first_restriction,
-           N_days_lockdown = n_days_lockdown) %>% 
-    relocate(Country, N_days_first_restriction, N_days_lockdown)
+           N_days_lockdown = n_days_lockdown,
+           Date_first_restriction = date_first_restriction_counterfactual,
+           Date_lockdown = date_lockdown_counterfactual) %>% 
+    relocate(Country, N_days_first_restriction, N_days_lockdown, Date_first_restriction, Date_lockdown)
   
   # Calculate dates for which thresholds reached
   summary_thresholds_sim <- 
@@ -221,8 +225,11 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
                                          date_first_restriction_counterfactual = date_first_restriction_counterfactual,
                                          date_lockdown_counterfactual = date_lockdown_counterfactual) %>%
     mutate(N_days_first_restriction = n_days_first_restriction,
-           N_days_lockdown = n_days_lockdown) %>%
-    relocate(c(N_days_first_restriction, N_days_lockdown), .after = Country)
+           N_days_lockdown = n_days_lockdown,
+           Date_first_restriction = date_first_restriction_counterfactual,
+           Date_lockdown = date_lockdown_counterfactual) %>%
+    relocate(c(N_days_first_restriction, N_days_lockdown, Date_first_restriction, Date_lockdown), 
+             .after = Country)
   
   # Update progress bar
   setTxtProgressBar(progress_bar, 1)
