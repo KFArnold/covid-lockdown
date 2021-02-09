@@ -385,13 +385,15 @@ summary_eur <- summary_eur %>%
          Date_start = if_else(Country == "Slovenia", as.Date("2020-03-18") + 3, Date_start),
          Date_start = if_else(Country == "Sweden", as.Date("2020-03-14") + 3, Date_start))
 
-# Calculate date lockdown eased (or, if no lockdown, date restrictions eased)
+# Calculate:
+# (1) date lockdown eased (or, if no lockdown, date restrictions eased)
+# (2) date_T (last date to include data from) as date of easing + 28 days
+# (3) length of lockdown as number of days from date of lockdown to date of easing
 summary_eur <- summary_eur %>% 
-  mutate(Date_eased = if_else(is.na(Date_lockdown), Date_restrictions_eased, Date_lockdown_eased))
-
-# Calculate date_T (last date to include data from) as date of easing + 28 days
-summary_eur <- summary_eur %>% 
-  mutate(Date_T = Date_eased + 28) 
+  mutate(Date_eased = if_else(is.na(Date_lockdown), Date_restrictions_eased, Date_lockdown_eased),
+         Date_T = Date_eased + 28,
+         Length_lockdown = as.numeric(Date_lockdown_eased - Date_lockdown)) %>%
+  relocate(Length_lockdown, .before = Max_number_restrictions)
 
 # Export summary table
 write_csv(summary_eur, file = paste0(results_directory, "summary_eur.csv"))
