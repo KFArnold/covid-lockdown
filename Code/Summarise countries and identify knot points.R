@@ -307,20 +307,18 @@ pct <- worldbank_eur %>% filter(Year == 2019) %>%
   mutate(Pop_pct = 0.000001 * Population) %>% select(Country, Pop_pct)
 
 # Create summary table containing dates of important case thresholds:
-# date of first case (Date_0), 
-# dates at which cases first exceeded 25, 50, and 100 (Date_25, Date_50, Date_100), 
-# date at which cases first exceeded defined pct
+# date of first case (Date_1), 
+# dates at which cases first exceeded 5 and 100 (Date_5, Date_100), 
+# date at which cases first exceeded defined pct (Date_pop_pct)
 # date for which data can be reasonably assumed complete (Date_max)
 summary_eur_cases <- full_join(data_eur, pct, by = "Country") %>% 
   group_by(Country) %>%
-  mutate(Date_0 = Date[which(Daily_cases >= 1)[1]],
+  mutate(Date_1 = Date[which(Daily_cases >= 1)[1]],
          Date_5 = Date[which(Cumulative_cases_beg >= 5)[1]],
-         Date_25 = Date[which(Cumulative_cases_beg >= 25)[1]],
-         Date_50 = Date[which(Cumulative_cases_beg >= 50)[1]],
          Date_100 = Date[which(Cumulative_cases_beg >= 100)[1]],
          Date_pop_pct = Date[which(Cumulative_cases_beg >= Pop_pct)[1]],
          Date_max = max(Date)) %>%
-  select(Country, Date_0:Date_max) %>%
+  select(Country, Date_1:Date_max) %>%
   unique %>% ungroup
 rm(pct)
 

@@ -236,7 +236,7 @@ Plot_Important_Dates <- function(countries, dates, order, out) {
 ## Figures ---------------------------------------------------------------------
 
 # Specify dates to include in figure
-dates <- bind_rows(tibble(Date = "Date_0",
+dates <- bind_rows(tibble(Date = "Date_1",
                           Description = "first confirmed case",
                           Color = "grey50",
                           Shape = "\u25CB",
@@ -632,7 +632,7 @@ Plot_Simulation_Results <- function(country, simulations, thresholds, out) {
   # Define important dates
   date_start <- summary_eur_country %>% pull(Date_start)  # first date of observed data included
   date_T <- summary_eur_country %>% pull(Date_T)  # final date of observed data to include
-  date_0 <- summary_eur_country %>% pull(Date_0)
+  date_1 <- summary_eur_country %>% pull(Date_1)
   date_first_restriction <- summary_eur_country %>% pull(Date_first_restriction)
   date_lockdown <- summary_eur_country %>% pull(Date_lockdown)
   
@@ -695,7 +695,7 @@ Plot_Simulation_Results <- function(country, simulations, thresholds, out) {
     pull(Date_cases_below_threshold) %>% max(na.rm = TRUE)
   
   # Calculate min_date (min date to display on plots)
-  min_date <- date_0 - 14
+  min_date <- date_1 - 14
   
   # Calculate max_date (max date to display on plots)
   if (is.infinite(date_lowest_threshold)) { 
