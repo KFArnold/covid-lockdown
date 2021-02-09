@@ -123,10 +123,6 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
     stop(paste0("The specified counterfactual cannot be estimated for ", country, "."))
   }
   
-  # Label simulation as natural or counterfactual history
-  history <- ifelse(n_days_first_restriction == 0 & (is.na(n_days_lockdown) | n_days_lockdown == 0), 
-                    "Natural history", "Counterfactual history")
-  
   # Calculate counterfactual lockdown date
   date_lockdown_counterfactual <- summary_eur_country %>% 
     pull(Date_lockdown) - n_days_lockdown
@@ -205,25 +201,24 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
   summary_daily_cases_sim <- apply(X = daily_cases_sim, MARGIN = 2, FUN = Summarise_centiles) %>%
     round(digits = 2) %>% t %>% as_tibble(rownames = "Date") %>% 
     mutate(Date = as.Date(Date), Country = country,
-           History = history, N_days_first_restriction = n_days_first_restriction,
+           N_days_first_restriction = n_days_first_restriction,
            N_days_lockdown = n_days_lockdown) %>% 
-    relocate(Country, History, N_days_first_restriction, N_days_lockdown)
+    relocate(Country, N_days_first_restriction, N_days_lockdown)
   ## Cumulative cases:
   summary_cumulative_cases_end_sim <- apply(X = cumulative_cases_end_sim, MARGIN = 2, FUN = Summarise_centiles) %>% 
     round(digits = 2) %>% t %>% as_tibble(rownames = "Date") %>% 
     mutate(Date = as.Date(Date), Country = country,
-           History = history, N_days_first_restriction = n_days_first_restriction,
+           N_days_first_restriction = n_days_first_restriction,
            N_days_lockdown = n_days_lockdown) %>% 
-    relocate(Country, History, N_days_first_restriction, N_days_lockdown)
+    relocate(Country, N_days_first_restriction, N_days_lockdown)
   
   # Calculate dates for which thresholds reached
   summary_thresholds <- Calculate_Date_Threshold_Reached(thresholds = thresholds_country, 
                                                          data_sim = summary_daily_cases_sim,
                                                          date_lockdown_counterfactual = date_lockdown_counterfactual) %>%
-    mutate(History = history, 
-           N_days_first_restriction = n_days_first_restriction,
+    mutate(N_days_first_restriction = n_days_first_restriction,
            N_days_lockdown = n_days_lockdown) %>%
-    relocate(c(History, N_days_first_restriction, N_days_lockdown), .after = Country)
+    relocate(c(N_days_first_restriction, N_days_lockdown), .after = Country)
   
   # Update progress bar
   setTxtProgressBar(progress_bar, 1)
@@ -542,10 +537,12 @@ summary_sim_all <- list(summary_daily_cases_sim = summary_daily_cases_sim,
                         summary_thresholds = summary_thresholds)
 
 # For all summary datasets, 
-# create Simulation variable which contains a text description of the simulation parameters
+# create Simulation variable which contains a text description of the simulation parameters,
+# and History variable labelling simulation as natural/counterfactual history
 summary_sim_all <- map(.x = summary_sim_all, 
-                       .f = ~.x %>% mutate(Simulation = paste(n_days_first_restriction, n_days_lockdown, sep = ",")) %>%
-                         relocate(Simulation, .after = Country))
+                       .f = ~.x %>% mutate(Simulation = paste(n_days_first_restriction, n_days_lockdown, sep = ","),
+                                           History = history) %>%
+                         relocate(c(Simulation, History), .after = Country))
 
 # Save all summary tables
 summary_sim_all %>% names(.) %>% 
