@@ -35,7 +35,7 @@ worldbank_eur <- read_csv(paste0(data_directory_f, "Worldbank_data_europe.csv"))
 # Import files containing best knot point pairs, country summaries, and threshold values
 knots_best <- read_csv(paste0(results_directory, "knots_best.csv"))
 summary_eur <- read_csv(paste0(results_directory, "summary_eur.csv"))
-thresholds_all <- read_csv(paste0(results_directory, "thresholds_all.csv"))
+thresholds_eur <- read_csv(paste0(results_directory, "thresholds_eur.csv"))
 
 # Import file containing possible counterfactual conditions
 possible_days_counterfactual <- read_csv(paste0(results_directory, "possible_days_counterfactual.csv"))
@@ -78,7 +78,7 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
   # possible counterfactual dataframes by country
   data_eur_country <- data_eur %>% filter(Country == country)
   summary_eur_country <- summary_eur %>% filter(Country == country)
-  thresholds_country <- thresholds_all %>% filter(Country == country)
+  thresholds_country <- thresholds_eur %>% filter(Country == country)
   knots_best_country <- knots_best %>% filter(Country == country)
   possible_days_counterfactual_country <- possible_days_counterfactual %>% filter(Country == country)
   
