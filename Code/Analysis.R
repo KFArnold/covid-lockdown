@@ -48,7 +48,6 @@ countries_excluded_total_cases <- countries_excluded_all
 
 ## Import simulated data -------------------------------------------------------
 
-
 # Define filenames which contain simulated data
 files <- c("summary_daily_cases_sim", "summary_cumulative_cases_end_sim", "summary_thresholds_sim")
 

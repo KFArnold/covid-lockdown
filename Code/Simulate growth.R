@@ -447,7 +447,7 @@ Calculate_Date_Threshold_Reached_Sim <- function(thresholds, data_sim,
       summary_thresholds_sim[[i, "Days_since_first_restriction"]] <- 0
     }
     
-  }  # (close loop k)
+  }  # (close loop i)
   
   # Return summary table of thresholds
   return(summary_thresholds_sim)

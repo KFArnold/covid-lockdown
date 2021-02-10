@@ -407,7 +407,7 @@ thresholds_eur <- foreach(i = countries_eur, .errorhandling = "pass") %do%
                                  thresholds = thresholds) %>%
   reduce(bind_rows)
 
-# Export table of thresholds
+# Export tables of threshold values 
 write_csv(thresholds_eur, file = paste0(results_directory, "thresholds_eur.csv"))
 
 # ------------------------------------------------------------------------------
