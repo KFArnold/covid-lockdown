@@ -40,12 +40,6 @@ load(paste0(results_directory, "countries_eur.RData"))
 load(paste0(results_directory, "countries_eur_lockdown.RData"))
 load(paste0(results_directory, "countries_eur_modelled.RData"))
 
-# Define countries to exclude from analysis
-countries_excluded_all <- c("Russia")  # exclude from all analyses
-countries_excluded_length_lockdown <- countries_excluded_all
-countries_excluded_time_to_threshold <- c(countries_excluded_all, "San Marino")
-countries_excluded_total_cases <- countries_excluded_all
-
 ## Import simulated data -------------------------------------------------------
 
 # Define filenames which contain simulated data
@@ -93,6 +87,286 @@ summary_cases_sim_all <- full_join(summary_cumulative_cases_beg_sim_all,
             by = col_join) %>%
   rename_at(vars(Mean, C_025, C_975), function(x) {paste0(x, "_cumulative_cases_end")})
 rm(summary_cumulative_cases_beg_sim_all, summary_daily_cases_sim_all, summary_cumulative_cases_end_sim_all)
+
+# ------------------------------------------------------------------------------
+# Model fit
+# ------------------------------------------------------------------------------
+
+# Evaluate model fit based on three metrics:
+# (1) How well simulated model predicts time to reach thresholds
+# (2) Poisson deviance for both incident and cumulative cases
+# (3) Difference between total cases observed vs simulated
+
+## Functions -------------------------------------------------------------------
+
+# Function to calculate the first date for which observed daily cases (MA7) go below
+# one or more thresholds (expressed as a proportion of the total population)
+# Arguments:
+# (1) country = country to calculate
+# Returns: summary dataframe containing threshold values, dates cases exceeded thresholds,
+# and days since first restriction / lockdown since threshold values reached
+Calculate_Date_Threshold_Reached_Obs <- function(country) {
+  
+  # Filter summary and thresholds datasets by country
+  summary_eur_country <- summary_eur %>% filter(Country == country)
+  thresholds_eur_country <- thresholds_eur %>% filter(Country == country)
+  
+  # Record important dates
+  date_first_restriction <- summary_eur_country %>% pull(Date_first_restriction)
+  date_lockdown <- summary_eur_country %>% pull(Date_lockdown)
+  date_T <- summary_eur_country %>% pull(Date_T)  # final date of data included in modelling period
+  
+  # Filter case data by country, modelling period
+  data_eur_country <- data_eur %>% filter(Country == country, Date <= date_T)
+  
+  # Calculate maximum mean number of daily cases (MA7), and first date this number was reached
+  max_daily_cases_MA7 <- data_eur_country %>% select(Daily_cases_MA7) %>% max
+  date_max_daily_cases_MA7 <- data_eur_country %>% 
+    filter(Daily_cases_MA7 == max_daily_cases_MA7) %>% slice(1) %>% pull(Date)
+  
+  # Create empty table to store dates for which specified thresholds reached,
+  # and number of days since lockdown
+  summary_thresholds <- thresholds_eur_country %>% mutate(Threshold_exceeded = as.logical(NA),
+                                                          Date_cases_below_threshold = as.Date(NA),
+                                                          Days_since_first_restriction = as.numeric(NA),
+                                                          Days_since_lockdown = as.numeric(NA))
+  
+  # Calculate and record dates for which thresholds reached
+  for (i in 1:nrow(summary_thresholds)) {
+    
+    # Define threshold value
+    threshold_value_i <- summary_thresholds %>% slice(i) %>% pull(Threshold_value)
+    
+    # Create T/F indicator for whether threshold value was ever exceeded & record
+    threshold_exceeded_i <- max_daily_cases_MA7 > threshold_value_i
+    summary_thresholds[[i, "Threshold_exceeded"]] <- threshold_exceeded_i
+    
+    # If threshold value was exceeded, find first date MA7 cases went below threshold
+    # else, record days required since first restriction / lockdown to fall below threshold as zero
+    if (threshold_exceeded_i == TRUE) {
+      
+      # Filter dataset by dates >= date of max number of daily cases
+      data_eur_country_i <- data_eur_country %>% filter(Date >= date_max_daily_cases_MA7)
+      
+      # Calculate and record first date cases fall below threshold and days since lockdown, if they exist
+      date_cases_below_threshold <- data_eur_country_i %>% 
+        filter(Daily_cases_MA7 <= threshold_value_i) %>% slice(1) %>% pull(Date)
+      if (length(date_cases_below_threshold) != 0) {
+        summary_thresholds[[i, "Date_cases_below_threshold"]] <- date_cases_below_threshold
+        summary_thresholds[[i, "Days_since_first_restriction"]] <- as.numeric(date_cases_below_threshold - date_first_restriction)
+        summary_thresholds[[i, "Days_since_lockdown"]] <- as.numeric(date_cases_below_threshold - date_lockdown)
+      }
+    } else {
+      summary_thresholds[[i, "Days_since_first_restriction"]] <- 0
+      summary_thresholds[[i, "Days_since_lockdown"]] <- 0
+    }
+    
+  }
+  
+  # Return summary table of thresholds
+  return(summary_thresholds)
+  
+}
+
+# Function to calculate the Poisson deviance between the observed 
+# incident and cumulave cases (MA7) and the mean simulated incident and cumulative cases
+# Arguments:
+# (1) country = country to calculate
+# Returns: summary dataframe containing country, Poisson deviance of incident cases,
+# and Poisson deviance of cumulative cases
+Calculate_Pois_Dev_Natural_History <- function(country) {
+  
+  # Filter summary data by specified country
+  summary_eur_country <- summary_eur %>% filter(Country == country)
+  
+  # Get simulation start and end dates
+  date_start <- summary_eur_country %>% pull(Date_start)
+  date_T <- summary_eur_country %>% pull(Date_T)
+  
+  # Filter observed cases data by specified country and simulation period
+  data_eur_country <- data_eur %>% 
+    filter(Country == country, Date >= date_start, Date <= date_T)
+  
+  # Filter simulated cases data by specified country, simulation period, and natural history
+  summary_cases_sim_country <- summary_cases_sim_all %>% 
+    filter(Country == country, Date >= date_start, Date <= date_T,
+           History == "Natural history")
+  
+  # Calculate and record Poisson deviance
+  ## (1) For predicted vs true (7-day moving average) incident cases
+  true_inc <- data_eur_country %>% pull(Daily_cases_MA7)
+  pred_inc <- summary_cases_sim_country %>% pull(Mean_daily_cases)
+  pois_dev_inc <- Calc_Pois_Dev(obs = true_inc, sim = pred_inc)
+  ## (2) For predicted vs true (7-day moving average) cumulative cases
+  true_cum <- data_eur_country %>% pull(Cumulative_cases_end_MA7) 
+  pred_cum <- summary_cases_sim_country %>% pull(Mean_cumulative_cases_end)
+  pois_dev_cum <- Calc_Pois_Dev(obs = true_cum, sim = pred_cum)
+  
+  # Return dataframe of Poisson deviance for both incident and cumulative cases
+  return(tibble(Country = country,
+                Pois_dev_inc = pois_dev_inc,
+                Pois_dev_cum = pois_dev_cum))
+  
+}
+
+# Function to calculate Poisson deviance between two vectors
+# (from: https://en.wikipedia.org/wiki/Deviance_(statistics))
+# Arguments: 
+# (1) obs = vector of observed values
+# (2) sim = vector of simulated/predicted values
+Calc_Pois_Dev <- function(obs, sim) {
+  
+  #D <- 2 * sum(obs * log(obs / sim) - (obs - sim))
+  D <- 2 * sum(obs * log(obs / sim) - (obs - sim), na.rm = TRUE)
+  return(D)
+  
+}
+
+# Function to calculate the difference between total cases at the end of the
+# simulation period (date_T) as observed vs as simulated in natural history
+# Arguments:
+# (1) country = country to calculate
+# Returns: summary dataframe containing country and difference
+Calculate_Diff_Total_Cases <- function(country) {
+  
+  # Filter cases and summary data by specified country
+  summary_eur_country <- summary_eur %>% filter(Country == country)
+  data_eur_country <- data_eur %>% filter(Country == country)
+  
+  # Filter simulated data by specified country, natural history
+  summary_cases_sim_country <- summary_cases_sim_all %>% 
+    filter(Country == country, History == "Natural history")
+  
+  # Get simulation end date
+  date_T <- summary_eur_country %>% pull(Date_T)
+  
+  # Calculate total observed and simulated cases on date_T, and difference
+  cases_T_obs <- data_eur_country %>% filter(Date == date_T) %>% pull(Cumulative_cases_end)
+  cases_T_sim <- summary_cases_sim_country %>% filter(Date == date_T) %>% pull(Mean_cumulative_cases_end)
+  diff_cases_T <- cases_T_obs - cases_T_sim
+
+  # Return difference
+  return(tibble(Country = country,
+                Diff_total_cases = diff_cases_T))
+  
+}
+
+## Summarise observed vs simulated time to thresholds --------------------------
+
+# Calculate dates for which thresholds reached in observed data
+summary_thresholds_obs <- foreach(i = countries_eur, .errorhandling = "pass") %do%
+  Calculate_Date_Threshold_Reached_Obs(country = i) %>%
+  reduce(bind_rows)
+
+# Combine dataframes containing days to reach thresholds in simulated natural history
+# and observe data
+time_to_thresholds_natural_history <- summary_thresholds_sim_all %>% 
+  filter(Simulation == "0,0") %>% 
+  select(Country, Threshold, Date_cases_below_threshold) %>%
+  full_join(., summary_thresholds_obs %>% 
+              select(Country, Threshold, Date_cases_below_threshold),
+            by = c("Country", "Threshold"), 
+            suffix = c("_sim", "_obs")) %>%
+  #drop_na(any_of(contains("Date"))) %>%
+  mutate(Diff_time_to_threshold = as.numeric(Date_cases_below_threshold_sim - Date_cases_below_threshold_obs)) %>%
+  select(-contains("Date_cases")) %>%
+  group_by(Threshold) %>%
+  arrange(Threshold, desc(abs(Diff_time_to_threshold)))
+
+# Calculate summary statistics describing difference between time taken to reach 
+# each threshold in simulated natural history vs observed
+time_to_thresholds_natural_history_summary <- time_to_thresholds_natural_history %>%
+  group_split %>% 
+  set_names(unlist(group_keys(time_to_thresholds_natural_history))) %>%
+  map(., .f = ~pull(.x, Diff_time_to_threshold)) %>%
+  map(., .f = ~tibble(Mean = mean(., na.rm = TRUE),
+                      SD = sd(., na.rm = TRUE),
+                      Median = median(., na.rm = TRUE),
+                      IQR = IQR(., na.rm = TRUE),
+                      N_countries = sum(!is.na(.)))) %>%
+  bind_rows(.id = "Threshold") %>%
+  mutate(Measure = "Diff_time_to_threshold") %>%
+  relocate(Measure)
+
+## Poisson deviance ------------------------------------------------------------
+
+# Calculate Poisson deviance between observed and simulated natural histories
+pois_dev_natural_history <- foreach(i = countries_eur_modelled, 
+                                    .errorhandling = "pass") %do%
+  Calculate_Pois_Dev_Natural_History(country = i) %>%
+  bind_rows
+
+# Calculate summary statistics for Poisson deviance
+pois_dev_natural_history_summary <- pois_dev_natural_history %>%
+  select(contains("Pois_dev")) %>% as.list %>%
+  map(., .f = ~tibble(Mean = mean(., na.rm = TRUE),
+                      SD = sd(., na.rm = TRUE),
+                      Median = median(., na.rm = TRUE),
+                      IQR = IQR(., na.rm = TRUE),
+                      N_countries = sum(!is.na(.)))) %>%
+  bind_rows(.id = "Measure")
+
+## Difference in total cases ---------------------------------------------------
+
+# Calculate difference in total cases for all modelled countries
+diff_total_cases <- foreach(i = countries_eur_modelled, 
+                            .errorhandling = "pass") %do%
+  Calculate_Diff_Total_Cases(country = i) %>%
+  bind_rows %>%
+  arrange(desc(abs(Diff_total_cases)))
+
+# Calculate summary statistics for difference in total cases
+diff_total_cases_summary <- diff_total_cases %>%
+  select(Diff_total_cases) %>% as.list %>%
+  map(., .f = ~tibble(Mean = mean(., na.rm = TRUE),
+                      SD = sd(., na.rm = TRUE),
+                      Median = median(., na.rm = TRUE),
+                      IQR = IQR(., na.rm = TRUE),
+                      N_countries = sum(!is.na(.)))) %>%
+  bind_rows(.id = "Measure") 
+
+## Combine and save all model fit data -----------------------------------------
+
+# Convert tables to long form
+time_to_thresholds_natural_history <- time_to_thresholds_natural_history %>% 
+  pivot_longer(cols = Diff_time_to_threshold,
+               names_to = "Measure", values_to = "Value")
+pois_dev_natural_history <- pois_dev_natural_history %>%
+  pivot_longer(cols = contains("Pois_dev"),
+               names_to = "Measure", values_to = "Value")
+diff_total_cases <- diff_total_cases %>%
+  pivot_longer(cols = Diff_total_cases,
+               names_to = "Measure", values_to = "Value")
+
+# Combine all model fit statistics into single dataframe
+model_fit <- time_to_thresholds_natural_history %>% ungroup %>%
+  full_join(., pois_dev_natural_history) %>%
+  full_join(., diff_total_cases) %>%
+  arrange(Country) %>%
+  relocate(Threshold, .after = last_col())
+
+# Combine all model fit summary statistics into single dataframe
+model_fit_summary <- time_to_thresholds_natural_history_summary %>%
+  full_join(., pois_dev_natural_history_summary) %>%
+  full_join(., diff_total_cases_summary)
+
+# Save both model fit dataframes
+write_csv(model_fit, paste0(results_directory, "model_fit.csv"))
+write_csv(model_fit_summary, paste0(results_directory, "model_fit_summary.csv"))
+
+## Define countries to exclude from subsequent analyses
+
+# Define countries to exclude from analyses
+countries_excluded_all <- c("Russia")  # exclude from all analyses
+countries_excluded_length_lockdown <- countries_excluded_all
+countries_excluded_time_to_threshold <- c(countries_excluded_all, "San Marino")
+countries_excluded_total_cases <- countries_excluded_all
+
+# Save lists of excluded countries
+save(countries_excluded_all, file = paste0(results_directory, "countries_excluded_all.RData"))
+save(countries_excluded_length_lockdown, file = paste0(results_directory, "countries_excluded_length_lockdown.RData"))
+save(countries_excluded_time_to_threshold, file = paste0(results_directory, "countries_excluded_time_to_threshold.RData"))
+save(countries_excluded_total_cases, file = paste0(results_directory, "countries_excluded_total_cases.RData"))
 
 # ------------------------------------------------------------------------------
 # Analysis: lockdown timing - cross-country
@@ -187,9 +461,6 @@ effects_between_countries <- Estimate_Effects_Between_Countries(countries = coun
 
 # Save results
 write_csv(effects_between_countries, file = paste0(results_directory, "effects_between_countries.csv"))
-
-# Save list of countries excluded
-save(countries_excluded_all, file = paste0(results_directory, "countries_excluded_all.RData"))
 
 # ------------------------------------------------------------------------------
 # Analysis: lockdown timing - within-country
@@ -524,127 +795,4 @@ effects_within_countries_median <- effects_within_countries_all$effects_within_c
 # Save both effects dataframes
 write_csv(effects_within_countries, paste0(results_directory, "effects_within_countries.csv"))
 write_csv(effects_within_countries_median, paste0(results_directory, "effects_within_countries_median.csv"))
-
-# Save list of countries excluded
-save(countries_excluded_length_lockdown, 
-     file = paste0(results_directory, "countries_excluded_length_lockdown.RData"))
-save(countries_excluded_time_to_threshold, 
-     file = paste0(results_directory, "countries_excluded_time_to_threshold.RData"))
-save(countries_excluded_total_cases, file = paste0(results_directory, "countries_excluded_total_cases.RData"))
-
-# ------------------------------------------------------------------------------
-# Model fit
-# ------------------------------------------------------------------------------
-
-## Functions -------------------------------------------------------------------
-
-# Function to calculate the first date for which observed daily cases (MA7) go below
-# one or more thresholds (expressed as a proportion of the total population)
-# Arguments:
-# (1) country = country to calculate
-# Returns: summary dataframe containing threshold values, dates cases exceeded thresholds,
-# and days since first restriction / lockdown since threshold values reached
-Calculate_Date_Threshold_Reached_Obs <- function(country) {
-  
-  # Filter summary and thresholds datasets by country
-  summary_eur_country <- summary_eur %>% filter(Country == country)
-  thresholds_eur_country <- thresholds_eur %>% filter(Country == country)
-  
-  # Record important dates
-  date_first_restriction <- summary_eur_country %>% pull(Date_first_restriction)
-  date_lockdown <- summary_eur_country %>% pull(Date_lockdown)
-  date_T <- summary_eur_country %>% pull(Date_T)  # final date of data included in modelling period
-  
-  # Filter case data by country, modelling period
-  data_eur_country <- data_eur %>% filter(Country == country, Date <= date_T)
-  
-  # Calculate maximum mean number of daily cases (MA7), and first date this number was reached
-  max_daily_cases_MA7 <- data_eur_country %>% select(Daily_cases_MA7) %>% max
-  date_max_daily_cases_MA7 <- data_eur_country %>% 
-    filter(Daily_cases_MA7 == max_daily_cases_MA7) %>% slice(1) %>% pull(Date)
-  
-  # Create empty table to store dates for which specified thresholds reached,
-  # and number of days since lockdown
-  summary_thresholds <- thresholds_eur_country %>% mutate(Threshold_exceeded = as.logical(NA),
-                                                          Date_cases_below_threshold = as.Date(NA),
-                                                          Days_since_first_restriction = as.numeric(NA),
-                                                          Days_since_lockdown = as.numeric(NA))
-  
-  # Calculate and record dates for which thresholds reached
-  for (i in 1:nrow(summary_thresholds)) {
-    
-    # Define threshold value
-    threshold_value_i <- summary_thresholds %>% slice(i) %>% pull(Threshold_value)
-    
-    # Create T/F indicator for whether threshold value was ever exceeded & record
-    threshold_exceeded_i <- max_daily_cases_MA7 > threshold_value_i
-    summary_thresholds[[i, "Threshold_exceeded"]] <- threshold_exceeded_i
-    
-    # If threshold value was exceeded, find first date MA7 cases went below threshold
-    # else, record days required since first restriction / lockdown to fall below threshold as zero
-    if (threshold_exceeded_i == TRUE) {
-      
-      # Filter dataset by dates >= date of max number of daily cases
-      data_eur_country_i <- data_eur_country %>% filter(Date >= date_max_daily_cases_MA7)
-      
-      # Calculate and record first date cases fall below threshold and days since lockdown, if they exist
-      date_cases_below_threshold <- data_eur_country_i %>% 
-        filter(Daily_cases_MA7 <= threshold_value_i) %>% slice(1) %>% pull(Date)
-      if (length(date_cases_below_threshold) != 0) {
-        summary_thresholds[[i, "Date_cases_below_threshold"]] <- date_cases_below_threshold
-        summary_thresholds[[i, "Days_since_first_restriction"]] <- as.numeric(date_cases_below_threshold - date_first_restriction)
-        summary_thresholds[[i, "Days_since_lockdown"]] <- as.numeric(date_cases_below_threshold - date_lockdown)
-      }
-    } else {
-      summary_thresholds[[i, "Days_since_first_restriction"]] <- 0
-      summary_thresholds[[i, "Days_since_lockdown"]] <- 0
-    }
-    
-  }
-  
-  # Return summary table of thresholds
-  return(summary_thresholds)
-  
-}
-
-## Summarise observed vs simulated time to thresholds --------------------------
-
-# Calculate dates for which thresholds reached in observed data
-summary_thresholds_obs <- foreach(i = countries_eur, .errorhandling = "pass") %do%
-  Calculate_Date_Threshold_Reached_Obs(country = i) %>%
-  reduce(bind_rows)
-
-# Combine dataframes containing days to reach thresholds in simulated natural history
-# and observe data
-summary_thresholds_natural_history <- summary_thresholds_sim_all %>% 
-  filter(Simulation == "0,0") %>% 
-  select(Country, Threshold, Date_cases_below_threshold) %>%
-  full_join(., summary_thresholds_obs %>% 
-              select(Country, Threshold, Date_cases_below_threshold),
-            by = c("Country", "Threshold"), 
-            suffix = c("_sim", "_obs")) %>%
-  drop_na(any_of(contains("Date"))) %>%
-  mutate(Diff = as.numeric(Date_cases_below_threshold_sim - Date_cases_below_threshold_obs)) %>%
-  arrange(Threshold, desc(abs(Diff)))
-
-# Calculate summary statistics describing difference between time taken to reach 
-# each threshold in simulated natural history vs observed
-summary_thresholds_diff <- summary_thresholds_natural_history %>%
-  group_by(Threshold) %>% 
-  summarise(Mean_diff = mean(Diff, na.rm = TRUE), 
-            SD_diff = sd(Diff, na.rm = TRUE),
-            Median_diff = median(Diff, na.rm = TRUE),
-            IQR_diff = IQR(Diff, na.rm = TRUE),
-            N_countries = sum(!is.na(Diff)),
-            .groups = "keep")
-
-# generally takes a bit longer for countries to go below thresholds in sim compared to observed
-# France and Spain have large differences, due to datasets containing large neg incidence values
-
-# Export tables of dates for which thresholds reached
-#write_csv(summary_thresholds_obs, file = paste0(results_directory, "summary_thresholds_obs.csv"))
-
-# Export summary table of difference between observed vs simualated time to thresholds
-write_csv(summary_thresholds_diff, file = paste0(results_directory, "summary_thresholds_diff.csv"))
-
 
