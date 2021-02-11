@@ -532,3 +532,119 @@ save(countries_excluded_time_to_threshold,
      file = paste0(results_directory, "countries_excluded_time_to_threshold.RData"))
 save(countries_excluded_total_cases, file = paste0(results_directory, "countries_excluded_total_cases.RData"))
 
+# ------------------------------------------------------------------------------
+# Model fit
+# ------------------------------------------------------------------------------
+
+## Functions -------------------------------------------------------------------
+
+# Function to calculate the first date for which observed daily cases (MA7) go below
+# one or more thresholds (expressed as a proportion of the total population)
+# Arguments:
+# (1) country = country to calculate
+# Returns: summary dataframe containing threshold values, dates cases exceeded thresholds,
+# and days since first restriction / lockdown since threshold values reached
+Calculate_Date_Threshold_Reached_Obs <- function(country) {
+  
+  # Filter summary and thresholds datasets by country
+  summary_eur_country <- summary_eur %>% filter(Country == country)
+  thresholds_eur_country <- thresholds_eur %>% filter(Country == country)
+  
+  # Record important dates
+  date_first_restriction <- summary_eur_country %>% pull(Date_first_restriction)
+  date_lockdown <- summary_eur_country %>% pull(Date_lockdown)
+  date_T <- summary_eur_country %>% pull(Date_T)  # final date of data included in modelling period
+  
+  # Filter case data by country, modelling period
+  data_eur_country <- data_eur %>% filter(Country == country, Date <= date_T)
+  
+  # Calculate maximum mean number of daily cases (MA7), and first date this number was reached
+  max_daily_cases_MA7 <- data_eur_country %>% select(Daily_cases_MA7) %>% max
+  date_max_daily_cases_MA7 <- data_eur_country %>% 
+    filter(Daily_cases_MA7 == max_daily_cases_MA7) %>% slice(1) %>% pull(Date)
+  
+  # Create empty table to store dates for which specified thresholds reached,
+  # and number of days since lockdown
+  summary_thresholds <- thresholds_eur_country %>% mutate(Threshold_exceeded = as.logical(NA),
+                                                          Date_cases_below_threshold = as.Date(NA),
+                                                          Days_since_first_restriction = as.numeric(NA),
+                                                          Days_since_lockdown = as.numeric(NA))
+  
+  # Calculate and record dates for which thresholds reached
+  for (i in 1:nrow(summary_thresholds)) {
+    
+    # Define threshold value
+    threshold_value_i <- summary_thresholds %>% slice(i) %>% pull(Threshold_value)
+    
+    # Create T/F indicator for whether threshold value was ever exceeded & record
+    threshold_exceeded_i <- max_daily_cases_MA7 > threshold_value_i
+    summary_thresholds[[i, "Threshold_exceeded"]] <- threshold_exceeded_i
+    
+    # If threshold value was exceeded, find first date MA7 cases went below threshold
+    # else, record days required since first restriction / lockdown to fall below threshold as zero
+    if (threshold_exceeded_i == TRUE) {
+      
+      # Filter dataset by dates >= date of max number of daily cases
+      data_eur_country_i <- data_eur_country %>% filter(Date >= date_max_daily_cases_MA7)
+      
+      # Calculate and record first date cases fall below threshold and days since lockdown, if they exist
+      date_cases_below_threshold <- data_eur_country_i %>% 
+        filter(Daily_cases_MA7 <= threshold_value_i) %>% slice(1) %>% pull(Date)
+      if (length(date_cases_below_threshold) != 0) {
+        summary_thresholds[[i, "Date_cases_below_threshold"]] <- date_cases_below_threshold
+        summary_thresholds[[i, "Days_since_first_restriction"]] <- as.numeric(date_cases_below_threshold - date_first_restriction)
+        summary_thresholds[[i, "Days_since_lockdown"]] <- as.numeric(date_cases_below_threshold - date_lockdown)
+      }
+    } else {
+      summary_thresholds[[i, "Days_since_first_restriction"]] <- 0
+      summary_thresholds[[i, "Days_since_lockdown"]] <- 0
+    }
+    
+  }
+  
+  # Return summary table of thresholds
+  return(summary_thresholds)
+  
+}
+
+## Summarise observed vs simulated time to thresholds --------------------------
+
+# Calculate dates for which thresholds reached in observed data
+summary_thresholds_obs <- foreach(i = countries_eur, .errorhandling = "pass") %do%
+  Calculate_Date_Threshold_Reached_Obs(country = i) %>%
+  reduce(bind_rows)
+
+# Combine dataframes containing days to reach thresholds in simulated natural history
+# and observe data
+summary_thresholds_natural_history <- summary_thresholds_sim_all %>% 
+  filter(Simulation == "0,0") %>% 
+  select(Country, Threshold, Date_cases_below_threshold) %>%
+  full_join(., summary_thresholds_obs %>% 
+              select(Country, Threshold, Date_cases_below_threshold),
+            by = c("Country", "Threshold"), 
+            suffix = c("_sim", "_obs")) %>%
+  drop_na(any_of(contains("Date"))) %>%
+  mutate(Diff = as.numeric(Date_cases_below_threshold_sim - Date_cases_below_threshold_obs)) %>%
+  arrange(Threshold, desc(abs(Diff)))
+
+# Calculate summary statistics describing difference between time taken to reach 
+# each threshold in simulated natural history vs observed
+summary_thresholds_diff <- summary_thresholds_natural_history %>%
+  group_by(Threshold) %>% 
+  summarise(Mean_diff = mean(Diff, na.rm = TRUE), 
+            SD_diff = sd(Diff, na.rm = TRUE),
+            Median_diff = median(Diff, na.rm = TRUE),
+            IQR_diff = IQR(Diff, na.rm = TRUE),
+            N_countries = sum(!is.na(Diff)),
+            .groups = "keep")
+
+# generally takes a bit longer for countries to go below thresholds in sim compared to observed
+# France and Spain have large differences, due to datasets containing large neg incidence values
+
+# Export tables of dates for which thresholds reached
+#write_csv(summary_thresholds_obs, file = paste0(results_directory, "summary_thresholds_obs.csv"))
+
+# Export summary table of difference between observed vs simualated time to thresholds
+write_csv(summary_thresholds_diff, file = paste0(results_directory, "summary_thresholds_diff.csv"))
+
+
