@@ -300,39 +300,6 @@ Calculate_Pop_Threshold_Values <- function(country, year = 2019, thresholds) {
   
 }
 
-# Function to calculate the number of cases on the date lockdown was eased for a given country
-# (or, if country did not enter lockdown, number of cases on the date any restrictions were eased)
-# Arguments:
-# (1) country = country
-# (2) cases = type of cases (default is 7-day MA of daily cases)
-# Returns: dataframe with country and number of cases when lockdown/restrictions were eased
-Calculate_Cases_Lockdown_Eased <- function(country, cases = "Daily_cases_MA7") {
-  
-  # Filter cases and summary dataframe by country
-  data_eur_country <- data_eur %>% filter(Country == country) 
-  summary_eur_country <- summary_eur %>% filter(Country == country) 
-  
-  # Record important dates
-  date_restrictions_eased <- summary_eur_country %>% pull(Date_restrictions_eased)
-  date_lockdown <- summary_eur_country %>% pull(Date_lockdown)
-  date_lockdown_eased <- summary_eur_country %>% pull(Date_lockdown_eased)
-  
-  # Calculate cases on date lockdown eased
-  # (or, if no lockdown, on date any restrictions eased)
-  if (is.na(date_lockdown)) {
-    cases_lockdown_eased <- data_eur_country %>% filter(Date == date_restrictions_eased) %>%
-      pull(all_of(cases))
-  } else {
-    cases_lockdown_eased <- data_eur_country %>% filter(Date == date_lockdown_eased) %>%
-      pull(all_of(cases))
-  }
-  
-  # Return dataframe 
-  return(tibble(Country = country,
-                Cases_lockdown_eased = cases_lockdown_eased))
-  
-}
-
 ## Summaries -------------------------------------------------------------------
 
 # Calculate 0.0001% of population for each country
@@ -340,20 +307,18 @@ pct <- worldbank_eur %>% filter(Year == 2019) %>%
   mutate(Pop_pct = 0.000001 * Population) %>% select(Country, Pop_pct)
 
 # Create summary table containing dates of important case thresholds:
-# date of first case (Date_0), 
-# dates at which cases first exceeded 25, 50, and 100 (Date_25, Date_50, Date_100), 
-# date at which cases first exceeded defined pct
+# date of first case (Date_1), 
+# dates at which cases first exceeded 5 and 100 (Date_5, Date_100), 
+# date at which cases first exceeded defined pct (Date_pop_pct)
 # date for which data can be reasonably assumed complete (Date_max)
 summary_eur_cases <- full_join(data_eur, pct, by = "Country") %>% 
   group_by(Country) %>%
-  mutate(Date_0 = Date[which(Daily_cases >= 1)[1]],
+  mutate(Date_1 = Date[which(Daily_cases >= 1)[1]],
          Date_5 = Date[which(Cumulative_cases_beg >= 5)[1]],
-         Date_25 = Date[which(Cumulative_cases_beg >= 25)[1]],
-         Date_50 = Date[which(Cumulative_cases_beg >= 50)[1]],
          Date_100 = Date[which(Cumulative_cases_beg >= 100)[1]],
          Date_pop_pct = Date[which(Cumulative_cases_beg >= Pop_pct)[1]],
          Date_max = max(Date)) %>%
-  select(Country, Date_0:Date_max) %>%
+  select(Country, Date_1:Date_max) %>%
   unique %>% ungroup
 rm(pct)
 
@@ -418,13 +383,15 @@ summary_eur <- summary_eur %>%
          Date_start = if_else(Country == "Slovenia", as.Date("2020-03-18") + 3, Date_start),
          Date_start = if_else(Country == "Sweden", as.Date("2020-03-14") + 3, Date_start))
 
-# Calculate date lockdown eased (or, if no lockdown, date restrictions eased)
+# Calculate:
+# (1) date lockdown eased (or, if no lockdown, date restrictions eased)
+# (2) date_T (last date to include data from) as date of easing + 28 days
+# (3) length of lockdown as number of days from date of lockdown to date of easing
 summary_eur <- summary_eur %>% 
-  mutate(Date_eased = if_else(is.na(Date_lockdown), Date_restrictions_eased, Date_lockdown_eased))
-
-# Calculate date_T (last date to include data from) as date of easing + 28 days
-summary_eur <- summary_eur %>% 
-  mutate(Date_T = Date_eased + 28) 
+  mutate(Date_eased = if_else(is.na(Date_lockdown), Date_restrictions_eased, Date_lockdown_eased),
+         Date_T = Date_eased + 28,
+         Length_lockdown = as.numeric(Date_lockdown_eased - Date_lockdown)) %>%
+  relocate(Length_lockdown, .before = Max_number_restrictions)
 
 # Export summary table
 write_csv(summary_eur, file = paste0(results_directory, "summary_eur.csv"))
@@ -435,27 +402,13 @@ write_csv(summary_eur, file = paste0(results_directory, "summary_eur.csv"))
 thresholds <- c(0.00001, 0.00005, 0.0001)
 
 # Calculate population-based threshold values
-pop_thresholds <- foreach(i = countries_eur, .errorhandling = "pass") %do%
+thresholds_eur <- foreach(i = countries_eur, .errorhandling = "pass") %do%
   Calculate_Pop_Threshold_Values(country = i,
                                  thresholds = thresholds) %>%
   reduce(bind_rows)
 
-# Calculate average number of daily cases when lockdown/restrictions eased
-lockdown_thresholds <- foreach(i = countries_eur, .errorhandling = "pass") %do%
-  Calculate_Cases_Lockdown_Eased(country = i) %>%
-  reduce(bind_rows) %>%
-  mutate(Description = "Lockdown eased")
-
-# Bind all thresholds into single dataframe
-thresholds_all <- pop_thresholds %>% 
-  full_join(., lockdown_thresholds, by = c("Country", 
-                                           "Threshold" = "Description",
-                                           "Threshold_value" = "Cases_lockdown_eased")) %>%
-  arrange(Country)
-rm(pop_thresholds, lockdown_thresholds)
-
-# Export table of thresholds
-write_csv(thresholds_all, file = paste0(results_directory, "thresholds_all.csv"))
+# Export tables of threshold values 
+write_csv(thresholds_eur, file = paste0(results_directory, "thresholds_eur.csv"))
 
 # ------------------------------------------------------------------------------
 # Estimate knot points
@@ -1112,10 +1065,10 @@ Calculate_Possible_Counterfactual_Days <- function(country, knots) {
     
     # Determine possible combinations of dates for first restriction and lockdown
     if (is.na(date_lockdown)) {  ## (no lockdown implemented)
-            # Determine all possible dates for first restriction 
+      # Determine all possible dates for first restriction 
       # (lockdown date is NA)
       possible_dates_counterfactual <- tibble(Date_first_restriction = seq.Date(min_date_first_restriction, date_first_restriction, 1),
-                                                   Date_lockdown = as.numeric(NA))
+                                              Date_lockdown = as.numeric(NA))
     } else if (date_first_restriction == date_lockdown) {  ## (lockdown implemented same day as first restriction)
       # Determine all possible dates for first restriction 
       # (lockdown date is equal to date of first restriction)
@@ -1143,7 +1096,7 @@ Calculate_Possible_Counterfactual_Days <- function(country, knots) {
     
     # Specify no combinations of counterfactual days are possible, label
     possible_days_counterfactual <- tibble(N_days_first_restriction = as.numeric(NA),
-                                                N_days_lockdown = as.numeric(NA)) %>%
+                                           N_days_lockdown = as.numeric(NA)) %>%
       mutate(Max_n_knots = NA)
     
   }
