@@ -168,6 +168,72 @@ Calculate_Date_Threshold_Reached_Obs <- function(country) {
   
 }
 
+# Function to calculate the difference between the time it takes to reach 
+# population-based thresholds as observed vs as simulated in natural history
+# Arguments:
+# (1) country = country to calculate
+# Returns: summary dataframe containing country and difference (both raw and percent)
+Calculate_Diff_Time_To_Threshold <- function(country) {
+  
+  # Filter observed and simulated summary thresholds tables
+  # (do not consider thresholds that were never exceeded)
+  summary_thresholds_obs_country <- summary_thresholds_obs %>%
+    filter(Country == country, Days_since_lockdown != 0) %>%
+    select(Threshold, Days_since_lockdown)
+  summary_thresholds_sim_country <- summary_thresholds_sim_all %>% 
+    filter(Country == country, Days_since_lockdown != 0, Simulation == "0,0") %>% 
+    select(Threshold, Days_since_lockdown)
+  
+  # Join summary tables and calculate difference in time to reach thresholds
+  # between observed and simulated
+  time_to_thresholds_natural_history <-
+    full_join(summary_thresholds_obs_country, summary_thresholds_sim_country,
+              by = "Threshold", 
+              suffix = c("_obs", "_sim")) %>%
+    mutate(Diff = as.numeric(Days_since_lockdown_obs - Days_since_lockdown_sim),
+           Pct_diff = Diff / Days_since_lockdown_obs) %>%
+    select(-contains("Days")) %>%
+    rename(Number = Diff, Pct = Pct_diff) %>%
+    pivot_longer(cols = c(Number, Pct), names_to = "Type", values_to = "Value") %>%
+    mutate(Country = country, Measure = "Diff_time_to_threshold") %>%
+    relocate(Country, Measure) 
+  
+  # Return dataframe 
+  return(time_to_thresholds_natural_history)
+  
+}
+
+# Function to calculate the difference between total cases at the end of the
+# simulation period (date_T) as observed vs as simulated in natural history
+# Arguments:
+# (1) country = country to calculate
+# Returns: summary dataframe containing country and difference (both raw and percent)
+Calculate_Diff_Total_Cases <- function(country) {
+  
+  # Filter cases and summary data by specified country
+  summary_eur_country <- summary_eur %>% filter(Country == country)
+  data_eur_country <- data_eur %>% filter(Country == country)
+  
+  # Filter simulated data by specified country, natural history
+  summary_cases_sim_country <- summary_cases_sim_all %>% 
+    filter(Country == country, History == "Natural history")
+  
+  # Get simulation end date
+  date_T <- summary_eur_country %>% pull(Date_T)
+  
+  # Calculate total observed and simulated cases on date_T, and difference
+  cases_T_obs <- data_eur_country %>% filter(Date == date_T) %>% pull(Cumulative_cases_end)
+  cases_T_sim <- summary_cases_sim_country %>% filter(Date == date_T) %>% pull(Mean_cumulative_cases_end)
+  diff_cases_T <- cases_T_obs - cases_T_sim
+  pct_diff_cases_T <- diff_cases_T / cases_T_obs
+  
+  # Return difference
+  return(tibble(Country = country,
+                Measure = "Diff_total_cases",
+                Type = c("Number", "Pct"), 
+                Value = c(diff_cases_T, pct_diff_cases_T)))
+}
+
 # Function to calculate the Poisson deviance between the observed 
 # incident and cumulave cases (MA7) and the mean simulated incident and cumulative cases
 # Arguments:
@@ -204,8 +270,9 @@ Calculate_Pois_Dev_Natural_History <- function(country) {
   
   # Return dataframe of Poisson deviance for both incident and cumulative cases
   return(tibble(Country = country,
-                Pois_dev_inc = pois_dev_inc,
-                Pois_dev_cum = pois_dev_cum))
+                Measure = c("Pois_dev_inc", "Pois_dev_cum"),
+                Type = "Number",
+                Value = c(pois_dev_inc, pois_dev_cum)))
   
 }
 
@@ -222,71 +289,46 @@ Calc_Pois_Dev <- function(obs, sim) {
   
 }
 
-# Function to calculate the difference between total cases at the end of the
-# simulation period (date_T) as observed vs as simulated in natural history
-# Arguments:
-# (1) country = country to calculate
-# Returns: summary dataframe containing country and difference
-Calculate_Diff_Total_Cases <- function(country) {
-  
-  # Filter cases and summary data by specified country
-  summary_eur_country <- summary_eur %>% filter(Country == country)
-  data_eur_country <- data_eur %>% filter(Country == country)
-  
-  # Filter simulated data by specified country, natural history
-  summary_cases_sim_country <- summary_cases_sim_all %>% 
-    filter(Country == country, History == "Natural history")
-  
-  # Get simulation end date
-  date_T <- summary_eur_country %>% pull(Date_T)
-  
-  # Calculate total observed and simulated cases on date_T, and difference
-  cases_T_obs <- data_eur_country %>% filter(Date == date_T) %>% pull(Cumulative_cases_end)
-  cases_T_sim <- summary_cases_sim_country %>% filter(Date == date_T) %>% pull(Mean_cumulative_cases_end)
-  diff_cases_T <- cases_T_obs - cases_T_sim
-
-  # Return difference
-  return(tibble(Country = country,
-                Diff_total_cases = diff_cases_T))
-  
-}
-
 ## Summarise observed vs simulated time to thresholds --------------------------
 
 # Calculate dates for which thresholds reached in observed data
 summary_thresholds_obs <- foreach(i = countries_eur, .errorhandling = "pass") %do%
   Calculate_Date_Threshold_Reached_Obs(country = i) %>%
-  reduce(bind_rows)
+  bind_rows
 
-# Combine dataframes containing days to reach thresholds in simulated natural history
-# and observe data
-time_to_thresholds_natural_history <- summary_thresholds_sim_all %>% 
-  filter(Simulation == "0,0") %>% 
-  select(Country, Threshold, Date_cases_below_threshold) %>%
-  full_join(., summary_thresholds_obs %>% 
-              select(Country, Threshold, Date_cases_below_threshold),
-            by = c("Country", "Threshold"), 
-            suffix = c("_sim", "_obs")) %>%
-  #drop_na(any_of(contains("Date"))) %>%
-  mutate(Diff_time_to_threshold = as.numeric(Date_cases_below_threshold_sim - Date_cases_below_threshold_obs)) %>%
-  select(-contains("Date_cases")) %>%
-  group_by(Threshold) %>%
-  arrange(Threshold, desc(abs(Diff_time_to_threshold)))
+# Calculate difference between observed and simulated time to reach thresholds
+diff_time_to_thresholds <- foreach(i = countries_eur_modelled, 
+                                   .errorhandling = "pass") %do%
+  Calculate_Diff_Time_To_Threshold(country = i) %>%
+  bind_rows
 
-# Calculate summary statistics describing difference between time taken to reach 
-# each threshold in simulated natural history vs observed
-time_to_thresholds_natural_history_summary <- time_to_thresholds_natural_history %>%
-  group_split %>% 
-  set_names(unlist(group_keys(time_to_thresholds_natural_history))) %>%
-  map(., .f = ~pull(.x, Diff_time_to_threshold)) %>%
-  map(., .f = ~tibble(Mean = mean(., na.rm = TRUE),
-                      SD = sd(., na.rm = TRUE),
-                      Median = median(., na.rm = TRUE),
-                      IQR = IQR(., na.rm = TRUE),
-                      N_countries = sum(!is.na(.)))) %>%
-  bind_rows(.id = "Threshold") %>%
-  mutate(Measure = "Diff_time_to_threshold") %>%
-  relocate(Measure)
+# Calculate summary statistics for difference in time to thresholds
+diff_time_to_thresholds_summary <- diff_time_to_thresholds %>%
+  group_by(Measure, Threshold, Type) %>%
+  summarise(Mean = mean(Value, na.rm = TRUE),
+            SD = sd(Value, na.rm = TRUE),
+            Median = median(Value, na.rm = TRUE),
+            IQR = IQR(Value, na.rm = TRUE),
+            N_countries = sum(!is.na(Value)),
+            .groups = "keep")
+
+## Difference in total cases ---------------------------------------------------
+
+# Calculate difference in total cases for all modelled countries
+diff_total_cases <- foreach(i = countries_eur_modelled, 
+                            .errorhandling = "pass") %do%
+  Calculate_Diff_Total_Cases(country = i) %>%
+  bind_rows 
+
+# Calculate summary statistics for difference in total cases
+diff_total_cases_summary <- diff_total_cases %>%
+  group_by(Measure, Type) %>%
+  summarise(Mean = mean(Value, na.rm = TRUE),
+            SD = sd(Value, na.rm = TRUE),
+            Median = median(Value, na.rm = TRUE),
+            IQR = IQR(Value, na.rm = TRUE),
+            N_countries = sum(!is.na(Value)),
+            .groups = "keep")
 
 ## Poisson deviance ------------------------------------------------------------
 
@@ -298,63 +340,33 @@ pois_dev_natural_history <- foreach(i = countries_eur_modelled,
 
 # Calculate summary statistics for Poisson deviance
 pois_dev_natural_history_summary <- pois_dev_natural_history %>%
-  select(contains("Pois_dev")) %>% as.list %>%
-  map(., .f = ~tibble(Mean = mean(., na.rm = TRUE),
-                      SD = sd(., na.rm = TRUE),
-                      Median = median(., na.rm = TRUE),
-                      IQR = IQR(., na.rm = TRUE),
-                      N_countries = sum(!is.na(.)))) %>%
-  bind_rows(.id = "Measure")
-
-## Difference in total cases ---------------------------------------------------
-
-# Calculate difference in total cases for all modelled countries
-diff_total_cases <- foreach(i = countries_eur_modelled, 
-                            .errorhandling = "pass") %do%
-  Calculate_Diff_Total_Cases(country = i) %>%
-  bind_rows %>%
-  arrange(desc(abs(Diff_total_cases)))
-
-# Calculate summary statistics for difference in total cases
-diff_total_cases_summary <- diff_total_cases %>%
-  select(Diff_total_cases) %>% as.list %>%
-  map(., .f = ~tibble(Mean = mean(., na.rm = TRUE),
-                      SD = sd(., na.rm = TRUE),
-                      Median = median(., na.rm = TRUE),
-                      IQR = IQR(., na.rm = TRUE),
-                      N_countries = sum(!is.na(.)))) %>%
-  bind_rows(.id = "Measure") 
+  group_by(Measure, Type) %>%
+  summarise(Mean = mean(Value, na.rm = TRUE),
+            SD = sd(Value, na.rm = TRUE),
+            Median = median(Value, na.rm = TRUE),
+            IQR = IQR(Value, na.rm = TRUE),
+            N_countries = sum(!is.na(Value)),
+            .groups = "keep")
 
 ## Combine and save all model fit data -----------------------------------------
 
-# Convert tables to long form
-time_to_thresholds_natural_history <- time_to_thresholds_natural_history %>% 
-  pivot_longer(cols = Diff_time_to_threshold,
-               names_to = "Measure", values_to = "Value")
-pois_dev_natural_history <- pois_dev_natural_history %>%
-  pivot_longer(cols = contains("Pois_dev"),
-               names_to = "Measure", values_to = "Value")
-diff_total_cases <- diff_total_cases %>%
-  pivot_longer(cols = Diff_total_cases,
-               names_to = "Measure", values_to = "Value")
-
 # Combine all model fit statistics into single dataframe
-model_fit <- time_to_thresholds_natural_history %>% ungroup %>%
-  full_join(., pois_dev_natural_history) %>%
+model_fit <- diff_time_to_thresholds %>% 
   full_join(., diff_total_cases) %>%
+  full_join(., pois_dev_natural_history) %>%
   arrange(Country) %>%
   relocate(Threshold, .after = last_col())
 
 # Combine all model fit summary statistics into single dataframe
-model_fit_summary <- time_to_thresholds_natural_history_summary %>%
-  full_join(., pois_dev_natural_history_summary) %>%
-  full_join(., diff_total_cases_summary)
+model_fit_summary <- diff_time_to_thresholds_summary %>%
+  full_join(., diff_total_cases_summary) %>%
+  full_join(., pois_dev_natural_history_summary)
 
 # Save both model fit dataframes
 write_csv(model_fit, paste0(results_directory, "model_fit.csv"))
 write_csv(model_fit_summary, paste0(results_directory, "model_fit_summary.csv"))
 
-## Define countries to exclude from subsequent analyses
+## Define countries to exclude from subsequent analyses ------------------------
 
 # Define countries to exclude from analyses
 countries_excluded_all <- c("Russia")  # exclude from all analyses
@@ -363,10 +375,14 @@ countries_excluded_time_to_threshold <- c(countries_excluded_all, "San Marino")
 countries_excluded_total_cases <- countries_excluded_all
 
 # Save lists of excluded countries
-save(countries_excluded_all, file = paste0(results_directory, "countries_excluded_all.RData"))
-save(countries_excluded_length_lockdown, file = paste0(results_directory, "countries_excluded_length_lockdown.RData"))
-save(countries_excluded_time_to_threshold, file = paste0(results_directory, "countries_excluded_time_to_threshold.RData"))
-save(countries_excluded_total_cases, file = paste0(results_directory, "countries_excluded_total_cases.RData"))
+save(countries_excluded_all, 
+     file = paste0(results_directory, "countries_excluded_all.RData"))
+save(countries_excluded_length_lockdown, 
+     file = paste0(results_directory, "countries_excluded_length_lockdown.RData"))
+save(countries_excluded_time_to_threshold, 
+     file = paste0(results_directory, "countries_excluded_time_to_threshold.RData"))
+save(countries_excluded_total_cases, 
+     file = paste0(results_directory, "countries_excluded_total_cases.RData"))
 
 # ------------------------------------------------------------------------------
 # Analysis: lockdown timing - cross-country
@@ -611,8 +627,8 @@ Estimate_Effects_Within_Countries <- function(countries) {
     arrange(Country, Simulation)
   
   # Combine all within-country mean effects
-  effects_within_countries_median <- map(.x = effects_all,
-                                         .f = ~.x$pct_change_median) %>% 
+  effects_within_countries_summary <- map(.x = effects_all,
+                                          .f = ~.x$pct_change_summary) %>% 
     reduce(full_join) %>%
     relocate(N_countries, .after = last_col()) %>%
     relocate(Threshold, .after = Outcome) %>%
@@ -620,7 +636,7 @@ Estimate_Effects_Within_Countries <- function(countries) {
   
   # Return list of effects
   return(list(effects_within_countries = effects_within_countries,
-              effects_within_countries_median = effects_within_countries_median))
+              effects_within_countries_summary = effects_within_countries_summary))
   
 }
 
@@ -653,7 +669,7 @@ Calculate_Pct_Change_Length_Lockdown <- function(countries) {
     arrange(Simulation)
   
   # Calculate median percent change, quartiles
-  pct_change_length_lockdown_median <- pct_change_length_lockdown %>%
+  pct_change_length_lockdown_summary <- pct_change_length_lockdown %>%
     group_by(Simulation, History, Outcome) %>%
     summarise(Median_pct_change = median(Pct_change, na.rm = TRUE),
               QR1_pct_change = quantile(Pct_change, 0.25, na.rm = TRUE),
@@ -663,7 +679,7 @@ Calculate_Pct_Change_Length_Lockdown <- function(countries) {
   
   # Return dataframes
   return(list("pct_change" = pct_change_length_lockdown,
-              "pct_change_median" = pct_change_length_lockdown_median))
+              "pct_change_summary" = pct_change_length_lockdown_summary))
   
 }
 
@@ -697,7 +713,7 @@ Calculate_Pct_Change_Time_To_Threshold <- function(countries) {
     arrange(Country)
   
   # Calculate median percent change, quartiles
-  pct_change_time_to_threshold_median <- pct_change_time_to_threshold %>% 
+  pct_change_time_to_threshold_summary <- pct_change_time_to_threshold %>% 
     group_by(Simulation, History, Outcome, Threshold) %>%
     summarise(Median_pct_change = median(Pct_change, na.rm = TRUE),
               QR1_pct_change = quantile(Pct_change, 0.25, na.rm = TRUE),
@@ -707,7 +723,7 @@ Calculate_Pct_Change_Time_To_Threshold <- function(countries) {
   
   # Return dataframes
   return(list("pct_change" = pct_change_time_to_threshold,
-              "pct_change_median" = pct_change_time_to_threshold_median))
+              "pct_change_summary" = pct_change_time_to_threshold_summary))
   
 }
 
@@ -752,7 +768,7 @@ Calculate_Pct_Change_Total_Cases <- function(countries) {
     arrange(Country)
   
   # Calculate median percent change, quartiles
-  pct_change_cases_median <- pct_change_cases %>% 
+  pct_change_cases_summary <- pct_change_cases %>% 
     group_by(Simulation, History, Outcome) %>%
     summarise(Median_pct_change = median(Pct_change, na.rm = TRUE),
               QR1_pct_change = quantile(Pct_change, 0.25, na.rm = TRUE),
@@ -762,7 +778,7 @@ Calculate_Pct_Change_Total_Cases <- function(countries) {
   
   # Return dataframe
   return(list("pct_change" = pct_change_cases,
-              "pct_change_median" = pct_change_cases_median))
+              "pct_change_summary" = pct_change_cases_summary))
   
 }
 
@@ -790,9 +806,9 @@ effects_within_countries_all <- Estimate_Effects_Within_Countries(countries = co
 
 # Save within-country individual and median effects as separate dataframes
 effects_within_countries <- effects_within_countries_all$effects_within_countries
-effects_within_countries_median <- effects_within_countries_all$effects_within_countries_median
+effects_within_countries_summary <- effects_within_countries_all$effects_within_countries_summary
 
 # Save both effects dataframes
 write_csv(effects_within_countries, paste0(results_directory, "effects_within_countries.csv"))
-write_csv(effects_within_countries_median, paste0(results_directory, "effects_within_countries_median.csv"))
+write_csv(effects_within_countries_summary, paste0(results_directory, "effects_within_countries_summary.csv"))
 
