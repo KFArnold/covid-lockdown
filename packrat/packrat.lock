@@ -279,6 +279,12 @@ Source: CRAN
 Version: 0.0.2
 Hash: 4aaf002dd434e8c854611c5d11a1d58e
 
+Package: ggh4x
+Source: CRAN
+Version: 0.1.2.1
+Hash: 3eb160f5bfcca1f697a2a3babc47830e
+Requires: ggplot2, gtable, rlang, scales, vctrs
+
 Package: ggplot2
 Source: CRAN
 Version: 3.3.2
