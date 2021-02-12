@@ -22,6 +22,7 @@ packrat::restore()
 # Load required packages
 library(tidyverse); library(ggrepel); library(scales)
 library(ggpubr); library(foreach); library(RColorBrewer); library(ggrepel)
+library(ggh4x)
 
 # Define storage directory for formatted data
 data_directory_f <- paste0("./Data/Formatted/")
@@ -114,12 +115,13 @@ effects_between_countries <- effects_between_countries %>%
 
 ## Formatting ------------------------------------------------------------------
 
-# Define ordering of threshold, simulation, history, and exposure levels
+# Define ordering of threshold, simulation, history, exposure, and leverage levels
 threshold_levels <- c("0.0010%", "0.0050%", "0.0100%")
 simulation_levels <- c("0,0", "0,1", "0,3", "0,5", "0,7", "7,7", "14,14")
 history_levels <- c("Natural history", "Counterfactual history")
 exposure_levels <- c("Daily_cases_MA7", "log(Daily_cases_MA7)",
                      "Cumulative_cases_beg_MA7", "log(Cumulative_cases_beg_MA7)")
+leverage_levels <- c("Included", "Excluded")
 
 # Reorder levels of Threshold, Simulation, History, and Exposure factors in dataframes
 summary_cases_sim_all <- summary_cases_sim_all %>%
@@ -130,22 +132,27 @@ summary_thresholds_sim_all <- summary_thresholds_sim_all %>%
          Simulation = factor(Simulation, levels = simulation_levels),
          History = factor(History, levels = history_levels))
 effects_between_countries <- effects_between_countries %>%
-  mutate(Exposure = factor(Exposure, levels = exposure_levels))
+  mutate(Exposure = factor(Exposure, levels = exposure_levels),
+         Leverage_points = factor(Leverage_points, levels = leverage_levels))
 effects_within_countries <- effects_within_countries %>% 
   mutate(Threshold = factor(Threshold, levels = threshold_levels),
          Simulation = factor(Simulation, levels = simulation_levels),
          History = factor(History, levels = history_levels))
 
-# Create keys for threshold labels
+# Create key for threshold labels
 threshold_labels <- c("0.0010%" = "0.0010%\nof population",
                       "0.0050%" = "0.0050%\nof population",
                       "0.0100%" = "0.0100%\nof population")
 
-# Create keys for exposure labels
+# Create key for exposure labels
 exposure_labels <- c("Daily_cases_MA7" = "Daily cases\n(MA7)",
                      "log(Daily_cases_MA7)" = "Daily cases\n(MA7), logged",
                      "Cumulative_cases_beg_MA7" = "Cumulative casesn(MA7)", 
                      "log(Cumulative_cases_beg_MA7)" = "Cumulative cases\n(MA7), logged")
+
+# Create key for leverage lables
+leverage_labels <- c("Included" = "All data points\nincluded",
+                     "Excluded" = "Points of high\nleverage excluded")
 
 # Create color key for simulations
 color_brewer <- colorRampPalette(brewer.pal(n = 7, name = "Dark2"))
@@ -1318,21 +1325,22 @@ ggsave(paste0(results_directory, "Figure - Model residuals (cumulative cases).pn
 # (2) plots = plots to display in combination
 # (3) out = folder to save combined figure
 # Returns: list of 4 figures - each individual, and specified combination
-Plot_Between_Country_Effects <- function(exposures = c("Cumulative_cases_beg",
-                                                       "Cumulative_cases_beg_MA7",
-                                                       "Daily_cases",
-                                                       "Daily_cases_MA7"), 
+Plot_Between_Country_Effects <- function(exposures = c("Daily_cases_MA7",
+                                                       "Cumulative_cases_beg_MA7"), 
                                          plots = c("plot_length_lockdown",
                                                    "plot_growth_factor"), 
                                          out) {
+  
   
   # Record number of specified exposures and plots
   n_exp <- length(exposures)
   n_plots <- length(plots)
   
   # Filter between-country effects by specified exposures
-  effects_between_countries_exposures <- effects_between_countries %>%
-    filter(Exposure %in% exposures)
+  effects_between_countries_exposures <- 
+    map(.x = as.list(exposures),
+        .f = ~filter(effects_between_countries, str_detect(Exposure, .x))) %>%
+    bind_rows
   
   # Plot length of lockdown
   plot_length_lockdown <- Plot_Between_Length_Lockdown(effects = effects_between_countries_exposures)
@@ -1351,7 +1359,7 @@ Plot_Between_Country_Effects <- function(exposures = c("Cumulative_cases_beg",
   
   # Save combined plot to Results folder
   ggsave(paste0(results_directory, "Figure - Effects between countries.png"), 
-         plot = plots_all_annotated, width = 1.8*n_exp*n_plots, height = 7)
+         plot = plots_all_annotated, width = 3*n_exp*n_plots, height = 7)
   
   # Return list of individual and combined plots
   return(list(plot_length_lockdown = plot_length_lockdown, 
@@ -1385,15 +1393,17 @@ Plot_Between_Length_Lockdown <- function(effects) {
           axis.ticks.x = element_blank(),
           panel.background = element_rect(fill = "gray90"),
           panel.grid.major = element_line(color = "white"),
-          strip.text = element_text(color = "gray20")) +
+          strip.text = element_text(color = "gray20"),
+          ggh4x.facet.nestline = element_line(color = "gray20", size = 0.2)) +
     geom_hline(yintercept = 0, color = "gray40", lty = "dashed") +
     labs(title = "Effect on length of lockdown",
          color = "", shape = "") +
     geom_point(size = 3) +
     geom_errorbar(aes(ymin = CI_lower, ymax = CI_upper), alpha = 0.4, width = 0.2) +
-    facet_grid(. ~ Exposure,
-               scale = "free",
-               labeller = labeller(Exposure = exposure_labels)) +
+    facet_nested(. ~ Exposure + Leverage_points,
+                 scale = "free", nest_line = TRUE,
+                 labeller = labeller(Exposure = exposure_labels,
+                                     Leverage_points = leverage_labels)) +
     scale_color_manual(values = effect_aes$Color,
                        breaks = effect_aes$Effect) +
     scale_shape_manual(values = effect_aes$Shape,
@@ -1430,15 +1440,17 @@ Plot_Between_Growth_Factor <- function(effects) {
           axis.ticks.x = element_blank(),
           panel.background = element_rect(fill = "gray90"),
           panel.grid.major = element_line(color = "white"),
-          strip.text = element_text(color = "gray20")) +
+          strip.text = element_text(color = "gray20"),
+          ggh4x.facet.nestline = element_line(color = "gray20", size = 0.2)) +
     geom_hline(yintercept = 0, color = "gray40", lty = "dashed") +
     labs(title = "Effect on growth factor under lockdown",
          color = "", shape = "") +
     geom_point(size = 3) +
     geom_errorbar(aes(ymin = CI_lower, ymax = CI_upper), alpha = 0.4, width = 0.2) +
-    facet_grid(. ~ Exposure,
-               scale = "free",
-               labeller = labeller(Exposure = exposure_labels)) +
+    facet_nested(. ~ Exposure + Leverage_points,
+                 scale = "free", nest_line = TRUE,
+                 labeller = labeller(Exposure = exposure_labels,
+                                     Leverage_points = leverage_labels)) +
     scale_x_discrete(labels = exposure_labels) +
     scale_y_continuous(limits = 1.05*c(-max_y, max_y),
                        labels = comma) +
