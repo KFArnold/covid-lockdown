@@ -113,6 +113,10 @@ effects_between_countries <- effects_between_countries %>%
   mutate(Adjusted = ifelse(is.na(Covariates), "Unadjusted", "Adjusted"),
          Adjusted = as.factor(Adjusted))
 
+# Import dataframe containing model fit statistics
+model_fit <- read_csv(paste0(results_directory, "model_fit.csv")) %>%
+  mutate(across(where(is.character), as.factor))
+
 ## Formatting ------------------------------------------------------------------
 
 # Define ordering of threshold, simulation, history, exposure, and leverage levels
@@ -153,6 +157,12 @@ exposure_labels <- c("Daily_cases_MA7" = "Daily cases\n(MA7)",
 # Create key for leverage lables
 leverage_labels <- c("Included" = "All data points\nincluded",
                      "Excluded" = "Points of high\nleverage excluded")
+
+# Create key for model fit labels
+model_fit_labels <- c("Diff_time_to_threshold" = "Difference in days\nto reach thresholds",
+                      "Diff_total_cases" = "Difference in\ntotal cases",
+                      "Pois_dev_inc" = "Poisson deviance\n(incident cases)",
+                      "Pois_dev_cum" = "Poisson deviance\n(cumulative cases)")
 
 # Create color key for simulations
 color_brewer <- colorRampPalette(brewer.pal(n = 7, name = "Dark2"))
@@ -1167,7 +1177,7 @@ figure_sim_results <- foreach(i = countries, .errorhandling = "pass") %do%
                           out = out_folder)
 
 # ------------------------------------------------------------------------------
-# Simulation results:  model residuals
+# Simulation results: model residuals
 # ------------------------------------------------------------------------------
 
 ## Functions -------------------------------------------------------------------
@@ -1314,6 +1324,72 @@ p_cum_annotated <- annotate_figure(p_cum,
                                    top = text_grob("Model residuals: cumulative cases", size = 30))
 ggsave(paste0(results_directory, "Figure - Model residuals (cumulative cases).png"),
        plot = p_cum_annotated, width = 6*cols, height = 6*rows, limitsize = FALSE)
+
+# ------------------------------------------------------------------------------
+# Simulation results: model fit
+# ------------------------------------------------------------------------------
+
+## Functions -------------------------------------------------------------------
+
+# Function to create faceted figure of model fit statistics
+# Arguments:
+# (1) countries = list of countries to include
+# (2) measures = list of measures to include
+# (3) out = folder to save figure
+Plot_Model_Fit <- function(countries, 
+                           measures = c("Diff_time_to_threshold", "Diff_total_cases", 
+                                       "Pois_dev_inc", "Pois_dev_cum"),
+                           out) {
+  
+  # Filter model fit data by designated countries and measures
+  model_fit_filt <- model_fit %>% filter(Country %in% countries, Measure %in% measures)
+  
+  # Create labels for data type
+  type_labels <- c("Number" = "Raw value",
+                   "Pct" = "Percentage difference\ncompared to\nobserved data")
+  
+  # Record number of distinct groups by measure and type
+  n_groups <- model_fit_filt %>% group_by(Measure, Type) %>% n_groups
+  
+  # Create faceted plot
+  plot <- ggplot(data = model_fit_filt,
+         aes(x = Threshold, y = Value, 
+             color = Measure)) +
+    theme_light() +
+    theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
+          axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5),
+          panel.background = element_rect(fill = "gray90"),
+          panel.grid.major = element_line(color = "white"),
+          strip.text = element_text(color = "gray20")) +
+    guides(color = FALSE) +
+    geom_hline(yintercept = 0, color = "gray20", lty = "dashed") +
+    labs(title = "Model fit statistics") +
+    geom_point(shape = 16, alpha = 0.6) +
+    stat_summary(fun = median, shape = 18, size = 1.5) +
+    facet_nested_wrap(. ~ Measure + Type,
+               scale = "free", ncol = n_groups,
+               labeller = labeller(Measure = model_fit_labels,
+                                   Type = type_labels)) +
+    scale_x_discrete(labels = threshold_labels) +
+    scale_y_continuous(name = "",
+                       labels = comma_format())
+  
+  # Save combined plot to Results folder
+  ggsave(paste0(out, "Figure - Model fit.png"), plot = plot, width = 2*n_groups, height = 7)
+  
+  # Return plot
+  return(plot)
+  
+}
+
+## Figures ---------------------------------------------------------------------
+
+# Specify countries to include
+countries <- countries_eur_modelled[!countries_eur_modelled %in% countries_excluded_all]
+
+# Create figure
+figure_model_fit <- Plot_Model_Fit(countries = countries,
+                                   out = results_directory)
 
 # ------------------------------------------------------------------------------
 # Analysis: effect sizes
