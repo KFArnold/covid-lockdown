@@ -437,7 +437,7 @@ ggsave(paste0(results_directory, "Figure - Fitted splines.png"),
 rm(rows, cols, p, p_annotated)
 
 # ------------------------------------------------------------------------------
-# Growth factor under lockdown 
+# Growth factor under lockdown vs cases at lockdown
 # ------------------------------------------------------------------------------
 
 ## Functions -------------------------------------------------------------------
@@ -537,7 +537,7 @@ figure_growth_factor <- Plot_Growth_Factor_Lockdown(countries = countries,
                                                     out = results_directory)
 
 # ------------------------------------------------------------------------------
-# Length of lockdown (observed)
+# Length of lockdown (observed) vs cases at lockdown
 # ------------------------------------------------------------------------------
 
 ## Functions -------------------------------------------------------------------
@@ -628,7 +628,7 @@ figure_length_lockdown <- Plot_Length_Lockdown(countries = countries,
                                                     out = results_directory)
 
 # ------------------------------------------------------------------------------
-# Length of time to reach threshold
+# Length of time to reach threshold (simulated)
 # ------------------------------------------------------------------------------
 
 ## Functions -------------------------------------------------------------------
@@ -715,10 +715,10 @@ plot_time_to_threshold <- Plot_Time_To_Threshold(countries = countries,
                                                  out = results_directory)
 
 # ------------------------------------------------------------------------------
-# Simulation results: natural vs counterfactual histories, model residuals
+# Simulation results: natural vs counterfactual histories
 # ------------------------------------------------------------------------------
 
-## Functions: natural vs counterfactual histories ------------------------------
+## Functions -------------------------------------------------------------------
 
 # Function to create three-panel figure of simulation results for a specified country
 # (from functions Plot_Daily_Cases_Sim, Plot_Cumulative_Cases_Sim, Plot_Exponential_Growth_Sim)
@@ -1138,7 +1138,7 @@ Plot_Exponential_Growth_Sim <- function(max_date, obs_data, sim_data,
   
 }
 
-## Figures: natural vs counterfactual histories --------------------------------
+## Figures ---------------------------------------------------------------------
 
 # Create folder for storing figures of incident and cumulative cases by country, 
 # if none already exists
@@ -1166,7 +1166,11 @@ figure_sim_results <- foreach(i = countries, .errorhandling = "pass") %do%
                           thresholds = thresholds, 
                           out = out_folder)
 
-## Functions: model residuals --------------------------------------------------
+# ------------------------------------------------------------------------------
+# Simulation results:  model residuals
+# ------------------------------------------------------------------------------
+
+## Functions -------------------------------------------------------------------
 
 # Function to create two-panel figure of residual plots (for both incident and cumulative cases)
 # of simulation results for a particular country
@@ -1248,7 +1252,7 @@ Plot_Model_Residuals <- function(country, cases = c("Daily_cases", "Cumulative_c
   
   # Calculate absolute maximum value of residuals
   max_res <- residuals %>% pull(Residual) %>% abs %>% max
-
+  
   # Define subtitle
   if (cases == "Daily_cases") {
     subtitle <- "Model residuals: incident cases"
@@ -1273,7 +1277,7 @@ Plot_Model_Residuals <- function(country, cases = c("Daily_cases", "Cumulative_c
   
 }
 
-## Figures: model residuals ----------------------------------------------------
+## Figures ---------------------------------------------------------------------
 
 # Create folder for storing figures of model residuals by country, 
 # if none already exists
@@ -1315,7 +1319,9 @@ ggsave(paste0(results_directory, "Figure - Model residuals (cumulative cases).pn
 # Analysis: effect sizes
 # ------------------------------------------------------------------------------
 
-## Functions: between-country effects ------------------------------------------
+## (1) Between-country effects -------------------------------------------------
+
+### Functions ------------------------------------------------------------------
 
 # Function to create individual and multi-panel figure of between-country effects 
 # of cases at lockdown on time to reach important thresholds, length of lockdown, 
@@ -1464,7 +1470,7 @@ Plot_Between_Growth_Factor <- function(effects) {
   
 }
 
-## Figures: between-country effects --------------------------------------------
+### Figures --------------------------------------------------------------------
 
 # Create figures
 figure_between_country_effects <- Plot_Between_Country_Effects(exposures = c("Daily_cases_MA7",
@@ -1473,7 +1479,9 @@ figure_between_country_effects <- Plot_Between_Country_Effects(exposures = c("Da
                                                                          "plot_growth_factor"),
                                                                out = results_directory)
 
-## Functions: within-country effects -------------------------------------------
+## (2) Within-country effects --------------------------------------------------
+
+### Functions ------------------------------------------------------------------
 
 # Function to create two-panel figure of within-country effects of lockdown timing on
 # percentage change in length of lockdown and percentage change in total cases
@@ -1643,7 +1651,7 @@ Plot_Within_Total_Cases <- function(effects) {
   
 }
 
-## Figures: within-country effects ---------------------------------------------
+### Figures --------------------------------------------------------------------
 
 # Specify simulations to include in figures (comparison is natural history 0,0)
 #simulations <- c("7,7", "14,14")
