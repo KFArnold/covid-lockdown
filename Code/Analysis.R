@@ -296,8 +296,12 @@ summary_thresholds_obs <- foreach(i = countries_eur, .errorhandling = "pass") %d
   Calculate_Date_Threshold_Reached_Obs(country = i) %>%
   bind_rows
 
+# Define countries for which natural history was simulated
+countries <- summary_cases_sim_all %>% filter(History == "Natural history") %>% 
+  pull(Country) %>% unique %>% as.list
+
 # Calculate difference between observed and simulated time to reach thresholds
-diff_time_to_thresholds <- foreach(i = countries_eur_modelled, 
+diff_time_to_thresholds <- foreach(i = countries, 
                                    .errorhandling = "pass") %do%
   Calculate_Diff_Time_To_Threshold(country = i) %>%
   bind_rows
@@ -315,7 +319,7 @@ diff_time_to_thresholds_summary <- diff_time_to_thresholds %>%
 ## Difference in total cases ---------------------------------------------------
 
 # Calculate difference in total cases for all modelled countries
-diff_total_cases <- foreach(i = countries_eur_modelled, 
+diff_total_cases <- foreach(i = countries, 
                             .errorhandling = "pass") %do%
   Calculate_Diff_Total_Cases(country = i) %>%
   bind_rows 
@@ -333,7 +337,7 @@ diff_total_cases_summary <- diff_total_cases %>%
 ## Poisson deviance ------------------------------------------------------------
 
 # Calculate Poisson deviance between observed and simulated natural histories
-pois_dev_natural_history <- foreach(i = countries_eur_modelled, 
+pois_dev_natural_history <- foreach(i = countries, 
                                     .errorhandling = "pass") %do%
   Calculate_Pois_Dev_Natural_History(country = i) %>%
   bind_rows
@@ -869,7 +873,7 @@ write_csv(summary_length_lockdown_sim, paste0(results_directory, "summary_length
 ## Estimate within-country effects ---------------------------------------------
 
 # Define countries to include in analysis
-countries <- countries_eur_modelled[!countries_eur_modelled %in% countries_excluded_all]
+countries <- countries_eur_lockdown[!countries_eur_lockdown %in% countries_excluded_all]
 
 # Estimate within-country effects
 effects_within_countries_all <- Estimate_Effects_Within_Countries(countries = countries)
