@@ -494,7 +494,7 @@ set.seed(13)
 
 # Simulation
 start <- Sys.time()
-sim_data <- foreach(i = countries_eur_modelled, .errorhandling = "pass", 
+sim_data <- foreach(i = countries_eur_lockdown, .errorhandling = "pass", 
                     .packages = "tidyverse", .options.snow = options) %dopar% 
   Simulate_Counterfactual(country = i, 
                           n_days_first_restriction = n_days_first_restriction, 
