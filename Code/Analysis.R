@@ -411,7 +411,7 @@ save(countries_excluded_total_cases,
 # combination of exposure and outcome; (2) effects only from best-fitting models (by BIC)
 Estimate_Effects_Between_Countries <- function(countries, 
                                                outcomes = c("Length_lockdown", "Median_growth_factor_lockdown"),
-                                               exposures = c("Daily_cases_MA7", "Cumulative_cases_beg_MA7"),
+                                               exposures = c("Daily_cases_MA7", "Cumulative_cases_beg"),
                                                covariates = c("Area_sq_km", "Population")) {
   
   # Get data for all outcomes, exposures, and covariates for designated countries
