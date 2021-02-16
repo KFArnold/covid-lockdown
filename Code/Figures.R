@@ -1589,9 +1589,11 @@ Plot_Within_Country_Effects <- function(simulations,
   n_sim <- length(simulations)
   n_plots <- length(plots)
   
-  # Filter within-country effects dataframe by specified simulations
+  # Filter within-country effects dataframe by specified simulations, 
+  # and convert proportions to percentages
   effects_within_countries_counterfactual <- effects_within_countries %>%
-    filter(Simulation %in% simulations)
+    filter(Simulation %in% simulations) %>%
+    mutate(Pct_change = 100*Pct_change)
   
   # Plot length of lockdown
   plot_length_lockdown <- Plot_Within_Length_Lockdown(effects = effects_within_countries_counterfactual)
@@ -1614,7 +1616,7 @@ Plot_Within_Country_Effects <- function(simulations,
   
   # Save combined plot to Results folder
   ggsave(paste0(out, "Figure - Effects within countries - ", description, ".png"), 
-         plot = plots_all_annotated, width = 1.5*n_sim*n_plots, height = 7)
+         plot = plots_all_annotated, width = n_sim*n_plots, height = 7)
   
   # Return list of individual and combined plots
   return(list(plot_time_to_thresholds = plot_time_to_thresholds,
@@ -1644,19 +1646,20 @@ Plot_Within_Length_Lockdown <- function(effects) {
           axis.ticks.x = element_blank(),
           panel.background = element_rect(fill = "gray90"),
           panel.grid.major = element_line(color = "white"),
-          strip.text = element_text(color = "gray20")) +
+          strip.text = element_text(color = "gray20"),
+          ggh4x.facet.nestline = element_line(color = "gray20", size = 0.2)) +
     guides(color = FALSE) +
     geom_hline(yintercept = 0, color = "gray20", lty = "dashed") +
     labs(title = "Effect on length of lockdown",
          y = "Percentage change compared to natural history (0,0)") +
     geom_point(shape = 16, alpha = 0.6) +
     stat_summary(fun = median, shape = 18, size = 1.5) +
-    facet_grid(. ~ History + Simulation,
-               scale = "free") +
+    facet_nested(. ~ History + Simulation,
+                 nest_line = TRUE, scale = "free") +
     scale_color_manual(values = simulation_aes$Color, 
                        breaks = simulation_aes$Simulation) +
     scale_x_discrete(labels = threshold_labels) +
-    scale_y_continuous(limits = c(-1, 0))
+    scale_y_continuous(limits = c(-100, 0))
   
   # Return plot
   return(plot)
@@ -1679,21 +1682,23 @@ Plot_Within_Time_To_Thresholds <- function(effects) {
                      color = Simulation)) +
     theme_light() +
     theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
-          axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5),
+          axis.text.x = element_text(angle = 90, size = 6, hjust = 0.95, vjust = 0.5),
           panel.background = element_rect(fill = "gray90"),
           panel.grid.major = element_line(color = "white"),
-          strip.text = element_text(color = "gray20")) +
+          strip.text = element_text(color = "gray20"),
+          ggh4x.facet.nestline = element_line(color = "gray20", size = 0.2)) +
     guides(color = FALSE) +
     geom_hline(yintercept = 0, color = "gray20", lty = "dashed") +
     labs(title = "Effect on time to reach thresholds",
          y = "Percentage change compared to natural history (0,0)") +
     geom_point(shape = 16, alpha = 0.6) +
     stat_summary(fun = median, shape = 18, size = 1.5) +
-    facet_grid(. ~ History + Simulation) +
+    facet_nested(. ~ History + Simulation,
+                 nest_line = TRUE) +
     scale_color_manual(values = simulation_aes$Color, 
                        breaks = simulation_aes$Simulation) +
     scale_x_discrete(labels = threshold_labels) +
-    scale_y_continuous(limits = c(-1, 0))
+    scale_y_continuous(limits = c(-100, 0))
   
   # Return plot
   return(plot)
@@ -1721,18 +1726,19 @@ Plot_Within_Total_Cases <- function(effects) {
           axis.ticks.x = element_blank(),
           panel.background = element_rect(fill = "gray90"),
           panel.grid.major = element_line(color = "white"),
-          strip.text = element_text(color = "gray20")) +
+          strip.text = element_text(color = "gray20"),
+          ggh4x.facet.nestline = element_line(color = "gray20", size = 0.2)) +
     guides(color = FALSE) +
     geom_hline(yintercept = 0, color = "gray20", lty = "dashed") +
     labs(title = "Effect on total cases",
          y = "Percentage change compared to natural history (0,0)") +
     geom_point(shape = 16, alpha = 0.6) +
     stat_summary(fun = median, shape = 18, size = 1.5) +
-    facet_grid(. ~ History + Simulation,
-               scale = "free") +
+    facet_nested(. ~ History + Simulation,
+                 nest_line = TRUE, scale = "free") +
     scale_color_manual(values = simulation_aes$Color, 
                        breaks = simulation_aes$Simulation) +
-    scale_y_continuous(limits = c(-1, 0))
+    scale_y_continuous(limits = c(-100, 0))
   
   # Return plot
   return(plot)
