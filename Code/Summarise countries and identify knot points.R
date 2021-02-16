@@ -1090,7 +1090,7 @@ Calculate_Possible_Counterfactual_Days <- function(country, knots) {
     
     # Specify no combinations of counterfactual days are possible
     possible_days_counterfactual <- tibble(Date_first_restriction = as.Date(NA),
-                                           date_lockdown = as.Date(NA),
+                                           Date_lockdown = as.Date(NA),
                                            N_days_first_restriction = as.numeric(NA),
                                            N_days_lockdown = as.numeric(NA)) 
     
