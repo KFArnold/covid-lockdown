@@ -124,10 +124,8 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
   }
   
   # Calculate counterfactual first restriction and lockdown dates
-  date_first_restriction_counterfactual <- summary_eur_country %>% 
-    pull(Date_first_restriction) - n_days_first_restriction
-  date_lockdown_counterfactual <- summary_eur_country %>% 
-    pull(Date_lockdown) - n_days_lockdown
+  date_first_restriction_counterfactual <- match %>% pull(Date_first_restriction)
+  date_lockdown_counterfactual <- match %>% pull(Date_lockdown)
   
   # Calculate knot dates to be used for simulation
   knots_best_country_sim <- Modify_Knot_Dates(df_knots = knots_best_country, 
