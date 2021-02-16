@@ -1007,7 +1007,7 @@ write_csv(median_growth_factors, file = paste0(results_directory, "median_growth
 # Arguments:
 # (1) country = country to estimate
 # (2) knots = dataframe of knot points
-# Returns: list of dataframe containing possible combinations
+# Returns: dataframe containing possible combinations
 Calculate_Possible_Counterfactual_Days <- function(country, knots) {
   
   # Filter datasets by country
@@ -1048,10 +1048,7 @@ Calculate_Possible_Counterfactual_Days <- function(country, knots) {
     # Calculate all possible combinations of counterfactual days for first restriction and lockdown, label
     possible_days_counterfactual <- possible_dates_counterfactual %>%
       mutate(N_days_first_restriction = as.numeric(date_first_restriction - Date_first_restriction),
-             N_days_lockdown = as.numeric(date_lockdown - Date_lockdown)) %>%
-      select(N_days_first_restriction, N_days_lockdown) %>%
-      arrange(N_days_first_restriction, N_days_lockdown) %>%
-      mutate(Max_n_knots = 2)
+             N_days_lockdown = as.numeric(date_lockdown - Date_lockdown)) 
     
   } else if (max_n_knots == 1) {  # evidence of only one unique intervention effect
     
@@ -1068,7 +1065,7 @@ Calculate_Possible_Counterfactual_Days <- function(country, knots) {
       # Determine all possible dates for first restriction 
       # (lockdown date is NA)
       possible_dates_counterfactual <- tibble(Date_first_restriction = seq.Date(min_date_first_restriction, date_first_restriction, 1),
-                                              Date_lockdown = as.numeric(NA))
+                                              Date_lockdown = as.Date(NA))
     } else if (date_first_restriction == date_lockdown) {  ## (lockdown implemented same day as first restriction)
       # Determine all possible dates for first restriction 
       # (lockdown date is equal to date of first restriction)
@@ -1084,30 +1081,29 @@ Calculate_Possible_Counterfactual_Days <- function(country, knots) {
         filter(Date_first_restriction < Date_lockdown)
     }
     
-    # Determine all possible counterfactual days for first restriction, label
+    # Determine all possible counterfactual days for first restriction
     possible_days_counterfactual <- possible_dates_counterfactual %>%
       mutate(N_days_first_restriction = as.numeric(date_first_restriction - Date_first_restriction),
-             N_days_lockdown = as.numeric(date_lockdown - Date_lockdown)) %>%
-      select(N_days_first_restriction, N_days_lockdown) %>%
-      arrange(N_days_first_restriction, N_days_lockdown) %>%
-      mutate(Max_n_knots = 1)
+             N_days_lockdown = as.numeric(date_lockdown - Date_lockdown)) 
     
   } else {  # none
     
-    # Specify no combinations of counterfactual days are possible, label
-    possible_days_counterfactual <- tibble(N_days_first_restriction = as.numeric(NA),
-                                           N_days_lockdown = as.numeric(NA)) %>%
-      mutate(Max_n_knots = NA)
+    # Specify no combinations of counterfactual days are possible
+    possible_days_counterfactual <- tibble(Date_first_restriction = as.Date(NA),
+                                           date_lockdown = as.Date(NA),
+                                           N_days_first_restriction = as.numeric(NA),
+                                           N_days_lockdown = as.numeric(NA)) 
     
   }
   
-  # Label dataframe with country
+  # Label dataframe with country, max knots
   possible_days_counterfactual <- possible_days_counterfactual %>% 
-    mutate(Country = country) %>%
-    relocate(Country, Max_n_knots)
+    mutate(Country = country, Max_n_knots = max_n_knots) %>%
+    arrange(N_days_first_restriction, N_days_lockdown) %>%
+    relocate(Country, Max_n_knots, N_days_first_restriction, N_days_lockdown)
   
   # Return dataframe containing possible counterfactual days
-  return(list(possible_days_counterfactual = possible_days_counterfactual))
+  return(possible_days_counterfactual)
   
 }
 
@@ -1117,12 +1113,9 @@ Calculate_Possible_Counterfactual_Days <- function(country, knots) {
 possible_days_counterfactual <- foreach(i = countries_eur_modelled,
                                         .errorhandling = "pass") %do%
   Calculate_Possible_Counterfactual_Days(country = i,
-                                         knots = knots_best)
+                                         knots = knots_best) %>%
+  bind_rows %>% arrange(Country)
 
-# Combine summary results for all countries, arrange by country
-possible_days_counterfactual <- map(.x = possible_days_counterfactual,
-                                    .f = ~.x$possible_days_counterfactual) %>% reduce(bind_rows) %>% arrange(Country) 
-
-# Export dataframe containing possible couunterfactual days
+# Export dataframe containing possible counterfactual days
 write_csv(possible_days_counterfactual, file = paste0(results_directory, "possible_days_counterfactual.csv"))
 
