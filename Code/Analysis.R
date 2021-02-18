@@ -16,7 +16,7 @@
 packrat::restore()
 
 # Load required packages
-library(tidyverse); library(foreach); library(car)
+library(tidyverse); library(ggpubr); library(foreach); library(car)
 
 # Define storage directory for formatted data
 data_directory_f <- paste0("./Data/Formatted/")
