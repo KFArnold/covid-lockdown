@@ -393,6 +393,15 @@ summary_eur <- summary_eur %>%
          Length_lockdown = as.numeric(Date_lockdown_eased - Date_lockdown)) %>%
   relocate(Length_lockdown, .before = Max_number_restrictions)
 
+# Add population and area size columns to summary table
+summary_eur <- worldbank_eur %>% 
+  group_by(Country) %>% 
+  arrange(Country, desc(Year)) %>%
+  select(Country, Area_sq_km, Population) %>%
+  summarise(across(c(Area_sq_km, Population), ~first(na.omit(.))), .groups = "keep") %>%
+  ungroup %>%
+  right_join(., summary_eur, by = "Country")
+
 # Export summary table
 write_csv(summary_eur, file = paste0(results_directory, "summary_eur.csv"))
 
