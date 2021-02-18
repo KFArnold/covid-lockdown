@@ -89,6 +89,85 @@ summary_cases_sim_all <- full_join(summary_cumulative_cases_beg_sim_all,
 rm(summary_cumulative_cases_beg_sim_all, summary_daily_cases_sim_all, summary_cumulative_cases_end_sim_all)
 
 # ------------------------------------------------------------------------------
+# Variable summaries
+# ------------------------------------------------------------------------------
+
+## Functions -------------------------------------------------------------------
+
+# Function to create table of variable summary statistics (min, max, mean, SD, median, IQR) 
+# for outcomes, cases, and covariates used in analyses
+# Arguments:
+# (1) countries = list of countries
+# (2) outcomes = vector of outcomes to summarise
+# (3) dates_cases = list containing pairs of dates and case types, describing
+##### important dates and the types of cases to summarise on those dates
+# (4) covariates = vector of covariates to summarise
+# Returns: summary table
+Produce_Variable_Summaries <- function(countries, 
+                                       outcomes = c("Length_lockdown"),
+                                       dates_cases = list(c("Date_lockdown", "Daily_cases_MA7"),
+                                                          c("Date_lockdown", "Cumulative_cases_beg"),
+                                                          c("Date_T", "Daily_cases_MA7"),
+                                                          c("Date_T", "Cumulative_cases_end")),
+                                       covariates = c("Area_sq_km", "Population")) {
+  
+  # Get data for all outcomes, exposures, and covariates for designated countries
+  ## Exposures: Cases on dates of interest 
+  data_cases <- dates_cases %>% 
+    map(., .f = ~select(summary_eur, c(Country, .x[1]))) %>%
+    map(., .f = ~full_join(.x, data_eur, by = "Country")) %>%
+    map2(., .y = dates_cases, .f = ~select(., c(Country, contains("Date"), .y[2]))) %>%
+    map2(., .y = dates_cases, .f = ~filter(., Date == eval(parse(text = .y[1])))) %>%
+    map(., .f = ~select(., -contains("Date"))) %>% 
+    map2(., .y = dates_cases, .f = ~mutate(., Date = .y[1])) %>%
+    map(., .f = ~pivot_longer(.x, cols = contains("cases"), names_to = "Case_type", values_to = "Value")) %>%
+    map(., .f = ~mutate(., Case_type = paste0(Case_type, "_", Date))) %>%
+    map(., .f = ~select(., -Date)) %>%
+    bind_rows %>%
+    pivot_wider(., names_from = Case_type, values_from = Value) %>%
+    filter(Country %in% countries)
+  ## Covariates: Country stats
+  data_covariates <- summary_eur %>% filter(Country %in% countries) %>% 
+    select(Country, all_of(covariates)) 
+  ## Outcomes
+  data_outcomes <- summary_eur %>% filter(Country %in% countries) %>% 
+    select(Country, all_of(outcomes))
+  
+  # Combine all data into single dataframe, remove individual datasets
+  data_all <- data_cases %>% 
+    full_join(., data_covariates, by = "Country") %>%
+    full_join(., data_outcomes, by = "Country") 
+  rm(data_cases, data_covariates, data_outcomes)
+  
+  # Create summary table
+  summary <- data_all %>% pivot_longer(cols = -Country, names_to = "Variable", values_to = "Value") %>%
+    group_by(Variable) %>% summarise(across(Value, list(Min = ~min(., na.rm = TRUE),
+                                                        Max = ~max(., na.rm = TRUE),
+                                                        Mean = ~mean(., na.rm = TRUE),
+                                                        SD = ~sd(., na.rm = TRUE),
+                                                        Median = ~median(., na.rm = TRUE),
+                                                        IQR = ~IQR(., na.rm = TRUE),
+                                                        N = ~sum(!is.na(Value))),
+                                            .names = "{fn}"),
+                                     .groups = "keep")
+  
+  # Return summary table
+  return(summary)
+  
+}
+
+## Variable summaries ----------------------------------------------------------
+
+# Define countries
+countries <- countries_eur
+
+# Create summary table
+variable_summaries <- Produce_Variable_Summaries(countries = countries)
+
+# Export summary table
+write_csv(variable_summaries, paste0(results_directory, "variable_summaries.csv"))
+
+# ------------------------------------------------------------------------------
 # Model fit
 # ------------------------------------------------------------------------------
 
@@ -421,12 +500,8 @@ Estimate_Effects_Between_Countries <- function(countries,
     filter(Date == Date_lockdown) %>%
     select(Country, Date_lockdown, all_of(exposures))
   ## Covariates: Country stats
-  data_covariates <- worldbank_eur %>% filter(Country %in% countries) %>% 
-    group_by(Country) %>% 
-    arrange(Country, desc(Year)) %>% 
-    select(Country, all_of(covariates)) %>%
-    summarise(across(covariates, ~first(na.omit(.))), .groups = "keep") %>%
-    ungroup
+  data_covariates <- summary_eur %>% filter(Country %in% countries) %>% 
+    select(Country, all_of(covariates)) 
   ## Outcomes
   data_length_lockdown <- summary_eur %>% filter(Country %in% countries) %>% 
     select(Country, Length_lockdown)
