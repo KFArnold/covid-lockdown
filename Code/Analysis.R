@@ -102,7 +102,7 @@ rm(summary_cumulative_cases_beg_sim_all, summary_daily_cases_sim_all, summary_cu
 # (3) dates_cases = list containing pairs of dates and case types, describing
 ##### important dates and the types of cases to summarise on those dates
 # (4) covariates = vector of covariates to summarise
-# Returns: summary table
+# Returns: summary table and density plots of raw and log-transformed variables
 Produce_Variable_Summaries <- function(countries, 
                                        outcomes = c("Length_lockdown"),
                                        dates_cases = list(c("Date_lockdown", "Daily_cases_MA7"),
@@ -139,6 +139,18 @@ Produce_Variable_Summaries <- function(countries,
     full_join(., data_outcomes, by = "Country") 
   rm(data_cases, data_covariates, data_outcomes)
   
+  # Create density plots of raw and log-transformed variables
+  density_raw <- data_all %>% keep(is.numeric) %>% 
+    pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value") %>%
+    ggplot(aes(Value)) +
+    facet_wrap(~ Variable, scales = "free") + 
+    geom_density()
+  density_log <- data_all %>% keep(is.numeric) %>% 
+    pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value") %>%
+    ggplot(aes(log(Value))) +
+    facet_wrap(~ Variable, scales = "free") + 
+    geom_density()
+  
   # Create summary table
   summary <- data_all %>% pivot_longer(cols = -Country, names_to = "Variable", values_to = "Value") %>%
     group_by(Variable) %>% summarise(across(Value, list(Min = ~min(., na.rm = TRUE),
@@ -151,8 +163,10 @@ Produce_Variable_Summaries <- function(countries,
                                             .names = "{fn}"),
                                      .groups = "keep")
   
-  # Return summary table
-  return(summary)
+  # Return density plots and summary table
+  return(list(density_raw = density_raw,
+              density_log = density_log,
+              summary = summary))
   
 }
 
@@ -161,8 +175,12 @@ Produce_Variable_Summaries <- function(countries,
 # Define countries
 countries <- countries_eur
 
-# Create summary table
+# Create summary table and density plots
 variable_summaries <- Produce_Variable_Summaries(countries = countries)
+
+# Save density plots and summary table as separate objects
+variable_summaries_density <- variable_summaries[1:2]
+variable_summaries <- variable_summaries$summary
 
 # Export summary table
 write_csv(variable_summaries, paste0(results_directory, "variable_summaries.csv"))
