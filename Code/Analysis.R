@@ -102,7 +102,7 @@ rm(summary_cumulative_cases_beg_sim_all, summary_daily_cases_sim_all, summary_cu
 # (3) dates_cases = list containing pairs of dates and case types, describing
 ##### important dates and the types of cases to summarise on those dates
 # (4) covariates = vector of covariates to summarise
-# Returns: summary table and density plots of raw and log-transformed variables
+# Returns: summary table; density plots and qq-plots of raw and log-transformed variables
 Produce_Variable_Summaries <- function(countries, 
                                        outcomes = c("Length_lockdown"),
                                        dates_cases = list(c("Date_lockdown", "Daily_cases_MA7"),
@@ -150,6 +150,22 @@ Produce_Variable_Summaries <- function(countries,
     ggplot(aes(log(Value))) +
     facet_wrap(~ Variable, scales = "free") + 
     geom_density()
+  density <- ggarrange(plotlist = list(density_raw, density_log), ncol = 2)
+  
+  # Produce QQ-plots of raw and log-transformed variables
+  qq_raw <- data_all %>% keep(is.numeric) %>% 
+    pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value") %>%
+    ggplot(aes(sample = Value)) +
+    stat_qq() +
+    stat_qq_line() +
+    facet_wrap(~ Variable, scales = "free") 
+  qq_log <- data_all %>% keep(is.numeric) %>% 
+    pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value") %>%
+    ggplot(aes(sample = log(Value))) +
+    stat_qq() +
+    stat_qq_line() +
+    facet_wrap(~ Variable, scales = "free") 
+  qq <- ggarrange(plotlist = list(qq_raw, qq_log), ncol = 2)
   
   # Create summary table
   summary <- data_all %>% pivot_longer(cols = -Country, names_to = "Variable", values_to = "Value") %>%
@@ -163,9 +179,9 @@ Produce_Variable_Summaries <- function(countries,
                                             .names = "{fn}"),
                                      .groups = "keep")
   
-  # Return density plots and summary table
-  return(list(density_raw = density_raw,
-              density_log = density_log,
+  # Return density plots, QQ plots, and summary table
+  return(list(density = density,
+              qq = qq,
               summary = summary))
   
 }
@@ -178,8 +194,9 @@ countries <- countries_eur
 # Create summary table and density plots
 variable_summaries <- Produce_Variable_Summaries(countries = countries)
 
-# Save density plots and summary table as separate objects
-variable_summaries_density <- variable_summaries[1:2]
+# Save density plots, qq-plots, and summary table as separate objects
+variable_summaries_density <- variable_summaries[1]
+variable_summaries_qq <- variable_summaries[2]
 variable_summaries <- variable_summaries$summary
 
 # Export summary table
