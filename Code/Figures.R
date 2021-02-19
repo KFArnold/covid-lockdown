@@ -149,16 +149,16 @@ threshold_labels <- c("0.0010%" = "0.0010%\nof population",
                       "0.0100%" = "0.0100%\nof population")
 
 # Create key for simulation labels
-simulation_labels <- c("0,0" = "a - 0 , b - 0", 
-                       "0,1" = "a - 0 , b - 1", 
-                       "0,3" = "a - 0 , b - 3", 
-                       "0,5" = "a - 0 , b - 5", 
-                       "0,7" = "a - 0 , b - 7", 
-                       "1,1" = "a - 1 , b - 1", 
-                       "3,3" = "a - 3 , b - 3", 
-                       "5,5" = "a - 5 , b - 5", 
-                       "7,7" = "a - 7 , b - 7", 
-                       "14,14" = "a - 14 , b - 14")
+simulation_labels <- c("0,0" = "(a - 0 , b - 0)", 
+                       "0,1" = "(a - 0 , b - 1)", 
+                       "0,3" = "(a - 0 , b - 3)", 
+                       "0,5" = "(a - 0 , b - 5)", 
+                       "0,7" = "(a - 0 , b - 7)", 
+                       "1,1" = "(a - 1 , b - 1)", 
+                       "3,3" = "(a - 3 , b - 3)", 
+                       "5,5" = "(a - 5 , b - 5)", 
+                       "7,7" = "(a - 7 , b - 7)", 
+                       "14,14" = "(a - 14 , b - 14)")
 
 # Create key for exposure labels
 exposure_labels <- c("Daily_cases_MA7" = "Daily cases\n(MA7)",
@@ -182,7 +182,7 @@ simulation_aes <- tibble(Simulation = simulation_levels,
                          Color = color_brewer(length(simulation_levels)))
 simulation_aes <- simulation_aes %>% 
   separate(Simulation, into = c("A", "B"), sep = ",") %>%
-  mutate(A = paste0("a - ", A), B = paste0("b - ", B)) %>%
+  mutate(A = paste0("(a - ", A), B = paste0("b - ", B, ")")) %>%
   unite(col = "Label", c(A, B), sep = " , ") %>%
   full_join(., simulation_aes, by = "Color") %>%
   relocate(Simulation)
@@ -1555,11 +1555,15 @@ Plot_Between_Country_Effects <- function(exposures = c("Daily_cases_MA7",
     bind_rows
   
   # Plot length of lockdown
-  plot_length_lockdown <- Plot_Between_Length_Lockdown(effects = effects_between_countries_exposures)
-  
+  if ("plot_length_lockdown" %in% plots) {
+    plot_length_lockdown <- Plot_Between_Length_Lockdown(effects = effects_between_countries_exposures)
+  } 
+
   # Plot growth factor under lockdown
-  plot_growth_factor <- Plot_Between_Growth_Factor(effects = effects_between_countries_exposures)
-  
+  if ("plot_growth_factor" %in% plots) {
+    plot_growth_factor <- Plot_Between_Growth_Factor(effects = effects_between_countries_exposures)
+  }
+
   # Create list of specified plots
   plot_list <- map(.x = plots, .f = ~eval(parse(text = .x)))
   
@@ -1574,8 +1578,8 @@ Plot_Between_Country_Effects <- function(exposures = c("Daily_cases_MA7",
          plot = plots_all_annotated, width = 3*n_exp*n_plots, height = 7)
   
   # Return list of individual and combined plots
-  return(list(plot_length_lockdown = plot_length_lockdown, 
-              plot_growth_factor = plot_growth_factor,
+  return(list(plot_length_lockdown = ifelse(exists("plot_length_lockdown"), plot_length_lockdown, NA), 
+              plot_growth_factor = ifelse(exists("plot_growth_factor"), plot_growth_factor, NA),
               plot_combined = plots_all_annotated))
   
 }
@@ -1681,8 +1685,7 @@ Plot_Between_Growth_Factor <- function(effects) {
 # Create figures
 figure_between_country_effects <- Plot_Between_Country_Effects(exposures = c("Daily_cases_MA7",
                                                                              "Cumulative_cases_beg"),
-                                                               plots = c("plot_length_lockdown",
-                                                                         "plot_growth_factor"),
+                                                               plots = c("plot_length_lockdown"),
                                                                out = results_directory)
 
 ## (2) Within-country effects --------------------------------------------------
@@ -1735,7 +1738,7 @@ Plot_Within_Country_Effects <- function(simulations,
   
   # Save combined plot to Results folder
   ggsave(paste0(out, "Figure - Effects within countries - ", description, ".png"), 
-         plot = plots_all_annotated, width = n_sim*n_plots, height = 7)
+         plot = plots_all_annotated, width = 1.1*n_sim*n_plots, height = 7)
   
   # Return list of individual and combined plots
   return(list(plot_time_to_thresholds = plot_time_to_thresholds,
