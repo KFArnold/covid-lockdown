@@ -646,10 +646,11 @@ Estimate_Effects_Between_Countries <- function(countries,
 ## Estimate between-country effects --------------------------------------------
 
 # Define countries to include in analysis
-countries <- countries_eur_lockdown[!countries_eur_lockdown %in% countries_excluded_all]
+countries <- countries_eur_lockdown
 
 # Estimate between-country effects
-effects_between_countries <- Estimate_Effects_Between_Countries(countries = countries)
+effects_between_countries <- Estimate_Effects_Between_Countries(countries = countries,
+                                                                outcomes = "Length_lockdown")
 
 # Split list of effects into two dataframes containg effects from all models 
 # and from only best models
