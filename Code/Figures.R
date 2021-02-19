@@ -148,6 +148,18 @@ threshold_labels <- c("0.0010%" = "0.0010%\nof population",
                       "0.0050%" = "0.0050%\nof population",
                       "0.0100%" = "0.0100%\nof population")
 
+# Create key for simulation labels
+simulation_labels <- c("0,0" = "a - 0 , b - 0", 
+                       "0,1" = "a - 0 , b - 1", 
+                       "0,3" = "a - 0 , b - 3", 
+                       "0,5" = "a - 0 , b - 5", 
+                       "0,7" = "a - 0 , b - 7", 
+                       "1,1" = "a - 1 , b - 1", 
+                       "3,3" = "a - 3 , b - 3", 
+                       "5,5" = "a - 5 , b - 5", 
+                       "7,7" = "a - 7 , b - 7", 
+                       "14,14" = "a - 14 , b - 14")
+
 # Create key for exposure labels
 exposure_labels <- c("Daily_cases_MA7" = "Daily cases\n(MA7)",
                      "log(Daily_cases_MA7)" = "Daily cases\n(MA7), logged",
@@ -164,10 +176,16 @@ model_fit_labels <- c("Diff_time_to_threshold" = "Difference in days\nto reach t
                       "Pois_dev_inc" = "Poisson deviance\n(incident cases)",
                       "Pois_dev_cum" = "Poisson deviance\n(cumulative cases)")
 
-# Create color key for simulations
+# Create color and label key for simulations
 color_brewer <- colorRampPalette(brewer.pal(n = 7, name = "Dark2"))
 simulation_aes <- tibble(Simulation = simulation_levels,
                          Color = color_brewer(length(simulation_levels)))
+simulation_aes <- simulation_aes %>% 
+  separate(Simulation, into = c("A", "B"), sep = ",") %>%
+  mutate(A = paste0("a - ", A), B = paste0("b - ", B)) %>%
+  unite(col = "Label", c(A, B), sep = " , ") %>%
+  full_join(., simulation_aes, by = "Color") %>%
+  relocate(Simulation)
 
 # Create shape and transparency key for threshold levels
 threshold_aes <- tibble(Threshold = threshold_levels,
@@ -993,11 +1011,13 @@ Plot_Daily_Cases_Sim <- function(country, title, labs = c(TRUE, FALSE),
     scale_color_manual(name = "Simulation:",
                        values = aesthetics$Color, 
                        limits = aesthetics$Simulation,
-                       breaks = aesthetics$Simulation) +
+                       breaks = aesthetics$Simulation,
+                       labels = aesthetics$Label) +
     scale_fill_manual(name = "Simulation:",
                       values = aesthetics$Color, 
                       limits = aesthetics$Simulation,
-                      breaks = aesthetics$Simulation)
+                      breaks = aesthetics$Simulation,
+                      labels = aesthetics$Label)
   
   # Return plot
   return(plot)
@@ -1068,11 +1088,13 @@ Plot_Cumulative_Cases_Sim <- function(country, title, labs = c(TRUE, FALSE),
     scale_color_manual(name = "Simulation:",
                        values = aesthetics$Color, 
                        limits = aesthetics$Simulation,
-                       breaks = aesthetics$Simulation) +
+                       breaks = aesthetics$Simulation,
+                       labels = aesthetics$Label) +
     scale_fill_manual(name = "Simulation:",
                       values = aesthetics$Color, 
                       limits = aesthetics$Simulation,
-                      breaks = aesthetics$Simulation)
+                      breaks = aesthetics$Simulation,
+                      labels = aesthetics$Label)
   
   # If print_cases = TRUE, add text for cumulative cases on date_T
   if (print_cases == TRUE) {
@@ -1226,7 +1248,8 @@ Plot_Exponential_Growth_Sim <- function(country, title, labs = c(TRUE, FALSE),
     scale_color_manual(name = "Simulation:",
                        values = aesthetics$Color, 
                        limits = aesthetics$Simulation,
-                       breaks = aesthetics$Simulation)
+                       breaks = aesthetics$Simulation,
+                       labels = aesthetics$Label)
   
   # Return plot
   return(plot)
@@ -1267,7 +1290,7 @@ figure_sim_results_inc <- figure_sim_results %>%
   map(., .f = ~.x$plot_inc) %>%
   ggarrange(plotlist = ., nrow = rows, ncol = cols,
             common.legend = TRUE, legend = "bottom") %>%
-  annotate_figure(figure_sim_results_inc,
+  annotate_figure(.,
                   top = text_grob("Simulated incident cases of COVID-19", size = 50),
                   left = text_grob("Incident number of cases", rot = 90, size = 15),
                   bottom = text_grob("Date", size = 15))
@@ -1275,7 +1298,7 @@ figure_sim_results_cum <- figure_sim_results %>%
   map(., .f = ~.x$plot_cum) %>%
   ggarrange(plotlist = ., nrow = rows, ncol = cols,
             common.legend = TRUE, legend = "bottom") %>%
-  annotate_figure(figure_sim_results_inc,
+  annotate_figure(.,
                   top = text_grob("Simulated cumulative cases of COVID-19", size = 50),
                   left = text_grob("Cumulative number of cases", rot = 90, size = 15),
                   bottom = text_grob("Date", size = 15))
@@ -1751,9 +1774,11 @@ Plot_Within_Length_Lockdown <- function(effects) {
     geom_point(shape = 16, alpha = 0.6) +
     stat_summary(fun = median, shape = 18, size = 1.5) +
     facet_nested(. ~ History + Simulation,
-                 nest_line = TRUE, scale = "free") +
+                 nest_line = TRUE, scale = "free",
+                 labeller = labeller(Simulation = simulation_labels)) +
     scale_color_manual(values = simulation_aes$Color, 
-                       breaks = simulation_aes$Simulation) +
+                       breaks = simulation_aes$Simulation,
+                       labels = simulation_aes$Label) +
     scale_x_discrete(labels = threshold_labels) +
     scale_y_continuous(limits = c(-100, 0))
   
@@ -1790,9 +1815,11 @@ Plot_Within_Time_To_Thresholds <- function(effects) {
     geom_point(shape = 16, alpha = 0.6) +
     stat_summary(fun = median, shape = 18, size = 1.5) +
     facet_nested(. ~ History + Simulation,
-                 nest_line = TRUE) +
+                 nest_line = TRUE,
+                 labeller = labeller(Simulation = simulation_labels)) +
     scale_color_manual(values = simulation_aes$Color, 
-                       breaks = simulation_aes$Simulation) +
+                       breaks = simulation_aes$Simulation,
+                       labels = simulation_aes$Label) +
     scale_x_discrete(labels = threshold_labels) +
     scale_y_continuous(limits = c(-100, 0))
   
@@ -1831,9 +1858,11 @@ Plot_Within_Total_Cases <- function(effects) {
     geom_point(shape = 16, alpha = 0.6) +
     stat_summary(fun = median, shape = 18, size = 1.5) +
     facet_nested(. ~ History + Simulation,
-                 nest_line = TRUE, scale = "free") +
+                 nest_line = TRUE, scale = "free",
+                 labeller = labeller(Simulation = simulation_labels)) +
     scale_color_manual(values = simulation_aes$Color, 
-                       breaks = simulation_aes$Simulation) +
+                       breaks = simulation_aes$Simulation,
+                       labels = simulation_aes$Label) +
     scale_y_continuous(limits = c(-100, 0))
   
   # Return plot
