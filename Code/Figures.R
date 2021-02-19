@@ -244,7 +244,7 @@ Plot_Important_Dates <- function(countries, dates, order, out) {
                      limits = rev(countries_ordered)) 
   
   # Save plot to subfolder
-  ggsave(paste0(out, "Figure - Important dates.png"), plot = plot, width = 10, height = 8)
+  ggsave(paste0(out, "Figure - Important dates.png"), plot = plot, width = 8, height = 8)
   
   # Return plot
   return(plot)
