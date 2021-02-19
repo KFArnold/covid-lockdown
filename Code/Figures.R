@@ -161,8 +161,8 @@ simulation_labels <- c("0,0" = "(a - 0 , b - 0)",
                        "14,14" = "(a - 14 , b - 14)")
 
 # Create key for exposure labels
-exposure_labels <- c("Daily_cases_MA7" = "Daily cases\n(MA7)",
-                     "log(Daily_cases_MA7)" = "Daily cases\n(MA7), logged",
+exposure_labels <- c("Daily_cases_MA7" = "Daily cases\n(7-day moving average)",
+                     "log(Daily_cases_MA7)" = "Daily cases\n(7-day moving average),\nlogged",
                      "Cumulative_cases_beg" = "Cumulative cases", 
                      "log(Cumulative_cases_beg)" = "Cumulative cases,\nlogged")
 
@@ -1773,7 +1773,7 @@ Plot_Within_Length_Lockdown <- function(effects) {
     guides(color = FALSE) +
     geom_hline(yintercept = 0, color = "gray20", lty = "dashed") +
     labs(title = "Effect on length of lockdown",
-         y = "Percentage change compared to natural history (0,0)") +
+         y = "Percentage change compared to natural history (a , b)") +
     geom_point(shape = 16, alpha = 0.6) +
     stat_summary(fun = median, shape = 18, size = 1.5) +
     facet_nested(. ~ History + Simulation,
@@ -1814,7 +1814,7 @@ Plot_Within_Time_To_Thresholds <- function(effects) {
     guides(color = FALSE) +
     geom_hline(yintercept = 0, color = "gray20", lty = "dashed") +
     labs(title = "Effect on time to reach thresholds",
-         y = "Percentage change compared to natural history (0,0)") +
+         y = "Percentage change compared to natural history (a , b)") +
     geom_point(shape = 16, alpha = 0.6) +
     stat_summary(fun = median, shape = 18, size = 1.5) +
     facet_nested(. ~ History + Simulation,
@@ -1857,7 +1857,7 @@ Plot_Within_Total_Cases <- function(effects) {
     guides(color = FALSE) +
     geom_hline(yintercept = 0, color = "gray20", lty = "dashed") +
     labs(title = "Effect on total cases",
-         y = "Percentage change compared to natural history (0,0)") +
+         y = "Percentage change compared to natural history (a , b)") +
     geom_point(shape = 16, alpha = 0.6) +
     stat_summary(fun = median, shape = 18, size = 1.5) +
     facet_nested(. ~ History + Simulation,
