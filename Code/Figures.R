@@ -467,7 +467,8 @@ ggsave(paste0(results_directory, "Figure - Fitted splines.png"),
 # Create combined figure for sample of countries
 countries <- list("Greece", "Switzerland", "Spain")
 index <- match(countries, countries_eur_lockdown)
-p <- ggarrange(plotlist = figure_splines[index], ncol = length(index))
+p <- ggarrange(plotlist = figure_splines[index], ncol = length(index),
+               labels = "AUTO")
 p_annotated <- annotate_figure(p, top = text_grob("Exponential growth of COVID-19 cases: Fitted splines", size = 20))
 ggsave(paste0(results_directory, "Figure - Fitted splines (sample).png"),
        plot = p_annotated, width = 6*length(index), height = 6, limitsize = FALSE)
@@ -764,8 +765,8 @@ plot_time_to_threshold <- Plot_Time_To_Threshold(countries = countries,
 # (2) simulations = vector of simulations to include
 # (3) thresholds = vector of thresholds to display in figures
 # (4) out = folder to save combined figure
-# Returns: list of 4 objects: combined 3-panel figure, and each individual panel 
-# with country as title
+# Returns: list of 5 objects: combined 3-panel figure, 2-panel figure (incident and cumulative),
+# and each individual panel, with country as title
 Plot_Simulation_Results <- function(country, simulations, thresholds, out) {
   
   # Filter observed cases/deaths, best knots, and summary dataframes by country
@@ -888,11 +889,18 @@ Plot_Simulation_Results <- function(country, simulations, thresholds, out) {
   # Combine in triple panel with common legend and country as title
   plots_all <- ggarrange(plotlist = list(plot_inc, plot_cum, plot_exp), align = "h",
                          common.legend = TRUE, legend = "bottom", nrow = 1, ncol = 3)
-  plots_all_annotated <- annotate_figure(plots_all, top = text_grob(paste0(country),  size = 20),
+  plots_all_annotated <- annotate_figure(plots_all, top = text_grob(paste0(country), size = 20),
                                          bottom = text_grob("Data from https://github.com/CSSEGISandData/COVID-19", size = 8))
   
   # Save combined plot to subfolder
   ggsave(paste0(out, "/", country, ".png"), plot = plots_all_annotated, width = 6*3, height = 6)
+  
+  # Combine only incident and cumulative cases in double panel with common legend 
+  # and country as title
+  plots_two <- ggarrange(plotlist = list(plot_inc, plot_cum), align = "h",
+                         common.legend = TRUE, legend = "bottom", nrow = 1, ncol = 2)
+  plots_two_annotated <- annotate_figure(plots_two, top = text_grob(paste0(country),  size = 20),
+                                         bottom = text_grob(" ", size = 20))
   
   # Create figure for each of incident, cumulative, and incident vs cumulative cases separately,
   # with country as title and no printing of cases on date_T
@@ -931,6 +939,7 @@ Plot_Simulation_Results <- function(country, simulations, thresholds, out) {
   
   # Return list combined plots
   return(list(plots_all_annotated = plots_all_annotated,
+              plots_two_annotated = plots_two_annotated,
               plot_inc = plot_inc,
               plot_cum = plot_cum,
               plot_exp = plot_exp))
@@ -1288,14 +1297,15 @@ simulations <- c("0,0", "0,3", "0,7", "3,3", "7,7")
 # Specify thresholds to include in figure
 thresholds <- summary_thresholds_sim_all %>% pull(Threshold) %>% unique
 
-# Create combined figures
+# Create combined figures for each country
 figure_sim_results <- foreach(i = countries, .errorhandling = "pass") %do% 
   Plot_Simulation_Results(country = i, 
                           simulations = simulations,
                           thresholds = thresholds, 
                           out = out_folder)
 
-# Create multipanel figures of simulated incident and cumulative, and save
+# Create multipanel figures of simulated incident and cumulative cases 
+# for all countries, and save
 rows <- 7; cols <- 5
 figure_sim_results_inc <- figure_sim_results %>%
   map(., .f = ~.x$plot_inc) %>%
@@ -1313,10 +1323,20 @@ figure_sim_results_cum <- figure_sim_results %>%
                   top = text_grob("Simulated cumulative cases of COVID-19", size = 50),
                   left = text_grob("Cumulative number of cases", rot = 90, size = 15),
                   bottom = text_grob("Date", size = 15))
-ggsave(paste0(results_directory, "Figure - Simulation results (incident cases).png"),
-       plot = figure_sim_results_inc, width = 6*cols, height = 6*rows, limitsize = FALSE)
-ggsave(paste0(results_directory, "Figure - Simulation results (cumulative cases).png"),
-       plot = figure_sim_results_cum, width = 6*cols, height = 6*rows, limitsize = FALSE)
+#ggsave(paste0(results_directory, "Figure - Simulation results (incident cases).png"),
+#       plot = figure_sim_results_inc, width = 6*cols, height = 6*rows, limitsize = FALSE)
+#ggsave(paste0(results_directory, "Figure - Simulation results (cumulative cases).png"),
+#       plot = figure_sim_results_cum, width = 6*cols, height = 6*rows, limitsize = FALSE)
+
+# Create combined figure of incident and cumulative cases for sample of countries
+countries_sample <- list("Greece", "Switzerland", "Spain")
+index <- match(countries_sample, countries_eur_lockdown)
+figure_sim_results_sample <- index %>% 
+  map(., .f = ~figure_sim_results[[.x]]) %>%
+  map(., .f = ~.x$plots_two_annotated) %>%
+  ggarrange(plotlist = ., nrow = length(index), labels = "AUTO")
+ggsave(paste0(results_directory, "Figure - Simulation results (sample).png"),
+       plot = figure_sim_results_sample, width = 6*2, height = 6*length(index), limitsize = FALSE)
 
 # ------------------------------------------------------------------------------
 # Simulation results: model residuals
