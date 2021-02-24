@@ -186,6 +186,38 @@ Produce_Variable_Summaries <- function(countries,
   
 }
 
+# Function to create summary table of best knots
+# Arguments:
+# (1) countries = list of countries
+# (2) n_decimals = number of decimals
+# Returns: summary table with country name, dates of first restriction and lockdown,
+# best knot dates, growth factors (SDs in parentheses), and probability of knot pairs
+Produce_Knots_Summaries <- function(countries, n_decimals = 3) {
+  
+  # Filter summary datafame by specified countries
+  summary_eur_countries <- summary_eur %>% filter(Country %in% countries) %>%
+    select(Country, Date_first_restriction, Date_lockdown)
+  
+  # Filter best knots dataframe by specified countries
+  knots_best_countries <- knots_best %>% filter(Country %in% countries) %>%
+    select(Country, Knot_date_1, Knot_date_2, contains("Growth"), Prob_unequal) %>%
+    mutate(across(where(is.numeric), ~round(., digits = n_decimals)))
+  
+  # Join summary dataframe with best knots dataframe
+  knots_summary <- full_join(summary_eur_countries, knots_best_countries, by = "Country")
+  
+  # Collapse combine growth factors and associated SDs into same cell
+  knots_summary <- knots_summary %>% 
+    mutate(Growth_factor_1 = paste0(Growth_factor_1, " (", Growth_factor_1_sd, ")"),
+           Growth_factor_2 = paste0(Growth_factor_2, " (", Growth_factor_2_sd, ")"),
+           Growth_factor_3 = paste0(Growth_factor_3, " (", Growth_factor_3_sd, ")")) %>%
+    select(-contains("sd"))
+  
+  # Return summary table
+  return(knots_summary)
+  
+}
+
 ## Variable summaries ----------------------------------------------------------
 
 # Define countries
@@ -199,8 +231,19 @@ variable_summaries_density <- variable_summaries[1]
 variable_summaries_qq <- variable_summaries[2]
 variable_summaries <- variable_summaries$summary
 
-# Export summary table
+# Export variable summary table
 write_csv(variable_summaries, paste0(results_directory, "variable_summaries.csv"))
+
+## Knot summaries --------------------------------------------------------------
+
+# Define countries
+countries <- list("Greece", "Switzerland", "Germany", "Spain")
+
+# Create summary table of best knot dates
+knot_summaries <- Produce_Knots_Summaries(countries = countries)
+
+# Export knot summary table
+write_csv(knot_summaries, paste0(results_directory, "knot_summaries.csv"))
 
 # ------------------------------------------------------------------------------
 # Model fit
