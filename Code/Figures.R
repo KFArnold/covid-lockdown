@@ -343,6 +343,9 @@ Plot_Splines <- function(country, out) {
   y_max <- data_eur_country %>% filter(Date <= max_date) %>% pull(Daily_cases) %>% max
   y_max <- 1.2*y_max  # (add buffer)
   
+  # Define color for fitted lines
+  color <- simulation_aes %>% filter(Simulation == "0,0") %>% pull(Color)
+  
   # Plot observed cases
   plot <- ggplot(data = data_eur_country,
                  aes(x = Cumulative_cases_beg, y = Daily_cases)) +
@@ -396,36 +399,36 @@ Plot_Splines <- function(country, out) {
         plot <- plot +
           geom_segment(aes_(x = min_cc, xend = max_cc,
                             y = intercept_1 + slope_1*min_cc, yend = intercept_1 + slope_1*max_cc),
-                       color = "royalblue", size = 0.1, alpha = 0.1, linetype = "dashed")
+                       color = color, size = 0.15, alpha = 0.1, linetype = "dashed")
       } else {  # ONE knot point (at knot_date_2)
         plot <- plot +
           geom_segment(aes_(x = min_cc, xend = knot_2,
                             y = intercept_1 + slope_1*min_cc, yend = intercept_1 + slope_1*knot_2),
-                       color = "royalblue", size = 0.1, alpha = 0.1, linetype = "dashed") +
+                       color = color, size = 0.15, alpha = 0.1, linetype = "dashed") +
           geom_segment(aes_(x = knot_2, xend = max_cc,
                             y = intercept_2 + slope_2*knot_2, yend = intercept_2 + slope_2*max_cc),
-                       color = "royalblue", size = 0.1, alpha = 0.1, linetype = "dashed") 
+                       color = color, size = 0.15, alpha = 0.1, linetype = "dashed") 
       }
     } else {
       if (is.na(knot_date_2)) {  # ONE knot point (at knot_date_1)
         plot <- plot +
           geom_segment(aes_(x = min_cc, xend = knot_1,
                             y = intercept_1 + slope_1*min_cc, yend = intercept_1 + slope_1*knot_1),
-                       color = "royalblue", size = 0.1, alpha = 0.1, linetype = "dashed") +
+                       color = color, size = 0.15, alpha = 0.1, linetype = "dashed") +
           geom_segment(aes_(x = knot_1, xend = max_cc,
                             y = intercept_2 + slope_2*knot_1, yend = intercept_2 + slope_2*max_cc),
-                       color = "royalblue", size = 0.1, alpha = 0.1, linetype = "dashed") 
+                       color = color, size = 0.15, alpha = 0.1, linetype = "dashed") 
       } else {  # TWO knot points (at knot_date_1 and knot_date_2)
         plot <- plot +
           geom_segment(aes_(x = min_cc, xend = knot_1,
                             y = intercept_1 + slope_1*min_cc, yend = intercept_1 + slope_1*knot_1),
-                       color = "royalblue", size = 0.1, alpha = 0.1, linetype = "dashed") +
+                       color = color, size = 0.15, alpha = 0.1, linetype = "dashed") +
           geom_segment(aes_(x = knot_1, xend = knot_2,
                             y = intercept_2 + slope_2*knot_1, yend = intercept_2 + slope_2*knot_2),
-                       color = "royalblue", size = 0.1, alpha = 0.1, linetype = "dashed") +
+                       color = color, size = 0.15, alpha = 0.1, linetype = "dashed") +
           geom_segment(aes_(x = knot_2, xend = max_cc,
                             y = intercept_3 + slope_3*knot_2, yend = intercept_3 + slope_3*max_cc),
-                       color = "royalblue", size = 0.1, alpha = 0.1, linetype = "dashed") 
+                       color = color, size = 0.15, alpha = 0.1, linetype = "dashed") 
       }
     }  # (close if-else section)
   }  # (close fitted line section)
@@ -457,9 +460,17 @@ figure_splines <- foreach(i = countries_eur_lockdown, .errorhandling = "pass") %
 # Create figures (combined)
 rows <- cols <- length(figure_splines) %>% sqrt %>% ceiling
 p <- ggarrange(plotlist = figure_splines, nrow = rows, ncol = cols)
-p_annotated <- annotate_figure(p, top = text_grob("Exponential growth of Covid-19 cases: Cumulative versus incident cases", size = 30))
+p_annotated <- annotate_figure(p, top = text_grob("Exponential growth of COVID-19 cases: Cumulative versus incident cases", size = 30))
 ggsave(paste0(results_directory, "Figure - Fitted splines.png"),
-       plot = p, width = 6*cols, height = 6*rows, limitsize = FALSE)
+       plot = p_annotated, width = 6*cols, height = 6*rows, limitsize = FALSE)
+
+# Create combined figure for sample of countries
+countries <- list("Greece", "Switzerland", "Spain")
+index <- match(countries, countries_eur_lockdown)
+p <- ggarrange(plotlist = figure_splines[index], ncol = length(index))
+p_annotated <- annotate_figure(p, top = text_grob("Exponential growth of COVID-19 cases: Fitted splines", size = 20))
+ggsave(paste0(results_directory, "Figure - Fitted splines (sample).png"),
+       plot = p_annotated, width = 6*length(index), height = 6, limitsize = FALSE)
 
 rm(rows, cols, p, p_annotated)
 
