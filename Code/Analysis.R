@@ -16,7 +16,7 @@
 packrat::restore()
 
 # Load required packages
-library(tidyverse); library(foreach); library(car)
+library(tidyverse); library(ggpubr); library(foreach); library(car)
 
 # Define storage directory for formatted data
 data_directory_f <- paste0("./Data/Formatted/")
@@ -87,6 +87,163 @@ summary_cases_sim_all <- full_join(summary_cumulative_cases_beg_sim_all,
             by = col_join) %>%
   rename_at(vars(Mean, C_025, C_975), function(x) {paste0(x, "_cumulative_cases_end")})
 rm(summary_cumulative_cases_beg_sim_all, summary_daily_cases_sim_all, summary_cumulative_cases_end_sim_all)
+
+# ------------------------------------------------------------------------------
+# Variable summaries
+# ------------------------------------------------------------------------------
+
+## Functions -------------------------------------------------------------------
+
+# Function to create table of variable summary statistics (min, max, mean, SD, median, IQR) 
+# for outcomes, cases, and covariates used in analyses
+# Arguments:
+# (1) countries = list of countries
+# (2) outcomes = vector of outcomes to summarise
+# (3) dates_cases = list containing pairs of dates and case types, describing
+##### important dates and the types of cases to summarise on those dates
+# (4) covariates = vector of covariates to summarise
+# Returns: summary table; density plots and qq-plots of raw and log-transformed variables
+Produce_Variable_Summaries <- function(countries, 
+                                       outcomes = c("Length_lockdown"),
+                                       dates_cases = list(c("Date_lockdown", "Daily_cases_MA7"),
+                                                          c("Date_lockdown", "Cumulative_cases_beg"),
+                                                          c("Date_T", "Daily_cases_MA7"),
+                                                          c("Date_T", "Cumulative_cases_end")),
+                                       covariates = c("Area_sq_km", "Population")) {
+  
+  # Get data for all outcomes, exposures, and covariates for designated countries
+  ## Exposures: Cases on dates of interest 
+  data_cases <- dates_cases %>% 
+    map(., .f = ~select(summary_eur, c(Country, .x[1]))) %>%
+    map(., .f = ~full_join(.x, data_eur, by = "Country")) %>%
+    map2(., .y = dates_cases, .f = ~select(., c(Country, contains("Date"), .y[2]))) %>%
+    map2(., .y = dates_cases, .f = ~filter(., Date == eval(parse(text = .y[1])))) %>%
+    map(., .f = ~select(., -contains("Date"))) %>% 
+    map2(., .y = dates_cases, .f = ~mutate(., Date = .y[1])) %>%
+    map(., .f = ~pivot_longer(.x, cols = contains("cases"), names_to = "Case_type", values_to = "Value")) %>%
+    map(., .f = ~mutate(., Case_type = paste0(Case_type, "_", Date))) %>%
+    map(., .f = ~select(., -Date)) %>%
+    bind_rows %>%
+    pivot_wider(., names_from = Case_type, values_from = Value) %>%
+    filter(Country %in% countries)
+  ## Covariates: Country stats
+  data_covariates <- summary_eur %>% filter(Country %in% countries) %>% 
+    select(Country, all_of(covariates)) 
+  ## Outcomes
+  data_outcomes <- summary_eur %>% filter(Country %in% countries) %>% 
+    select(Country, all_of(outcomes))
+  
+  # Combine all data into single dataframe, remove individual datasets
+  data_all <- data_cases %>% 
+    full_join(., data_covariates, by = "Country") %>%
+    full_join(., data_outcomes, by = "Country") 
+  rm(data_cases, data_covariates, data_outcomes)
+  
+  # Create density plots of raw and log-transformed variables
+  density_raw <- data_all %>% keep(is.numeric) %>% 
+    pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value") %>%
+    ggplot(aes(Value)) +
+    facet_wrap(~ Variable, scales = "free") + 
+    geom_density()
+  density_log <- data_all %>% keep(is.numeric) %>% 
+    pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value") %>%
+    ggplot(aes(log(Value))) +
+    facet_wrap(~ Variable, scales = "free") + 
+    geom_density()
+  density <- ggarrange(plotlist = list(density_raw, density_log), ncol = 2)
+  
+  # Produce QQ-plots of raw and log-transformed variables
+  qq_raw <- data_all %>% keep(is.numeric) %>% 
+    pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value") %>%
+    ggplot(aes(sample = Value)) +
+    stat_qq() +
+    stat_qq_line() +
+    facet_wrap(~ Variable, scales = "free") 
+  qq_log <- data_all %>% keep(is.numeric) %>% 
+    pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value") %>%
+    ggplot(aes(sample = log(Value))) +
+    stat_qq() +
+    stat_qq_line() +
+    facet_wrap(~ Variable, scales = "free") 
+  qq <- ggarrange(plotlist = list(qq_raw, qq_log), ncol = 2)
+  
+  # Create summary table
+  summary <- data_all %>% pivot_longer(cols = -Country, names_to = "Variable", values_to = "Value") %>%
+    group_by(Variable) %>% summarise(across(Value, list(Min = ~min(., na.rm = TRUE),
+                                                        Max = ~max(., na.rm = TRUE),
+                                                        Mean = ~mean(., na.rm = TRUE),
+                                                        SD = ~sd(., na.rm = TRUE),
+                                                        Median = ~median(., na.rm = TRUE),
+                                                        IQR = ~IQR(., na.rm = TRUE),
+                                                        N = ~sum(!is.na(Value))),
+                                            .names = "{fn}"),
+                                     .groups = "keep")
+  
+  # Return density plots, QQ plots, and summary table
+  return(list(density = density,
+              qq = qq,
+              summary = summary))
+  
+}
+
+# Function to create summary table of best knots
+# Arguments:
+# (1) countries = list of countries
+# (2) n_decimals = number of decimals
+# Returns: summary table with country name, dates of first restriction and lockdown,
+# best knot dates, growth factors (SDs in parentheses), and probability of knot pairs
+Produce_Knots_Summaries <- function(countries, n_decimals = 3) {
+  
+  # Filter summary datafame by specified countries
+  summary_eur_countries <- summary_eur %>% filter(Country %in% countries) %>%
+    select(Country, Date_first_restriction, Date_lockdown)
+  
+  # Filter best knots dataframe by specified countries
+  knots_best_countries <- knots_best %>% filter(Country %in% countries) %>%
+    select(Country, Knot_date_1, Knot_date_2, contains("Growth"), Prob_unequal) %>%
+    mutate(across(where(is.numeric), ~round(., digits = n_decimals)))
+  
+  # Join summary dataframe with best knots dataframe
+  knots_summary <- full_join(summary_eur_countries, knots_best_countries, by = "Country")
+  
+  # Collapse combine growth factors and associated SDs into same cell
+  knots_summary <- knots_summary %>% 
+    mutate(Growth_factor_1 = paste0(Growth_factor_1, " (", Growth_factor_1_sd, ")"),
+           Growth_factor_2 = paste0(Growth_factor_2, " (", Growth_factor_2_sd, ")"),
+           Growth_factor_3 = paste0(Growth_factor_3, " (", Growth_factor_3_sd, ")")) %>%
+    select(-contains("sd"))
+  
+  # Return summary table
+  return(knots_summary)
+  
+}
+
+## Variable summaries ----------------------------------------------------------
+
+# Define countries
+countries <- countries_eur
+
+# Create summary table and density plots
+variable_summaries <- Produce_Variable_Summaries(countries = countries)
+
+# Save density plots, qq-plots, and summary table as separate objects
+variable_summaries_density <- variable_summaries[1]
+variable_summaries_qq <- variable_summaries[2]
+variable_summaries <- variable_summaries$summary
+
+# Export variable summary table
+write_csv(variable_summaries, paste0(results_directory, "variable_summaries.csv"))
+
+## Knot summaries --------------------------------------------------------------
+
+# Define countries
+countries <- list("Greece", "Switzerland", "Germany", "Spain")
+
+# Create summary table of best knot dates
+knot_summaries <- Produce_Knots_Summaries(countries = countries)
+
+# Export knot summary table
+write_csv(knot_summaries, paste0(results_directory, "knot_summaries.csv"))
 
 # ------------------------------------------------------------------------------
 # Model fit
@@ -421,12 +578,8 @@ Estimate_Effects_Between_Countries <- function(countries,
     filter(Date == Date_lockdown) %>%
     select(Country, Date_lockdown, all_of(exposures))
   ## Covariates: Country stats
-  data_covariates <- worldbank_eur %>% filter(Country %in% countries) %>% 
-    group_by(Country) %>% 
-    arrange(Country, desc(Year)) %>% 
-    select(Country, all_of(covariates)) %>%
-    summarise(across(covariates, ~first(na.omit(.))), .groups = "keep") %>%
-    ungroup
+  data_covariates <- summary_eur %>% filter(Country %in% countries) %>% 
+    select(Country, all_of(covariates)) 
   ## Outcomes
   data_length_lockdown <- summary_eur %>% filter(Country %in% countries) %>% 
     select(Country, Length_lockdown)
@@ -536,10 +689,11 @@ Estimate_Effects_Between_Countries <- function(countries,
 ## Estimate between-country effects --------------------------------------------
 
 # Define countries to include in analysis
-countries <- countries_eur_lockdown[!countries_eur_lockdown %in% countries_excluded_all]
+countries <- countries_eur_lockdown
 
 # Estimate between-country effects
-effects_between_countries <- Estimate_Effects_Between_Countries(countries = countries)
+effects_between_countries <- Estimate_Effects_Between_Countries(countries = countries,
+                                                                outcomes = "Length_lockdown")
 
 # Split list of effects into two dataframes containg effects from all models 
 # and from only best models

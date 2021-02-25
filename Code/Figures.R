@@ -148,9 +148,21 @@ threshold_labels <- c("0.0010%" = "0.0010%\nof population",
                       "0.0050%" = "0.0050%\nof population",
                       "0.0100%" = "0.0100%\nof population")
 
+# Create key for simulation labels
+simulation_labels <- c("0,0" = "(a - 0 , b - 0)", 
+                       "0,1" = "(a - 0 , b - 1)", 
+                       "0,3" = "(a - 0 , b - 3)", 
+                       "0,5" = "(a - 0 , b - 5)", 
+                       "0,7" = "(a - 0 , b - 7)", 
+                       "1,1" = "(a - 1 , b - 1)", 
+                       "3,3" = "(a - 3 , b - 3)", 
+                       "5,5" = "(a - 5 , b - 5)", 
+                       "7,7" = "(a - 7 , b - 7)", 
+                       "14,14" = "(a - 14 , b - 14)")
+
 # Create key for exposure labels
-exposure_labels <- c("Daily_cases_MA7" = "Daily cases\n(MA7)",
-                     "log(Daily_cases_MA7)" = "Daily cases\n(MA7), logged",
+exposure_labels <- c("Daily_cases_MA7" = "Daily cases\n(7-day moving average)",
+                     "log(Daily_cases_MA7)" = "Daily cases\n(7-day moving average),\nlogged",
                      "Cumulative_cases_beg" = "Cumulative cases", 
                      "log(Cumulative_cases_beg)" = "Cumulative cases,\nlogged")
 
@@ -164,10 +176,16 @@ model_fit_labels <- c("Diff_time_to_threshold" = "Difference in days\nto reach t
                       "Pois_dev_inc" = "Poisson deviance\n(incident cases)",
                       "Pois_dev_cum" = "Poisson deviance\n(cumulative cases)")
 
-# Create color key for simulations
+# Create color and label key for simulations
 color_brewer <- colorRampPalette(brewer.pal(n = 7, name = "Dark2"))
 simulation_aes <- tibble(Simulation = simulation_levels,
                          Color = color_brewer(length(simulation_levels)))
+simulation_aes <- simulation_aes %>% 
+  separate(Simulation, into = c("A", "B"), sep = ",") %>%
+  mutate(A = paste0("(a - ", A), B = paste0("b - ", B, ")")) %>%
+  unite(col = "Label", c(A, B), sep = " , ") %>%
+  full_join(., simulation_aes, by = "Color") %>%
+  relocate(Simulation)
 
 # Create shape and transparency key for threshold levels
 threshold_aes <- tibble(Threshold = threshold_levels,
@@ -244,7 +262,7 @@ Plot_Important_Dates <- function(countries, dates, order, out) {
                      limits = rev(countries_ordered)) 
   
   # Save plot to subfolder
-  ggsave(paste0(out, "Figure - Important dates.png"), plot = plot, width = 10, height = 8)
+  ggsave(paste0(out, "Figure - Important dates.png"), plot = plot, width = 8, height = 8)
   
   # Return plot
   return(plot)
@@ -269,8 +287,8 @@ dates <- bind_rows(tibble(Date = "Date_1",
                           Color = "darkorange",
                           Shape = "\u25CF",
                           Size = 4),
-                   tibble(Date = "Date_eased",
-                          Description = "easing",
+                   tibble(Date = "Date_lockdown_eased",
+                          Description = "lockdown easing",
                           Color = "forestgreen",
                           Shape = "\u25BC",
                           Size = 3))
@@ -325,6 +343,9 @@ Plot_Splines <- function(country, out) {
   y_max <- data_eur_country %>% filter(Date <= max_date) %>% pull(Daily_cases) %>% max
   y_max <- 1.2*y_max  # (add buffer)
   
+  # Define color for fitted lines
+  color <- simulation_aes %>% filter(Simulation == "0,0") %>% pull(Color)
+  
   # Plot observed cases
   plot <- ggplot(data = data_eur_country,
                  aes(x = Cumulative_cases_beg, y = Daily_cases)) +
@@ -378,36 +399,36 @@ Plot_Splines <- function(country, out) {
         plot <- plot +
           geom_segment(aes_(x = min_cc, xend = max_cc,
                             y = intercept_1 + slope_1*min_cc, yend = intercept_1 + slope_1*max_cc),
-                       color = "royalblue", size = 0.1, alpha = 0.1, linetype = "dashed")
+                       color = color, size = 0.15, alpha = 0.1, linetype = "dashed")
       } else {  # ONE knot point (at knot_date_2)
         plot <- plot +
           geom_segment(aes_(x = min_cc, xend = knot_2,
                             y = intercept_1 + slope_1*min_cc, yend = intercept_1 + slope_1*knot_2),
-                       color = "royalblue", size = 0.1, alpha = 0.1, linetype = "dashed") +
+                       color = color, size = 0.15, alpha = 0.1, linetype = "dashed") +
           geom_segment(aes_(x = knot_2, xend = max_cc,
                             y = intercept_2 + slope_2*knot_2, yend = intercept_2 + slope_2*max_cc),
-                       color = "royalblue", size = 0.1, alpha = 0.1, linetype = "dashed") 
+                       color = color, size = 0.15, alpha = 0.1, linetype = "dashed") 
       }
     } else {
       if (is.na(knot_date_2)) {  # ONE knot point (at knot_date_1)
         plot <- plot +
           geom_segment(aes_(x = min_cc, xend = knot_1,
                             y = intercept_1 + slope_1*min_cc, yend = intercept_1 + slope_1*knot_1),
-                       color = "royalblue", size = 0.1, alpha = 0.1, linetype = "dashed") +
+                       color = color, size = 0.15, alpha = 0.1, linetype = "dashed") +
           geom_segment(aes_(x = knot_1, xend = max_cc,
                             y = intercept_2 + slope_2*knot_1, yend = intercept_2 + slope_2*max_cc),
-                       color = "royalblue", size = 0.1, alpha = 0.1, linetype = "dashed") 
+                       color = color, size = 0.15, alpha = 0.1, linetype = "dashed") 
       } else {  # TWO knot points (at knot_date_1 and knot_date_2)
         plot <- plot +
           geom_segment(aes_(x = min_cc, xend = knot_1,
                             y = intercept_1 + slope_1*min_cc, yend = intercept_1 + slope_1*knot_1),
-                       color = "royalblue", size = 0.1, alpha = 0.1, linetype = "dashed") +
+                       color = color, size = 0.15, alpha = 0.1, linetype = "dashed") +
           geom_segment(aes_(x = knot_1, xend = knot_2,
                             y = intercept_2 + slope_2*knot_1, yend = intercept_2 + slope_2*knot_2),
-                       color = "royalblue", size = 0.1, alpha = 0.1, linetype = "dashed") +
+                       color = color, size = 0.15, alpha = 0.1, linetype = "dashed") +
           geom_segment(aes_(x = knot_2, xend = max_cc,
                             y = intercept_3 + slope_3*knot_2, yend = intercept_3 + slope_3*max_cc),
-                       color = "royalblue", size = 0.1, alpha = 0.1, linetype = "dashed") 
+                       color = color, size = 0.15, alpha = 0.1, linetype = "dashed") 
       }
     }  # (close if-else section)
   }  # (close fitted line section)
@@ -439,9 +460,18 @@ figure_splines <- foreach(i = countries_eur_lockdown, .errorhandling = "pass") %
 # Create figures (combined)
 rows <- cols <- length(figure_splines) %>% sqrt %>% ceiling
 p <- ggarrange(plotlist = figure_splines, nrow = rows, ncol = cols)
-p_annotated <- annotate_figure(p, top = text_grob("Exponential growth of Covid-19 cases: Cumulative versus incident cases", size = 30))
+p_annotated <- annotate_figure(p, top = text_grob("Exponential growth of COVID-19 cases: Cumulative versus incident cases", size = 30))
 ggsave(paste0(results_directory, "Figure - Fitted splines.png"),
-       plot = p, width = 6*cols, height = 6*rows, limitsize = FALSE)
+       plot = p_annotated, width = 6*cols, height = 6*rows, limitsize = FALSE)
+
+# Create combined figure for sample of countries
+countries <- list("Greece", "Switzerland", "Spain")
+index <- match(countries, countries_eur_lockdown)
+p <- ggarrange(plotlist = figure_splines[index], ncol = length(index),
+               labels = "AUTO")
+p_annotated <- annotate_figure(p, top = text_grob("Exponential growth of COVID-19 cases: Fitted splines", size = 20))
+ggsave(paste0(results_directory, "Figure - Fitted splines (sample).png"),
+       plot = p_annotated, width = 6*length(index), height = 6, limitsize = FALSE)
 
 rm(rows, cols, p, p_annotated)
 
@@ -729,18 +759,23 @@ plot_time_to_threshold <- Plot_Time_To_Threshold(countries = countries,
 
 # Function to create three-panel figure of simulation results for a specified country
 # (from functions Plot_Daily_Cases_Sim, Plot_Cumulative_Cases_Sim, Plot_Exponential_Growth_Sim)
-# with common legend and title
+# with common legend and title; and individual component figures
 # Arguments:
 # (1) country = country to plot
 # (2) simulations = vector of simulations to include
 # (3) thresholds = vector of thresholds to display in figures
 # (4) out = folder to save combined figure
+# Returns: list of 5 objects: combined 3-panel figure, 2-panel figure (incident and cumulative),
+# and each individual panel, with country as title
 Plot_Simulation_Results <- function(country, simulations, thresholds, out) {
   
   # Filter observed cases/deaths, best knots, and summary dataframes by country
   data_eur_country <- data_eur %>% filter(Country == country)
   knots_best_country <- knots_best %>% filter(Country == country)
   summary_eur_country <- summary_eur %>% filter(Country == country)
+  
+  # Filter simulation aesthetics dataframe by simulations
+  simulation_aes_filt <- simulation_aes %>% filter(Simulation %in% simulations)
   
   # Define important dates
   date_start <- summary_eur_country %>% pull(Date_start)  # first date of observed data included
@@ -793,8 +828,8 @@ Plot_Simulation_Results <- function(country, simulations, thresholds, out) {
     select(-Simulation_actual) 
   
   # Modify simulation aesthetics to reflect actual interventions implemented in country
-  simulation_aes_country <- simulations_actual_key %>% 
-    left_join(., simulation_aes, by = "Simulation") %>%
+  simulation_aes_actual <- simulations_actual_key %>% 
+    left_join(., simulation_aes_filt, by = "Simulation") %>%
     select(-Simulation) %>%
     rename(Simulation = Simulation_actual)
   
@@ -817,29 +852,36 @@ Plot_Simulation_Results <- function(country, simulations, thresholds, out) {
     max_date <- max(date_lowest_threshold + 14, date_T + 14)
   }
   
-  # Create plots
+  # Create plots for triple panel figure
   plot_inc <- Plot_Daily_Cases_Sim(country = country,
+                                   title = "Incident cases of COVID-19",
+                                   labs = TRUE,
                                    min_date = min_date, 
                                    max_date = max_date,
                                    obs_data = data_eur_country,
                                    sim_data = summary_cases_sim_country,
                                    threshold_data = summary_thresholds_sim_country,
                                    simulations = simulations_actual,
-                                   aesthetics = simulation_aes_country)
+                                   aesthetics = simulation_aes_actual)
   plot_cum <- Plot_Cumulative_Cases_Sim(country = country, 
+                                        title = "Cumulative cases of COVID-19",
+                                        labs = TRUE,
                                         min_date = min_date, 
                                         max_date = max_date,
                                         obs_data = data_eur_country,
                                         sim_data = summary_cases_sim_country,
                                         simulations = simulations_actual,
-                                        aesthetics = simulation_aes_country,
-                                        date_T = date_T)
+                                        aesthetics = simulation_aes_actual,
+                                        date_T = date_T, 
+                                        print_cases = TRUE)
   plot_exp <- Plot_Exponential_Growth_Sim(country = country,
+                                          title = "Cumulative vs incident cases of COVID-19",
+                                          labs = TRUE,
                                           max_date = max_date,
                                           obs_data = data_eur_country,
                                           sim_data = summary_cases_sim_country,
                                           simulations = simulations_actual,
-                                          aesthetics = simulation_aes_country,
+                                          aesthetics = simulation_aes_actual,
                                           knots = knots_best_country, 
                                           date_start = date_start, 
                                           date_T = date_T)
@@ -847,14 +889,60 @@ Plot_Simulation_Results <- function(country, simulations, thresholds, out) {
   # Combine in triple panel with common legend and country as title
   plots_all <- ggarrange(plotlist = list(plot_inc, plot_cum, plot_exp), align = "h",
                          common.legend = TRUE, legend = "bottom", nrow = 1, ncol = 3)
-  plots_all_annotated <- annotate_figure(plots_all, top = text_grob(paste0(country),  size = 20),
+  plots_all_annotated <- annotate_figure(plots_all, top = text_grob(paste0(country), size = 20),
                                          bottom = text_grob("Data from https://github.com/CSSEGISandData/COVID-19", size = 8))
   
-  # Save plot to subfolder
+  # Save combined plot to subfolder
   ggsave(paste0(out, "/", country, ".png"), plot = plots_all_annotated, width = 6*3, height = 6)
   
-  # Return combined plots
-  return(list(plots_all_annotated))
+  # Combine only incident and cumulative cases in double panel with common legend 
+  # and country as title
+  plots_two <- ggarrange(plotlist = list(plot_inc, plot_cum), align = "h",
+                         common.legend = TRUE, legend = "bottom", nrow = 1, ncol = 2)
+  plots_two_annotated <- annotate_figure(plots_two, top = text_grob(paste0(country),  size = 20),
+                                         bottom = text_grob(" ", size = 20))
+  
+  # Create figure for each of incident, cumulative, and incident vs cumulative cases separately,
+  # with country as title and no printing of cases on date_T
+  plot_inc <- Plot_Daily_Cases_Sim(country = country,
+                                   title = country,
+                                   labs = FALSE,
+                                   min_date = min_date, 
+                                   max_date = max_date,
+                                   obs_data = data_eur_country,
+                                   sim_data = summary_cases_sim_country,
+                                   threshold_data = summary_thresholds_sim_country,
+                                   simulations = simulations,
+                                   aesthetics = simulation_aes_filt)
+  plot_cum <- Plot_Cumulative_Cases_Sim(country = country, 
+                                        title = country,
+                                        labs = FALSE,
+                                        min_date = min_date, 
+                                        max_date = max_date,
+                                        obs_data = data_eur_country,
+                                        sim_data = summary_cases_sim_country,
+                                        simulations = simulations,
+                                        aesthetics = simulation_aes_filt,
+                                        date_T = date_T, 
+                                        print_cases = FALSE)
+  plot_exp <- Plot_Exponential_Growth_Sim(country = country,
+                                          title = country,
+                                          labs = FALSE,
+                                          max_date = max_date,
+                                          obs_data = data_eur_country,
+                                          sim_data = summary_cases_sim_country,
+                                          simulations = simulations,
+                                          aesthetics = simulation_aes_filt,
+                                          knots = knots_best_country, 
+                                          date_start = date_start, 
+                                          date_T = date_T)
+  
+  # Return list combined plots
+  return(list(plots_all_annotated = plots_all_annotated,
+              plots_two_annotated = plots_two_annotated,
+              plot_inc = plot_inc,
+              plot_cum = plot_cum,
+              plot_exp = plot_exp))
   
 }
 
@@ -862,14 +950,17 @@ Plot_Simulation_Results <- function(country, simulations, thresholds, out) {
 # with simulated cumulative cases (natural and/or counterfactual histories) overlaid
 # Arguments:
 # (1) country = country to plot 
-# (2) min_date = min date to display
-# (3) max_date = max date to display
-# (4) obs_data = dataframe of observed incidence/cumulative cases data for given country
-# (5) sim_data = dataframe of simulated incidence/cumulate cases data for given country
-# (6) simulations = vector of simulations to include
-# (7) aesthetics = aesthetic mapping for simulation onto colours for given country
-# (8) threshold_data = dataframe containing population-based thresholds and threshold values
-Plot_Daily_Cases_Sim <- function(country, min_date, max_date, obs_data, sim_data, 
+# (2) title = title of plot
+# (3) labs = whether axes should be labelled (TRUE/FALSE)
+# (4) min_date = min date to display
+# (5) max_date = max date to display
+# (6) obs_data = dataframe of observed incidence/cumulative cases data for given country
+# (7) sim_data = dataframe of simulated incidence/cumulate cases data for given country
+# (8) simulations = vector of simulations to include
+# (9) aesthetics = aesthetic mapping for simulation onto colours for given country
+# (10) threshold_data = dataframe containing population-based thresholds and threshold values
+Plot_Daily_Cases_Sim <- function(country, title, labs = c(TRUE, FALSE), 
+                                 min_date, max_date, obs_data, sim_data, 
                                  simulations, aesthetics, threshold_data) {
   
   # Define x-axis range
@@ -900,7 +991,7 @@ Plot_Daily_Cases_Sim <- function(country, min_date, max_date, obs_data, sim_data
                  aes(x = Date, y = Daily_cases)) +
     theme_minimal() +
     theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
-    labs(title = "Incident cases of COVID-19") +
+    labs(title = title) +
     geom_col(data = filter(obs_data, In_range == FALSE), 
              aes(x = Date, y = Daily_cases), alpha = 0.2) +
     geom_col(data = filter(obs_data, In_range == TRUE), 
@@ -917,9 +1008,10 @@ Plot_Daily_Cases_Sim <- function(country, min_date, max_date, obs_data, sim_data
               show.legend = FALSE) +
     scale_alpha_manual(values = threshold_aes$Alpha, 
                        breaks = threshold_aes$Threshold) +
-    scale_x_date(name = "Date", limits = c(x_min, x_max), 
+    scale_x_date(name = ifelse(labs == TRUE, "Date", ""), 
+                 limits = c(x_min, x_max), 
                  date_breaks = "1 month", date_labels = "%b\n%y") +
-    scale_y_continuous(name = "Daily number of cases",
+    scale_y_continuous(name = ifelse(labs == TRUE, "Daily number of cases", " "),
                        labels = comma_format(accuracy = 1)) +
     coord_cartesian(ylim = c(y_min, y_max), expand = FALSE)
   
@@ -938,10 +1030,14 @@ Plot_Daily_Cases_Sim <- function(country, min_date, max_date, obs_data, sim_data
                 alpha = 0.15) +
     scale_color_manual(name = "Simulation:",
                        values = aesthetics$Color, 
-                       breaks = aesthetics$Simulation) +
+                       limits = aesthetics$Simulation,
+                       breaks = aesthetics$Simulation,
+                       labels = aesthetics$Label) +
     scale_fill_manual(name = "Simulation:",
                       values = aesthetics$Color, 
-                      breaks = aesthetics$Simulation)
+                      limits = aesthetics$Simulation,
+                      breaks = aesthetics$Simulation,
+                      labels = aesthetics$Label)
   
   # Return plot
   return(plot)
@@ -952,15 +1048,19 @@ Plot_Daily_Cases_Sim <- function(country, min_date, max_date, obs_data, sim_data
 # with simulated cumulative cases (natural and/or counterfactual histories) overlaid
 # Arguments:
 # (1) country = country to plot 
-# (2) min_date = min date to display
-# (3) max_date = max date to display
-# (4) obs_data = dataframe of observed incidence/cumulative cases data for given country
-# (5) sim_data = dataframe of simulated incidence/cumulate cases data for given country
-# (6) simulations = vector of simulations to include
-# (7) aesthetics = aesthetic mapping for simulation onto colours for given country
-# (8) date_T = last date of observed data included in modelling period
-Plot_Cumulative_Cases_Sim <- function(country, min_date, max_date, obs_data, sim_data, 
-                                      simulations, aesthetics, date_T) {
+# (2) title = title of plot
+# (3) labs = whether axes should be labelled (TRUE/FALSE)
+# (4) min_date = min date to display
+# (5) max_date = max date to display
+# (6) obs_data = dataframe of observed incidence/cumulative cases data for given country
+# (7) sim_data = dataframe of simulated incidence/cumulate cases data for given country
+# (8) simulations = vector of simulations to include
+# (9) aesthetics = aesthetic mapping for simulation onto colours for given country
+# (10) date_T = last date of observed data included in modelling period
+# (11) print_cases = whether to print value cases on date_T on plot (TRUE/FALSE)
+Plot_Cumulative_Cases_Sim <- function(country, title, labs = c(TRUE, FALSE), 
+                                      min_date, max_date, obs_data, sim_data, 
+                                      simulations, aesthetics, date_T, print_cases = c(TRUE, FALSE)) {
   
   # Define x-axis range
   x_min <- min_date
@@ -974,23 +1074,24 @@ Plot_Cumulative_Cases_Sim <- function(country, min_date, max_date, obs_data, sim
   y_max <- max(filter(sim_data, Date <= max_date)$C_975_cumulative_cases_end, 
                filter(obs_data, In_range == TRUE)$Cumulative_cases_end)
   
-  # Plot observed cases and threshold values
+  # Plot observed cases 
   plot <- ggplot(data = obs_data,
                  aes(x = Date, y = Cumulative_cases_end)) +
     theme_minimal() +
     theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
-    labs(title = "Cumulative cases of COVID-19") +
+    labs(title = title) +
     geom_col(data = filter(obs_data, In_range == FALSE), 
              aes(x = Date, y = Cumulative_cases_end), alpha = 0.2) +
     geom_col(data = filter(obs_data, In_range == TRUE), 
              aes(x = Date, y = Cumulative_cases_end), alpha = 0.5) +
-    scale_x_date(name = "Date", limits = c(x_min, x_max), 
+    scale_x_date(name = ifelse(labs == TRUE, "Date", ""), 
+                 limits = c(x_min, x_max), 
                  date_breaks = "1 month", date_labels = "%b\n%y") +
-    scale_y_continuous(name = "Cumulative number of cases",
+    scale_y_continuous(name = ifelse(labs == TRUE, "Cumulative number of cases", ""),
                        labels = comma_format(accuracy = 1)) +
     coord_cartesian(ylim = c(y_min, y_max), expand = FALSE)
   
-  # Add simulated lines, text containing cumulative cases on date_T
+  # Add simulated lines
   plot <- plot + 
     geom_line(data = sim_data,
               aes(x = Date, y = Mean_cumulative_cases_end, 
@@ -1004,22 +1105,32 @@ Plot_Cumulative_Cases_Sim <- function(country, min_date, max_date, obs_data, sim
                     group = Simulation,
                     fill = Simulation),
                 alpha = 0.15) +
-    geom_text_repel(data = sim_data,
-                    aes(x = Date, y = Mean_cumulative_cases_end,
-                        color = Simulation,
-                        label = ifelse(Date == date_T, 
-                                       formatC(Mean_cumulative_cases_end, 
-                                               format = "f", big.mark = ",", digits = 0), "")),
-                    bg.color = "white", bg.r = 0.25,
-                    hjust = 0.5, vjust = 0.5, size = 3, fontface = 2, 
-                    inherit.aes = FALSE,
-                    max.overlaps = Inf) +
     scale_color_manual(name = "Simulation:",
                        values = aesthetics$Color, 
-                       breaks = aesthetics$Simulation) +
+                       limits = aesthetics$Simulation,
+                       breaks = aesthetics$Simulation,
+                       labels = aesthetics$Label) +
     scale_fill_manual(name = "Simulation:",
                       values = aesthetics$Color, 
-                      breaks = aesthetics$Simulation)
+                      limits = aesthetics$Simulation,
+                      breaks = aesthetics$Simulation,
+                      labels = aesthetics$Label)
+  
+  # If print_cases = TRUE, add text for cumulative cases on date_T
+  if (print_cases == TRUE) {
+    plot <- plot + 
+      geom_text_repel(data = sim_data,
+                      aes(x = Date, y = Mean_cumulative_cases_end,
+                          color = Simulation,
+                          label = ifelse(Date == date_T, 
+                                         formatC(Mean_cumulative_cases_end, 
+                                                 format = "f", big.mark = ",", digits = 0), "")),
+                      bg.color = "white", bg.r = 0.25,
+                      hjust = 0.5, vjust = 0.5, size = 3, fontface = 2, 
+                      inherit.aes = FALSE,
+                      max.overlaps = Inf, 
+                      show.legend = FALSE)
+  }
   
   # Return plot
   return(plot)
@@ -1030,15 +1141,18 @@ Plot_Cumulative_Cases_Sim <- function(country, min_date, max_date, obs_data, sim
 # with fitted splines and simulated cumulative vs daily cases (natural and/or counterfactual) overlaid
 # Arguments:
 # (1) country = country to plot 
-# (2) max_date = max date to display
-# (3) obs_data = dataframe of observed incidence/cumulative cases data
-# (4) sim_data = dataframe of simulated incidence/cumulative cases data
-# (5) simulations = vector of simulations to include
-# (6) aesthetics = aesthetic mapping for simulation onto colours for given country
-# (7) knots = dataframe of spline parameters (knot points, growth factors)
-# (8) date_start = first date of observed data included in modelling period
-# (9) date_T = last date of observed data included in modelling period
-Plot_Exponential_Growth_Sim <- function(country, max_date, obs_data, sim_data, 
+# (2) title = title of plot
+# (3) labs = whether axes should be labelled (TRUE/FALSE)
+# (4) max_date = max date to display
+# (5) obs_data = dataframe of observed incidence/cumulative cases data
+# (6) sim_data = dataframe of simulated incidence/cumulative cases data
+# (7) simulations = vector of simulations to include
+# (8) aesthetics = aesthetic mapping for simulation onto colours for given country
+# (9) knots = dataframe of spline parameters (knot points, growth factors)
+# (10) date_start = first date of observed data included in modelling period
+# (11) date_T = last date of observed data included in modelling period
+Plot_Exponential_Growth_Sim <- function(country, title, labs = c(TRUE, FALSE), 
+                                        max_date, obs_data, sim_data, 
                                         simulations, aesthetics, knots, date_start, date_T) {
   
   # Define x-axis range (cumulative cases)
@@ -1064,7 +1178,7 @@ Plot_Exponential_Growth_Sim <- function(country, max_date, obs_data, sim_data,
                  aes(x = Cumulative_cases_beg, y = Daily_cases)) +
     theme_minimal() +
     theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
-    labs(title = "Cumulative vs incident cases of COVID-19") +
+    labs(title = title) +
     geom_path(data = filter(obs_data, Date <= date_start),
               aes(x = Cumulative_cases_beg, y = Daily_cases), alpha = 0.2) +
     geom_path(data = filter(obs_data, In_range == TRUE),
@@ -1073,9 +1187,9 @@ Plot_Exponential_Growth_Sim <- function(country, max_date, obs_data, sim_data,
               aes(x = Cumulative_cases_beg, y = Daily_cases), alpha = 0.2) +
     geom_point(data = filter(obs_data, In_range == TRUE),
                alpha = 0.5, size = 0.5) +
-    scale_x_continuous(name = "Cumulative number of cases",
+    scale_x_continuous(name = ifelse(labs == TRUE, "Cumulative number of cases", ""),
                        labels = comma_format(accuracy = 1)) + 
-    scale_y_continuous(name = "Daily number of cases",
+    scale_y_continuous(name = ifelse(labs == TRUE, "Daily number of cases", ""),
                        labels = comma_format(accuracy = 1)) +
     coord_cartesian(xlim = c(x_min, x_max), ylim = c(y_min, y_max), expand = FALSE)
   
@@ -1153,7 +1267,9 @@ Plot_Exponential_Growth_Sim <- function(country, max_date, obs_data, sim_data,
                            size = 1) +
     scale_color_manual(name = "Simulation:",
                        values = aesthetics$Color, 
-                       breaks = aesthetics$Simulation)
+                       limits = aesthetics$Simulation,
+                       breaks = aesthetics$Simulation,
+                       labels = aesthetics$Label)
   
   # Return plot
   return(plot)
@@ -1181,12 +1297,46 @@ simulations <- c("0,0", "0,3", "0,7", "3,3", "7,7")
 # Specify thresholds to include in figure
 thresholds <- summary_thresholds_sim_all %>% pull(Threshold) %>% unique
 
-# Create figures
+# Create combined figures for each country
 figure_sim_results <- foreach(i = countries, .errorhandling = "pass") %do% 
   Plot_Simulation_Results(country = i, 
                           simulations = simulations,
                           thresholds = thresholds, 
                           out = out_folder)
+
+# Create multipanel figures of simulated incident and cumulative cases 
+# for all countries, and save
+rows <- 7; cols <- 5
+figure_sim_results_inc <- figure_sim_results %>%
+  map(., .f = ~.x$plot_inc) %>%
+  ggarrange(plotlist = ., nrow = rows, ncol = cols,
+            common.legend = TRUE, legend = "bottom") %>%
+  annotate_figure(.,
+                  top = text_grob("Simulated incident cases of COVID-19", size = 50),
+                  left = text_grob("Incident number of cases", rot = 90, size = 15),
+                  bottom = text_grob("Date", size = 15))
+figure_sim_results_cum <- figure_sim_results %>%
+  map(., .f = ~.x$plot_cum) %>%
+  ggarrange(plotlist = ., nrow = rows, ncol = cols,
+            common.legend = TRUE, legend = "bottom") %>%
+  annotate_figure(.,
+                  top = text_grob("Simulated cumulative cases of COVID-19", size = 50),
+                  left = text_grob("Cumulative number of cases", rot = 90, size = 15),
+                  bottom = text_grob("Date", size = 15))
+#ggsave(paste0(results_directory, "Figure - Simulation results (incident cases).png"),
+#       plot = figure_sim_results_inc, width = 6*cols, height = 6*rows, limitsize = FALSE)
+#ggsave(paste0(results_directory, "Figure - Simulation results (cumulative cases).png"),
+#       plot = figure_sim_results_cum, width = 6*cols, height = 6*rows, limitsize = FALSE)
+
+# Create combined figure of incident and cumulative cases for sample of countries
+countries_sample <- list("Greece", "Switzerland", "Spain")
+index <- match(countries_sample, countries_eur_lockdown)
+figure_sim_results_sample <- index %>% 
+  map(., .f = ~figure_sim_results[[.x]]) %>%
+  map(., .f = ~.x$plots_two_annotated) %>%
+  ggarrange(plotlist = ., nrow = length(index), labels = "AUTO")
+ggsave(paste0(results_directory, "Figure - Simulation results (sample).png"),
+       plot = figure_sim_results_sample, width = 6*2, height = 6*length(index), limitsize = FALSE)
 
 # ------------------------------------------------------------------------------
 # Simulation results: model residuals
@@ -1436,11 +1586,15 @@ Plot_Between_Country_Effects <- function(exposures = c("Daily_cases_MA7",
     bind_rows
   
   # Plot length of lockdown
-  plot_length_lockdown <- Plot_Between_Length_Lockdown(effects = effects_between_countries_exposures)
-  
+  if ("plot_length_lockdown" %in% plots) {
+    plot_length_lockdown <- Plot_Between_Length_Lockdown(effects = effects_between_countries_exposures)
+  } 
+
   # Plot growth factor under lockdown
-  plot_growth_factor <- Plot_Between_Growth_Factor(effects = effects_between_countries_exposures)
-  
+  if ("plot_growth_factor" %in% plots) {
+    plot_growth_factor <- Plot_Between_Growth_Factor(effects = effects_between_countries_exposures)
+  }
+
   # Create list of specified plots
   plot_list <- map(.x = plots, .f = ~eval(parse(text = .x)))
   
@@ -1455,8 +1609,8 @@ Plot_Between_Country_Effects <- function(exposures = c("Daily_cases_MA7",
          plot = plots_all_annotated, width = 3*n_exp*n_plots, height = 7)
   
   # Return list of individual and combined plots
-  return(list(plot_length_lockdown = plot_length_lockdown, 
-              plot_growth_factor = plot_growth_factor,
+  return(list(plot_length_lockdown = ifelse(exists("plot_length_lockdown"), plot_length_lockdown, NA), 
+              plot_growth_factor = ifelse(exists("plot_growth_factor"), plot_growth_factor, NA),
               plot_combined = plots_all_annotated))
   
 }
@@ -1562,8 +1716,7 @@ Plot_Between_Growth_Factor <- function(effects) {
 # Create figures
 figure_between_country_effects <- Plot_Between_Country_Effects(exposures = c("Daily_cases_MA7",
                                                                              "Cumulative_cases_beg"),
-                                                               plots = c("plot_length_lockdown",
-                                                                         "plot_growth_factor"),
+                                                               plots = c("plot_length_lockdown"),
                                                                out = results_directory)
 
 ## (2) Within-country effects --------------------------------------------------
@@ -1589,9 +1742,11 @@ Plot_Within_Country_Effects <- function(simulations,
   n_sim <- length(simulations)
   n_plots <- length(plots)
   
-  # Filter within-country effects dataframe by specified simulations
+  # Filter within-country effects dataframe by specified simulations, 
+  # and convert proportions to percentages
   effects_within_countries_counterfactual <- effects_within_countries %>%
-    filter(Simulation %in% simulations)
+    filter(Simulation %in% simulations) %>%
+    mutate(Pct_change = 100*Pct_change)
   
   # Plot length of lockdown
   plot_length_lockdown <- Plot_Within_Length_Lockdown(effects = effects_within_countries_counterfactual)
@@ -1614,7 +1769,7 @@ Plot_Within_Country_Effects <- function(simulations,
   
   # Save combined plot to Results folder
   ggsave(paste0(out, "Figure - Effects within countries - ", description, ".png"), 
-         plot = plots_all_annotated, width = 1.5*n_sim*n_plots, height = 7)
+         plot = plots_all_annotated, width = 1.1*n_sim*n_plots, height = 7)
   
   # Return list of individual and combined plots
   return(list(plot_time_to_thresholds = plot_time_to_thresholds,
@@ -1644,19 +1799,22 @@ Plot_Within_Length_Lockdown <- function(effects) {
           axis.ticks.x = element_blank(),
           panel.background = element_rect(fill = "gray90"),
           panel.grid.major = element_line(color = "white"),
-          strip.text = element_text(color = "gray20")) +
+          strip.text = element_text(color = "gray20"),
+          ggh4x.facet.nestline = element_line(color = "gray20", size = 0.2)) +
     guides(color = FALSE) +
     geom_hline(yintercept = 0, color = "gray20", lty = "dashed") +
     labs(title = "Effect on length of lockdown",
-         y = "Percentage change compared to natural history (0,0)") +
+         y = "Percentage change compared to natural history (a , b)") +
     geom_point(shape = 16, alpha = 0.6) +
     stat_summary(fun = median, shape = 18, size = 1.5) +
-    facet_grid(. ~ History + Simulation,
-               scale = "free") +
+    facet_nested(. ~ History + Simulation,
+                 nest_line = TRUE, scale = "free",
+                 labeller = labeller(Simulation = simulation_labels)) +
     scale_color_manual(values = simulation_aes$Color, 
-                       breaks = simulation_aes$Simulation) +
+                       breaks = simulation_aes$Simulation,
+                       labels = simulation_aes$Label) +
     scale_x_discrete(labels = threshold_labels) +
-    scale_y_continuous(limits = c(-1, 0))
+    scale_y_continuous(limits = c(-100, 0))
   
   # Return plot
   return(plot)
@@ -1679,21 +1837,25 @@ Plot_Within_Time_To_Thresholds <- function(effects) {
                      color = Simulation)) +
     theme_light() +
     theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
-          axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5),
+          axis.text.x = element_text(angle = 90, size = 6, hjust = 0.95, vjust = 0.5),
           panel.background = element_rect(fill = "gray90"),
           panel.grid.major = element_line(color = "white"),
-          strip.text = element_text(color = "gray20")) +
+          strip.text = element_text(color = "gray20"),
+          ggh4x.facet.nestline = element_line(color = "gray20", size = 0.2)) +
     guides(color = FALSE) +
     geom_hline(yintercept = 0, color = "gray20", lty = "dashed") +
     labs(title = "Effect on time to reach thresholds",
-         y = "Percentage change compared to natural history (0,0)") +
+         y = "Percentage change compared to natural history (a , b)") +
     geom_point(shape = 16, alpha = 0.6) +
     stat_summary(fun = median, shape = 18, size = 1.5) +
-    facet_grid(. ~ History + Simulation) +
+    facet_nested(. ~ History + Simulation,
+                 nest_line = TRUE,
+                 labeller = labeller(Simulation = simulation_labels)) +
     scale_color_manual(values = simulation_aes$Color, 
-                       breaks = simulation_aes$Simulation) +
+                       breaks = simulation_aes$Simulation,
+                       labels = simulation_aes$Label) +
     scale_x_discrete(labels = threshold_labels) +
-    scale_y_continuous(limits = c(-1, 0))
+    scale_y_continuous(limits = c(-100, 0))
   
   # Return plot
   return(plot)
@@ -1721,18 +1883,21 @@ Plot_Within_Total_Cases <- function(effects) {
           axis.ticks.x = element_blank(),
           panel.background = element_rect(fill = "gray90"),
           panel.grid.major = element_line(color = "white"),
-          strip.text = element_text(color = "gray20")) +
+          strip.text = element_text(color = "gray20"),
+          ggh4x.facet.nestline = element_line(color = "gray20", size = 0.2)) +
     guides(color = FALSE) +
     geom_hline(yintercept = 0, color = "gray20", lty = "dashed") +
     labs(title = "Effect on total cases",
-         y = "Percentage change compared to natural history (0,0)") +
+         y = "Percentage change compared to natural history (a , b)") +
     geom_point(shape = 16, alpha = 0.6) +
     stat_summary(fun = median, shape = 18, size = 1.5) +
-    facet_grid(. ~ History + Simulation,
-               scale = "free") +
+    facet_nested(. ~ History + Simulation,
+                 nest_line = TRUE, scale = "free",
+                 labeller = labeller(Simulation = simulation_labels)) +
     scale_color_manual(values = simulation_aes$Color, 
-                       breaks = simulation_aes$Simulation) +
-    scale_y_continuous(limits = c(-1, 0))
+                       breaks = simulation_aes$Simulation,
+                       labels = simulation_aes$Label) +
+    scale_y_continuous(limits = c(-100, 0))
   
   # Return plot
   return(plot)
