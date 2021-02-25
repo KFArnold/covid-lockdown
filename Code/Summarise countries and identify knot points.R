@@ -481,13 +481,13 @@ Estimate_Best_Knots <- function(country, criteria = c("Pois_dev_inc", "Pois_dev_
     knot_date_2 <- knot_dates[[i, "Knot_date_2"]]
     
     # Estimate growth parameters
-    ## If first knot occurs at first date for which we begin modelling,
+    ## If first knot occurs before or at first date for which we begin modelling,
     ## there may be either no knots, OR 1 knot (occurring at knot_date_2).
     ## Otherwise, there may be either 1 knot (occurring at knot_date_1),
     ## OR 2 knots (occurring at knot_date_1 and knot_date_2)
-    if (knot_date_1 == date_start) {
+    if (knot_date_1 <= date_start) {
       
-      if (is.na(knot_date_2)) {  # NO knot points
+      if (is.na(knot_date_2) | knot_date_2 <= date_start) {  # NO knot points
         
         # Set number of knot points
         n_knots <- 0
@@ -686,10 +686,14 @@ Calculate_Potential_Knots <- function(country, date_first_restriction, date_lock
     possible_knot_dates_1 <- seq(from = date_first_restriction + window[1], 
                                  to = date_first_restriction + window[2], by = 1)
     
-    # Create grid of potential knot dates, with restriction that they fall within modelling period
+    # Create grid of potential knot dates
     grid <- tibble("Knot_date_1" = possible_knot_dates_1) %>% 
-      filter(Knot_date_1 >= date_start, Knot_date_1 < date_T) %>% 
       mutate("Knot_date_2" = as.Date(NA))
+    
+    # If multiple combinations have knot_date_1 < date_start, 
+    # remove all but one, since these cannot be distinguished from one another
+    remove <- grid %>% filter(Knot_date_1 < date_start) %>% head(-1)
+    grid <- anti_join(grid, remove, by = names(grid))
     
   } else { # Countries with potentially two distinct interventions
     
@@ -699,12 +703,17 @@ Calculate_Potential_Knots <- function(country, date_first_restriction, date_lock
     possible_knot_dates_2 <- seq(from = date_lockdown + window[1], 
                                  to = date_lockdown + window[2], by = 1)
     
-    # Create grid of potential knot dates, with restriction that they fall within modelling period
-    # and that first knot date is before/at the same time as second
-    grid <- tibble(expand.grid(possible_knot_dates_2, possible_knot_dates_1))
-    names(grid) <- c("Knot_date_2", "Knot_date_1")
-    grid <- grid %>% select("Knot_date_1", "Knot_date_2") %>% 
-      filter(Knot_date_1 <= Knot_date_2, Knot_date_1 >= date_start, Knot_date_2 < date_T)  
+    # Create grid of potential knot dates, with restriction that 
+    # first knot date is before/at the same time as second
+    grid <- expand_grid("Knot_date_1" = possible_knot_dates_1,
+                        "Knot_date_2" = possible_knot_dates_2) %>% 
+      filter(Knot_date_1 <= Knot_date_2)
+    
+    # For each knot_date_2, if there are multiple values of knot_date_1 < date_start,
+    # remove all but one, since these cannot be distinguished from one another
+    remove <- grid %>% group_by(Knot_date_2) %>%
+      filter(Knot_date_1 < date_start) %>% head(-1) %>% ungroup
+    grid <- anti_join(grid, remove, by = names(grid))
     
     # If first knot date equals second knot date, replace second with NA 
     # (i.e. effects of interventions realised on same day)
@@ -999,11 +1008,6 @@ median_growth_factors <- knots_best %>% summarise(Median_growth_factor_1 = media
 # Export knots_best dataframe
 write_csv(knots_best, file = paste0(results_directory, "knots_best.csv"))
 
-# Create list of countries for which best knot points could be estimated
-# (i.e. those which can be modelled) and save
-countries_eur_modelled <- knots_best %>% pull(Country) %>% unique %>% as.list
-save(countries_eur_modelled, file = paste0(results_directory, "countries_eur_modelled.RData"))
-
 # Export median growth factors
 write_csv(median_growth_factors, file = paste0(results_directory, "median_growth_factors.csv"))
 
@@ -1129,4 +1133,9 @@ possible_days_counterfactual <- foreach(i = countries_eur_modelled,
 
 # Export dataframe containing possible counterfactual days
 write_csv(possible_days_counterfactual, file = paste0(results_directory, "possible_days_counterfactual.csv"))
+
+# Create list of countries which can be modelled, save
+countries_eur_modelled <- possible_days_counterfactual %>% 
+  filter(Max_n_knots != 0) %>% pull(Country) %>% unique %>% as.list
+save(countries_eur_modelled, file = paste0(results_directory, "countries_eur_modelled.RData"))
 
