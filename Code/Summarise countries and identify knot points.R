@@ -473,7 +473,7 @@ Estimate_Best_Knots <- function(country, criteria = c("Pois_dev_inc", "Pois_dev_
                            Pois_dev_cum = as.numeric())
   
   # (1) Iterate through pairs of candidate knot dates
-  # Estimate growth parameters, estimate growth using those parameters
+  # Estimate growth parameters, and estimate growth using those parameters
   for (i in 1:nrow(knot_dates)) {
     
     # Set knot dates
@@ -481,10 +481,9 @@ Estimate_Best_Knots <- function(country, criteria = c("Pois_dev_inc", "Pois_dev_
     knot_date_2 <- knot_dates[[i, "Knot_date_2"]]
     
     # Estimate growth parameters
-    ## If first knot occurs at first date for which cases exceeded pop pct threshold (i.e. when we begin modelling),
-    ## there may be either no knots (i.e. knot occured before or at date_start)
-    ## OR 1 knot (occurring at knot_date_2).
-    ## Otherwise, there may be either 1 knot (occurring at knot_date_1)
+    ## If first knot occurs at first date for which we begin modelling,
+    ## there may be either no knots, OR 1 knot (occurring at knot_date_2).
+    ## Otherwise, there may be either 1 knot (occurring at knot_date_1),
     ## OR 2 knots (occurring at knot_date_1 and knot_date_2)
     if (knot_date_1 == date_start) {
       
@@ -847,11 +846,22 @@ Estimate_Growth <- function(date_start, date_end, start_value,
     # Define growth parameters
     if (n_knots == 0) {  # NO knot points
       
+      # Define growth factor
       growth <- parameters$Growth_factor_1  
       
     } else if (n_knots == 1) {  # ONE knot point
       
-      if (t <= knot_date_1) {
+      # Set value of knot point:
+      # If knot_date_1 falls on date when we begin modelling, then knot point is really knot_date_2;
+      # Otherwise, the knot point is knot_date_1
+      if (date_start == knot_date_1) {
+        knot_date <- knot_date_2
+      } else {
+        knot_date <- knot_date_1
+      }
+      
+      # Define growth factor
+      if (t <= knot_date) {
         growth <- parameters$Growth_factor_1
       } else {
         growth <- parameters$Growth_factor_2
@@ -859,6 +869,7 @@ Estimate_Growth <- function(date_start, date_end, start_value,
       
     } else {  # TWO knot points
       
+      # Define growth factor
       if (t <= knot_date_1) {
         growth <- parameters$Growth_factor_1
       } else if (t <= knot_date_2) {
