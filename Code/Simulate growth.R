@@ -308,6 +308,7 @@ Simulate_Growth <- function(date_start, date_end, start_value,
     # Define growth parameters
     if (n_knots == 0) {  # NO knot points
       
+      # Define growth factor
       growth <- rlnorm(n = n_runs,
                        meanlog = Calculate_mean_log(mean = parameters$Growth_factor_1, 
                                                     sd = parameters$Growth_factor_1_sd),
@@ -316,7 +317,17 @@ Simulate_Growth <- function(date_start, date_end, start_value,
       
     } else if (n_knots == 1) {  # ONE knot point
       
-      if (t <= knot_date_1) {
+      # Set value of knot point:
+      # If knot_date_1 falls on date when we begin modelling, then knot point is really knot_date_2;
+      # Otherwise, the knot point is knot_date_1
+      if (date_start == knot_date_1) {
+        knot_date <- knot_date_2
+      } else {
+        knot_date <- knot_date_1
+      }
+      
+      # Define growth factor
+      if (t <= knot_date) {
         growth <- rlnorm(n = n_runs,
                          meanlog = Calculate_mean_log(mean = parameters$Growth_factor_1, 
                                                       sd = parameters$Growth_factor_1_sd),
@@ -329,8 +340,10 @@ Simulate_Growth <- function(date_start, date_end, start_value,
                          sdlog = Calculate_sd_log(mean = parameters$Growth_factor_2, 
                                                   sd = parameters$Growth_factor_2_sd))
       }
+      
     } else {  # TWO knot points
       
+      # Define growth factor
       if (t <= knot_date_1) {
         growth <- rlnorm(n = n_runs,
                          meanlog = Calculate_mean_log(mean = parameters$Growth_factor_1, 
