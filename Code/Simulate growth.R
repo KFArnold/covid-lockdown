@@ -495,7 +495,7 @@ cluster <- parallel::makeCluster(n_cores[1] - 1, setup_strategy = "sequential")
 registerDoSNOW(cluster)
 
 # Set up progress bar
-iterations <- length(countries_eur_modelled)
+iterations <- length(countries_eur_lockdown)
 progress_bar <- txtProgressBar(min = 1, max = iterations, style = 3)
 progress <- function(n) { setTxtProgressBar(progress_bar, n) }
 options <- list(progress = progress)
@@ -535,7 +535,7 @@ summary_thresholds_sim <- map(.x = sim_data,
 #
 ## Simulation
 #start <- Sys.time()
-#sim_data <- foreach(i = countries_eur_modelled, .errorhandling = "pass") %do% 
+#sim_data <- foreach(i = countries_eur_lockdown, .errorhandling = "pass") %do% 
 #  Simulate_Counterfactual(country = i, 
 #                          n_days_first_restriction = n_days_first_restriction, 
 #                          n_days_lockdown = n_days_lockdown, 
