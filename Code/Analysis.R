@@ -842,27 +842,37 @@ Calculate_Length_Lockdown_Sim_Country <- function(country, thresholds, data_sim)
   
 }
 
-# Function to esimate all between-country effects: percentage change in
+# Function to esimate between-country effects: percentage change in
 # (1) length of lockdown, (2) time to thresholds, and (3) total cases
 # Arguments:
 # (1) countries = list of countries to include in analysis
-# Returns: list of 2 dataframes: all effects within countries, and median effects
-Estimate_Effects_Within_Countries <- function(countries) {
+# (2) outcomes = vector of outcomes to return
+# Returns: list of 2 dataframes: effects within countries, and median effects
+Estimate_Effects_Within_Countries <- function(countries,
+                                              outcomes = c("pct_change_length_lockdown",
+                                                           "pct_change_time_to_threshold",
+                                                           "pct_change_cases")) {
   
   # Estimate percentage change in length of lockdown, median effect
-  pct_change_length_lockdown <- 
-    Calculate_Pct_Change_Length_Lockdown(countries = countries[!countries %in% countries_excluded_length_lockdown])
+  if ("pct_change_length_lockdown" %in% outcomes) {
+    pct_change_length_lockdown <- 
+      Calculate_Pct_Change_Length_Lockdown(countries = countries[!countries %in% countries_excluded_length_lockdown])
+  }
   
   # Estimate percentage change in time to reach thresholds, median effect
-  pct_change_time_to_threshold <-
-    Calculate_Pct_Change_Time_To_Threshold(countries = countries[!countries %in% countries_excluded_time_to_threshold])
+  if ("pct_change_time_to_threshold" %in% outcomes) {
+    pct_change_time_to_threshold <-
+      Calculate_Pct_Change_Time_To_Threshold(countries = countries[!countries %in% countries_excluded_time_to_threshold])
+  }
   
   # Estimate percentage change in total cases
-  pct_change_cases <- 
-    Calculate_Pct_Change_Total_Cases(countries = countries[!countries %in% countries_excluded_total_cases])
+  if ("pct_change_cases" %in% outcomes) {
+    pct_change_cases <- 
+      Calculate_Pct_Change_Total_Cases(countries = countries[!countries %in% countries_excluded_total_cases])
+  }
   
   # Combine all estimated effects into list
-  effects_all <- list(pct_change_length_lockdown, pct_change_time_to_threshold, pct_change_cases)
+  effects_all <- map(.x = outcomes, .f = ~eval(parse(text = .x)))
   
   # Combine all within-country effects
   effects_within_countries <- map(.x = effects_all,
@@ -875,7 +885,7 @@ Estimate_Effects_Within_Countries <- function(countries) {
                                           .f = ~.x$pct_change_summary) %>% 
     reduce(full_join) %>%
     relocate(N_countries, .after = last_col()) %>%
-    relocate(Threshold, .after = Outcome) %>%
+    relocate(any_of("Threshold"), .after = Outcome) %>%
     arrange(Simulation)
   
   # Return list of effects
@@ -1045,8 +1055,13 @@ write_csv(summary_length_lockdown_sim, paste0(results_directory, "summary_length
 # Define countries to include in analysis
 countries <- countries_eur_lockdown[!countries_eur_lockdown %in% countries_excluded_all]
 
+# Define outcomes to include in analysis
+outcomes <- c("pct_change_length_lockdown", "pct_change_time_to_threshold", "pct_change_cases")
+
 # Estimate within-country effects
-effects_within_countries_all <- Estimate_Effects_Within_Countries(countries = countries)
+effects_within_countries_all <- 
+  Estimate_Effects_Within_Countries(countries = countries,
+                                    outcomes = outcomes)
 
 # Save within-country individual and median effects as separate dataframes
 effects_within_countries <- effects_within_countries_all$effects_within_countries
