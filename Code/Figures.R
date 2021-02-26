@@ -394,7 +394,7 @@ Plot_Splines <- function(country, out) {
     intercept_3 <- knots_best_country_i %>% pull(Intercept_3) %>% head(1)
     
     # Add fitted line
-    if (knot_date_1 == date_start) {
+    if (knot_date_1 <= date_start) {
       if (is.na(knot_date_2)) {  # NO knot points
         plot <- plot +
           geom_segment(aes_(x = min_cc, xend = max_cc,
@@ -1220,7 +1220,7 @@ Plot_Exponential_Growth_Sim <- function(country, title, labs = c(TRUE, FALSE),
     intercept_3 <- knots_i %>% pull(Intercept_3) %>% head(1)
     
     # Add fitted line
-    if (knot_date_1 == date_start) {
+    if (knot_date_1 <= date_start) {
       if (is.na(knot_date_2)) {  # NO knot points
         plot <- plot +
           geom_segment(aes_(x = min_cc, xend = max_cc,

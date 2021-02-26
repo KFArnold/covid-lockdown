@@ -1110,13 +1110,18 @@ Calculate_Possible_Counterfactual_Days <- function(country, knots) {
       mutate(N_days_first_restriction = as.numeric(date_first_restriction - Date_first_restriction),
              N_days_lockdown = as.numeric(date_lockdown - Date_lockdown)) 
     
-  } else {  # none
+  } else {  # only natural history is possible
     
-    # Specify no combinations of counterfactual days are possible
-    possible_days_counterfactual <- tibble(Date_first_restriction = as.Date(NA),
-                                           Date_lockdown = as.Date(NA),
-                                           N_days_first_restriction = as.numeric(NA),
-                                           N_days_lockdown = as.numeric(NA)) 
+    # Specify values of number of days by which interventions can be brought forward
+    # (NA if intervention not implemented, 0 if intervention implemented)
+    n_days_first_restriction <- ifelse(is.na(date_first_restriction), as.numeric(NA), 0)
+    n_days_lockdown <- ifelse(is.na(date_lockdown), as.numeric(NA), 0)
+    
+    # Specify only natural history is possible
+    possible_days_counterfactual <- tibble(Date_first_restriction = as.Date(date_first_restriction),
+                                           Date_lockdown = as.Date(date_lockdown),
+                                           N_days_first_restriction = n_days_first_restriction,
+                                           N_days_lockdown = n_days_lockdown) 
     
   }
   
@@ -1134,7 +1139,7 @@ Calculate_Possible_Counterfactual_Days <- function(country, knots) {
 ## Calculation -----------------------------------------------------------------
 
 # Calculate possible counterfactuals
-possible_days_counterfactual <- foreach(i = countries_eur_modelled,
+possible_days_counterfactual <- foreach(i = countries_eur,
                                         .errorhandling = "pass") %do%
   Calculate_Possible_Counterfactual_Days(country = i,
                                          knots = knots_best) %>%
