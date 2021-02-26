@@ -1749,14 +1749,26 @@ Plot_Within_Country_Effects <- function(simulations,
     mutate(Pct_change = 100*Pct_change)
   
   # Plot length of lockdown
-  plot_length_lockdown <- Plot_Within_Length_Lockdown(effects = effects_within_countries_counterfactual)
+  if ("plot_length_lockdown" %in% plots) {
+    plot_length_lockdown <- Plot_Within_Length_Lockdown(effects = effects_within_countries_counterfactual)
+  } else {
+    plot_length_lockdown <- NA
+  }
   
   # Plot time to thresholds
-  plot_time_to_thresholds <- Plot_Within_Time_To_Thresholds(effects = effects_within_countries_counterfactual)
-  
+  if ("plot_time_to_thresholds" %in% plots) {
+    plot_time_to_thresholds <- Plot_Within_Time_To_Thresholds(effects = effects_within_countries_counterfactual)
+  } else {
+    plot_time_to_thresholds <- NA
+  }
+
   # Plot total cases
-  plot_total_cases <- Plot_Within_Total_Cases(effects = effects_within_countries_counterfactual)
-  
+  if ("plot_total_cases" %in% plots) {
+    plot_total_cases <- Plot_Within_Total_Cases(effects = effects_within_countries_counterfactual)
+  } else {
+    plot_total_cases <- NA
+  }
+
   # Create list of specified plots
   plot_list <- map(.x = plots, .f = ~eval(parse(text = .x)))
   
@@ -1790,7 +1802,8 @@ Plot_Within_Length_Lockdown <- function(effects) {
   
   # Create plot
   plot <- ggplot(data = effects_length_lockdown,
-                 aes(x = Threshold, y = Pct_change,
+                 aes(x = interaction(History, Simulation), 
+                     y = Pct_change,
                      color = Simulation)) +
     theme_light() +
     theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
