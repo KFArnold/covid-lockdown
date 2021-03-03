@@ -378,7 +378,7 @@ summary_eur <- summary_eur %>% group_by(Country) %>%
 # Manually replace start date for Denmark, Estonia, Norway, Slovenia, and Sweden
 summary_eur <- summary_eur %>% 
   mutate(Date_start = if_else(Country == "Denmark", as.Date("2020-03-14") + 3, Date_start),
-         Date_start = if_else(Country == "Estonia", as.Date("2020-03-17") + 3, Date_start),
+         Date_start = if_else(Country == "Estonia", as.Date("2020-03-16") + 3, Date_start),
          Date_start = if_else(Country == "Norway", as.Date("2020-03-14") + 3, Date_start),
          Date_start = if_else(Country == "Slovenia", as.Date("2020-03-18") + 3, Date_start),
          Date_start = if_else(Country == "Sweden", as.Date("2020-03-14") + 3, Date_start))
