@@ -109,6 +109,8 @@ effects_between_countries_best <- read_csv(paste0(results_directory, "effects_be
   mutate(across(where(is.character), as.factor))
 effects_within_countries <- read_csv(paste0(results_directory, "effects_within_countries.csv")) %>% 
   mutate(across(where(is.character), as.factor))
+effects_within_countries_summary <- read_csv(paste0(results_directory, "effects_within_countries_summary.csv")) %>% 
+  mutate(across(where(is.character), as.factor))
 
 # Create variable for adjusted vs unadjusted in between-country dataframe
 effects_between_countries_best <- effects_between_countries_best %>% 
@@ -142,6 +144,10 @@ effects_between_countries_best <- effects_between_countries_best %>%
   mutate(Exposure = factor(Exposure, levels = exposure_levels),
          Leverage_points = factor(Leverage_points, levels = leverage_levels))
 effects_within_countries <- effects_within_countries %>% 
+  mutate(Threshold = factor(Threshold, levels = threshold_levels),
+         Simulation = factor(Simulation, levels = simulation_levels),
+         History = factor(History, levels = history_levels))
+effects_within_countries_summary <- effects_within_countries_summary %>%
   mutate(Threshold = factor(Threshold, levels = threshold_levels),
          Simulation = factor(Simulation, levels = simulation_levels),
          History = factor(History, levels = history_levels))
@@ -199,6 +205,122 @@ threshold_aes <- tibble(Threshold = threshold_levels,
 effect_aes <- tibble(Effect = c("Unadjusted", "Adjusted"),
                      Color = c("violetred", "forestgreen"),
                      Shape = c(15, 16))
+
+# ------------------------------------------------------------------------------
+# Formatted tables
+# ------------------------------------------------------------------------------
+
+## Functions -------------------------------------------------------------------
+
+# Function to create and save formatted table of between-country effects
+# from best-fitting models
+# Arguments:
+# (1) outcomes = vector of outcomes to include
+# (2) n_decimals = number of decimals to include in effects
+# (3) leverage_points = whether to present models with leverage points included/excluded
+# (4) out = folder to save formatted table
+# Returns: formatted table for specified outcomes,
+# with estimated effect and 95% confidence interval in single column
+Summary_Table_Effects_Between_Countries <- function(outcomes = c("Length_lockdown",
+                                                                 "Median_growth_factor_lockdown"),
+                                                    n_decimals = 2,
+                                                    leverage_points = c("Included",
+                                                                        "Excluded"),
+                                                    out = figures_tables_directory) {
+  
+  # Filter summary table containing between-country effects from best-fitting models
+  # by specified outcomes, leverage points, and with specified number of decimals
+  effects_formatted <- effects_between_countries_best %>%
+    mutate(across(c(Effect:R_squared), 
+                  ~formatC(round(., digits = n_decimals), format = "f", digits = n_decimals)),
+           BIC = round(BIC, digits = 0)) %>%
+    filter(Outcome %in% outcomes,
+           Leverage_points %in% leverage_points) %>%
+    relocate(Adjusted, .after = Exposure) %>%
+    arrange(Leverage_points, Outcome, Adjusted, Exposure) %>%
+    select(where(~sum(!is.na(.x)) > 0))
+  
+  # Combine effect, CI_lower, and CI_upper values into single column
+  effects_formatted <- effects_formatted %>%
+    unite(col = "CI", c(CI_lower, CI_upper), sep = ", ") %>%
+    mutate(CI = paste0("(", CI, ")")) %>%
+    unite(col = "Effect_CI", c(Effect, CI), sep = " ")
+  
+  # Save formatted table to specified folder
+  write_csv(effects_formatted, 
+            paste0(out, "effects_between_countries_best_formatted.csv"))
+  
+  # Return formatted table
+  return(effects_formatted)
+  
+}
+
+
+# Function to create and save formatted table of within-country effects
+# (i.e. percentage change in different outcomes compared to natural history)
+# Arguments:
+# (1) outcomes = vector of outcomes to include
+# (2) n_decimals = number of decimals to include in effects
+# (3) out = folder to save formatted table
+# Returns: formatted table for specfied outcomes,
+# with median effect and (QR1, QR3) in single column
+Summary_Table_Effects_Within_Countries <- function(outcomes = c("Length_lockdown",
+                                                                "Time_to_threshold",
+                                                                "Total_cases"), 
+                                                   n_decimals = 2,
+                                                   out = figures_tables_directory) {
+  
+  # Filter summary table containing within-country effects by specified outcomes, 
+  # and with specified number of decimals
+  effects_formatted <- effects_within_countries_summary %>%
+    mutate(across(contains("pct"), ~100*.x), 
+           across(contains("pct"), 
+                  ~formatC(round(., digits = n_decimals), format = "f", digits = n_decimals))) %>%
+    arrange(Outcome, History, Simulation, Threshold) %>%
+    filter(Outcome %in% outcomes) %>%
+    select(where(~sum(!is.na(.x)) > 0))
+  
+  # Combine median, QR1, and QR3 values into single column
+  effects_formatted <- effects_formatted %>%
+    unite(col = "QR1_QR3", c(QR1_pct_change, QR3_pct_change), sep = ", ") %>%
+    mutate(QR1_QR3 = paste0("(", QR1_QR3, ")")) %>%
+    unite(col = "Median_pct_change_QR1_QR3", c(Median_pct_change, QR1_QR3), sep = " ")
+  
+  # Pivot table to wide format
+  effects_formatted <- effects_formatted %>% 
+    mutate(Outcome = str_replace_all(Outcome, " ", "_")) %>%
+    pivot_wider(names_from = Outcome, values_from = Median_pct_change_QR1_QR3) %>%
+    relocate(N_countries, .after = last_col())
+  
+  # Save formatted table to specified folder
+  write_csv(effects_formatted, 
+            paste0(out, "effects_within_countries_summary_formatted.csv"))
+  
+  # Return formatted table
+  return(effects_formatted)
+  
+}
+
+
+# Descriptive statistics
+# Knot dates
+# Model fit?
+# Important dates?
+
+## Tables ----------------------------------------------------------------------
+
+# Create and save formatted summary table of between-country effects
+# (from best-fitting models)
+summary_table_effects_between_countries <-
+  Summary_Table_Effects_Between_Countries(outcomes = "Length_lockdown",
+                                          leverage_points = "Included")
+
+# Create and save formatted summary table of within-country effects
+summary_table_effects_within_countries <- 
+  Summary_Table_Effects_Within_Countries(outcomes = c("Length_lockdown",
+                                                      "Total_cases"))
+
+
 
 # ------------------------------------------------------------------------------
 # Important dates
