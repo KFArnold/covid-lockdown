@@ -323,8 +323,6 @@ Plot_Splines <- function(country, out) {
   # Define important dates
   date_start <- summary_eur_country %>% pull(Date_start)  # first date of observed data included
   date_T <- summary_eur_country %>% pull(Date_T)  # final date of observed data to include
-  date_first_restriction <- summary_eur_country %>% pull(Date_first_restriction)
-  date_lockdown <- summary_eur_country %>% pull(Date_lockdown)
   
   # Define total number of knot points
   n_knots <- knots_best_country %>% pull(N_knots) %>% unique
@@ -434,7 +432,7 @@ Plot_Splines <- function(country, out) {
                             y = intercept_3 + slope_3*knot_2, yend = intercept_3 + slope_3*max_cc),
                        color = color, size = 0.15, alpha = 0.1, linetype = "dashed") 
       } else {  # (n_knots_in_range == 2)
-        if (date_first_restriction == date_lockdown) {
+        if (knot_1 == knot_2) {
           # First and third segments
           plot <- plot +
             geom_segment(aes_(x = min_cc, xend = knot_2,
@@ -1287,7 +1285,7 @@ Plot_Exponential_Growth_Sim <- function(country, title, labs = c(TRUE, FALSE),
                             y = intercept_3 + slope_3*knot_2, yend = intercept_3 + slope_3*max_cc),
                        color = color, size = size, alpha = alpha, linetype = "dashed") 
       } else {  # (n_knots_in_range == 2)
-        if (date_first_restriction == date_lockdown) {
+        if (knot_1 == knot_2) {
           # First and third segments
           plot <- plot +
             geom_segment(aes_(x = min_cc, xend = knot_2,
