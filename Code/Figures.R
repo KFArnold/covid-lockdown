@@ -23,11 +23,14 @@ packrat::restore()
 library(tidyverse); library(ggrepel); library(scales)
 library(ggpubr); library(foreach); library(RColorBrewer); library(ggh4x)
 
-# Define storage directory for formatted data
+# Define storage directory for where formatted data is located
 data_directory_f <- paste0("./Data/Formatted/")
 
-# Define storage directory for results
+# Define storage directory where results are located
 results_directory <- paste0("./Results/")
+
+# Define storage directory where formatted tables and figures will be saved
+figures_tables_directory <- paste0(results_directory, "Figures and Tables/")
 
 # Load formatted data
 data_eur <- read_csv(paste0(data_directory_f, "Cases_deaths_data_europe.csv"))
@@ -208,7 +211,8 @@ effect_aes <- tibble(Effect = c("Unadjusted", "Adjusted"),
 # (2) dates = dataframe containing dates to display, with text descriptions and aes mappings (color, shape, size)
 # (3) order = date by which to order countries in figure
 # (4) out = folder to save figure
-Plot_Important_Dates <- function(countries, dates, order, out) {
+Plot_Important_Dates <- function(countries, dates, order, 
+                                 out = figures_tables_directory) {
   
   # Filter observed dataset and summary data by specified countries and dates
   data_eur_filt <- data_eur %>% filter(Country %in% countries)
@@ -299,8 +303,7 @@ order <- "Date_first_restriction"
 # Create figure
 figure_dates <- Plot_Important_Dates(countries = countries_eur, 
                                      dates = dates,
-                                     order = order, 
-                                     out = results_directory)
+                                     order = order)
 
 # ------------------------------------------------------------------------------
 # Fitted splines
@@ -470,7 +473,7 @@ Plot_Splines <- function(country, out) {
 
 # Create folder for storing figures of exponential growth with fitted splines, 
 # if none already exists
-out_folder <- paste0(results_directory, "Figures - Fitted splines by country")
+out_folder <- paste0(figures_tables_directory, "Figures - Fitted splines by country")
 if(!dir.exists(out_folder)) {
   dir.create(out_folder)
 } else {
@@ -479,14 +482,14 @@ if(!dir.exists(out_folder)) {
 
 # Create figures (individual)
 figure_splines <- foreach(i = countries_eur_lockdown, .errorhandling = "pass") %do% 
-  Plot_Splines(country = i, 
+  Plot_Splines(country = i,
                out = out_folder)
 
 # Create figures (combined)
 rows <- cols <- length(figure_splines) %>% sqrt %>% ceiling
 p <- ggarrange(plotlist = figure_splines, nrow = rows, ncol = cols)
 p_annotated <- annotate_figure(p, top = text_grob("Exponential growth of COVID-19 cases: Cumulative versus incident cases", size = 30))
-ggsave(paste0(results_directory, "Figure - Fitted splines.png"),
+ggsave(paste0(figures_tables_directory, "Figure - Fitted splines.png"),
        plot = p_annotated, width = 6*cols, height = 6*rows, limitsize = FALSE)
 
 # Create combined figure for sample of countries
@@ -495,7 +498,7 @@ index <- match(countries, countries_eur_lockdown)
 p <- ggarrange(plotlist = figure_splines[index], ncol = length(index),
                labels = "AUTO")
 p_annotated <- annotate_figure(p, top = text_grob("Exponential growth of COVID-19 cases: Fitted splines", size = 20))
-ggsave(paste0(results_directory, "Figure - Fitted splines (sample).png"),
+ggsave(paste0(figures_tables_directory, "Figure - Fitted splines (sample).png"),
        plot = p_annotated, width = 6*length(index), height = 6, limitsize = FALSE)
 
 rm(rows, cols, p, p_annotated)
@@ -516,7 +519,7 @@ Plot_Growth_Factor_Lockdown <- function(countries,
                                         cases = c("Daily_cases_MA7",
                                                   "Cumulative_cases_beg"),
                                         log = c(TRUE, FALSE),
-                                        out) {
+                                        out = figures_tables_directory) {
   
   # Record number of specified cases
   n_cases <- length(cases)
@@ -597,8 +600,7 @@ countries <- countries_eur_lockdown[!countries_eur_lockdown %in% countries_exclu
 figure_growth_factor <- Plot_Growth_Factor_Lockdown(countries = countries,
                                                     cases = c("Daily_cases_MA7",
                                                               "Cumulative_cases_beg"),
-                                                    log = TRUE,
-                                                    out = results_directory)
+                                                    log = TRUE)
 
 # ------------------------------------------------------------------------------
 # Length of lockdown (observed) vs cases at lockdown
@@ -616,7 +618,7 @@ Plot_Length_Lockdown <- function(countries,
                                  cases = c("Daily_cases_MA7",
                                            "Cumulative_cases_beg",),
                                  log = c(TRUE, FALSE),
-                                 out) {
+                                 out = figures_tables_directory) {
   
   # Record number of specified cases
   n_cases <- length(cases)
@@ -686,8 +688,7 @@ countries <- countries_eur_lockdown[!countries_eur_lockdown %in% countries_exclu
 figure_length_lockdown <- Plot_Length_Lockdown(countries = countries,
                                                     cases = c("Daily_cases_MA7",
                                                               "Cumulative_cases_beg"),
-                                                    log = TRUE,
-                                                    out = results_directory)
+                                                    log = TRUE)
 
 # ------------------------------------------------------------------------------
 # Length of time to reach threshold (simulated)
@@ -701,7 +702,8 @@ figure_length_lockdown <- Plot_Length_Lockdown(countries = countries,
 # (1) countries = list of countries
 # (2) simulations = vector of simulations to include
 # (3) out = folder to save figure
-Plot_Time_To_Threshold <- function(countries, simulations, out) {
+Plot_Time_To_Threshold <- function(countries, simulations, 
+                                   out = figures_tables_directory) {
   
   # Filter thresholds dataframe by specified countries and simulations,
   # and order Simulation and History factor levels
@@ -773,8 +775,7 @@ simulations <- c("0,0", "0,1", "0,3", "0,5", "0,7")
 
 # Create figure
 plot_time_to_threshold <- Plot_Time_To_Threshold(countries = countries,
-                                                 simulations = simulations,
-                                                 out = results_directory)
+                                                 simulations = simulations)
 
 # ------------------------------------------------------------------------------
 # Simulation results: natural vs counterfactual histories
@@ -1332,7 +1333,7 @@ Plot_Exponential_Growth_Sim <- function(country, title, labs = c(TRUE, FALSE),
 
 # Create folder for storing figures of incident and cumulative cases by country, 
 # if none already exists
-out_folder <- paste0(results_directory, "Figures - Simulation results by country")
+out_folder <- paste0(figures_tables_directory, "Figures - Simulation results by country")
 if(!dir.exists(out_folder)) {
   dir.create(out_folder)
 } else {
@@ -1375,9 +1376,9 @@ figure_sim_results <- foreach(i = countries, .errorhandling = "pass") %do%
 #                  top = text_grob("Simulated cumulative cases of COVID-19", size = 50),
 #                  left = text_grob("Cumulative number of cases", rot = 90, size = 15),
 #                  bottom = text_grob("Date", size = 15))
-#ggsave(paste0(results_directory, "Figure - Simulation results (incident cases).png"),
+#ggsave(paste0(figures_tables_directory, "Figure - Simulation results (incident cases).png"),
 #       plot = figure_sim_results_inc, width = 6*cols, height = 6*rows, limitsize = FALSE)
-#ggsave(paste0(results_directory, "Figure - Simulation results (cumulative cases).png"),
+#ggsave(paste0(figures_tables_directory, "Figure - Simulation results (cumulative cases).png"),
 #       plot = figure_sim_results_cum, width = 6*cols, height = 6*rows, limitsize = FALSE)
 
 # Create combined figure of incident and cumulative cases for sample of countries
@@ -1387,7 +1388,7 @@ figure_sim_results_sample <- index %>%
   map(., .f = ~figure_sim_results[[.x]]) %>%
   map(., .f = ~.x$plots_two_annotated) %>%
   ggarrange(plotlist = ., nrow = length(index), labels = "AUTO")
-ggsave(paste0(results_directory, "Figure - Simulation results (sample).png"),
+ggsave(paste0(figures_tables_directory, "Figure - Simulation results (sample).png"),
        plot = figure_sim_results_sample, width = 6*2, height = 6*length(index), limitsize = FALSE)
 
 # ------------------------------------------------------------------------------
@@ -1436,8 +1437,7 @@ Plot_Model_Residuals_Combined <- function(country, out) {
 # Arguments:
 # (1) country = country to plot
 # (2) cases = type of cases to display (cumulative or incident)
-# (3) out = folder to save combined figure
-Plot_Model_Residuals <- function(country, cases = c("Daily_cases", "Cumulative_cases_beg"), out) {
+Plot_Model_Residuals <- function(country, cases = c("Daily_cases", "Cumulative_cases_beg")) {
   
   # Filter observed cases/deaths and summary dataframes by country, and
   # select relevant variables
@@ -1505,7 +1505,7 @@ Plot_Model_Residuals <- function(country, cases = c("Daily_cases", "Cumulative_c
 
 # Create folder for storing figures of model residuals by country, 
 # if none already exists
-out_folder <- paste0(results_directory, "Figures - Model residuals by country")
+out_folder <- paste0(figures_tables_directory, "Figures - Model residuals by country")
 if(!dir.exists(out_folder)) {
   dir.create(out_folder)
 } else {
@@ -1529,13 +1529,13 @@ rows <- cols <- length(figure_model_residuals_inc) %>% sqrt %>% ceiling
 p_inc <- ggarrange(plotlist = figure_model_residuals_inc, nrow = rows, ncol = cols)
 p_inc_annotated <- annotate_figure(p_inc, 
                                    top = text_grob("Model residuals: incident cases", size = 30))
-ggsave(paste0(results_directory, "Figure - Model residuals (incident cases).png"),
+ggsave(paste0(figures_tables_directory, "Figure - Model residuals (incident cases).png"),
        plot = p_inc_annotated, width = 6*cols, height = 6*rows, limitsize = FALSE)
 ## Cumulative cases
 p_cum <- ggarrange(plotlist = figure_model_residuals_cum, nrow = rows, ncol = cols)
 p_cum_annotated <- annotate_figure(p_cum, 
                                    top = text_grob("Model residuals: cumulative cases", size = 30))
-ggsave(paste0(results_directory, "Figure - Model residuals (cumulative cases).png"),
+ggsave(paste0(figures_tables_directory, "Figure - Model residuals (cumulative cases).png"),
        plot = p_cum_annotated, width = 6*cols, height = 6*rows, limitsize = FALSE)
 
 # ------------------------------------------------------------------------------
@@ -1552,7 +1552,7 @@ ggsave(paste0(results_directory, "Figure - Model residuals (cumulative cases).pn
 Plot_Model_Fit <- function(countries, 
                            measures = c("Diff_time_to_threshold", "Diff_total_cases", 
                                        "Pois_dev_inc", "Pois_dev_cum"),
-                           out) {
+                           out = figures_tables_directory) {
   
   # Filter model fit data by designated countries and measures
   model_fit_filt <- model_fit %>% filter(Country %in% countries, Measure %in% measures)
@@ -1601,8 +1601,7 @@ Plot_Model_Fit <- function(countries,
 countries <- countries_eur_lockdown[!countries_eur_lockdown %in% countries_excluded_all]
 
 # Create figure
-figure_model_fit <- Plot_Model_Fit(countries = countries,
-                                   out = results_directory)
+figure_model_fit <- Plot_Model_Fit(countries = countries)
 
 # ------------------------------------------------------------------------------
 # Analysis: effect sizes
@@ -1624,7 +1623,7 @@ Plot_Between_Country_Effects <- function(exposures = c("Daily_cases_MA7",
                                                        "Cumulative_cases_beg"), 
                                          plots = c("plot_length_lockdown",
                                                    "plot_growth_factor"), 
-                                         out) {
+                                         out = figures_tables_directory) {
   
   
   # Record number of specified exposures and plots
@@ -1657,7 +1656,7 @@ Plot_Between_Country_Effects <- function(exposures = c("Daily_cases_MA7",
                                          top = text_grob("Estimated effects of each additional case of COVID-19 at lockdown"))
   
   # Save combined plot to Results folder
-  ggsave(paste0(results_directory, "Figure - Effects between countries.png"), 
+  ggsave(paste0(out, "Figure - Effects between countries.png"), 
          plot = plots_all_annotated, width = 3*n_exp*n_plots, height = 7)
   
   # Return list of individual and combined plots
@@ -1768,8 +1767,7 @@ Plot_Between_Growth_Factor <- function(effects) {
 # Create figures
 figure_between_country_effects <- Plot_Between_Country_Effects(exposures = c("Daily_cases_MA7",
                                                                              "Cumulative_cases_beg"),
-                                                               plots = c("plot_length_lockdown"),
-                                                               out = results_directory)
+                                                               plots = c("plot_length_lockdown"))
 
 ## (2) Within-country effects --------------------------------------------------
 
@@ -1788,7 +1786,8 @@ Plot_Within_Country_Effects <- function(simulations,
                                         plots = c("plot_time_to_thresholds",
                                                   "plot_length_lockdown",
                                                   "plot_total_cases"),
-                                        description, out) {
+                                        description, 
+                                        out = figures_tables_directory) {
   
   # Record number of specified simulations and plots
   n_sim <- length(simulations)
@@ -1985,6 +1984,5 @@ description <- "earlier lockdown"
 figure_within_country_effects <- Plot_Within_Country_Effects(simulations = simulations,
                                                              plots = c("plot_length_lockdown",
                                                                        "plot_total_cases"),
-                                                             description = description,
-                                                             out = results_directory)
+                                                             description = description)
 
