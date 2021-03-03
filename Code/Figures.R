@@ -102,13 +102,13 @@ rm(summary_cumulative_cases_beg_sim_all, summary_daily_cases_sim_all, summary_cu
 ## Import estimated effects ----------------------------------------------------
 
 # Import (best) between- and within-country effect estimates
-effects_between_countries <- read_csv(paste0(results_directory, "effects_between_countries_best.csv")) %>% 
+effects_between_countries_best <- read_csv(paste0(results_directory, "effects_between_countries_best.csv")) %>% 
   mutate(across(where(is.character), as.factor))
 effects_within_countries <- read_csv(paste0(results_directory, "effects_within_countries.csv")) %>% 
   mutate(across(where(is.character), as.factor))
 
 # Create variable for adjusted vs unadjusted in between-country dataframe
-effects_between_countries <- effects_between_countries %>% 
+effects_between_countries_best <- effects_between_countries_best %>% 
   mutate(Adjusted = ifelse(is.na(Covariates), "Unadjusted", "Adjusted"),
          Adjusted = as.factor(Adjusted))
 
@@ -135,7 +135,7 @@ summary_thresholds_sim_all <- summary_thresholds_sim_all %>%
   mutate(Threshold = factor(Threshold, levels = threshold_levels),
          Simulation = factor(Simulation, levels = simulation_levels),
          History = factor(History, levels = history_levels))
-effects_between_countries <- effects_between_countries %>%
+effects_between_countries_best <- effects_between_countries_best %>%
   mutate(Exposure = factor(Exposure, levels = exposure_levels),
          Leverage_points = factor(Leverage_points, levels = leverage_levels))
 effects_within_countries <- effects_within_countries %>% 
@@ -1632,19 +1632,19 @@ Plot_Between_Country_Effects <- function(exposures = c("Daily_cases_MA7",
   n_plots <- length(plots)
   
   # Filter between-country effects by specified exposures
-  effects_between_countries_exposures <- 
+  effects_between_countries_best_exposures <- 
     map(.x = as.list(exposures),
-        .f = ~filter(effects_between_countries, str_detect(Exposure, .x))) %>%
+        .f = ~filter(effects_between_countries_best, str_detect(Exposure, .x))) %>%
     bind_rows
   
   # Plot length of lockdown
   if ("plot_length_lockdown" %in% plots) {
-    plot_length_lockdown <- Plot_Between_Length_Lockdown(effects = effects_between_countries_exposures)
+    plot_length_lockdown <- Plot_Between_Length_Lockdown(effects = effects_between_countries_best_exposures)
   } 
 
   # Plot growth factor under lockdown
   if ("plot_growth_factor" %in% plots) {
-    plot_growth_factor <- Plot_Between_Growth_Factor(effects = effects_between_countries_exposures)
+    plot_growth_factor <- Plot_Between_Growth_Factor(effects = effects_between_countries_best_exposures)
   }
 
   # Create list of specified plots
