@@ -918,7 +918,7 @@ Calculate_Pct_Change_Length_Lockdown <- function(countries) {
     mutate(Pct_change = 
              ((Length_lockdown - Length_lockdown_natural_history) / Length_lockdown_natural_history)) %>%
     select(-contains("Length")) %>%
-    mutate(Outcome = "Length of lockdown") %>%
+    mutate(Outcome = "Length_lockdown") %>%
     relocate(Outcome, .after = History) %>%
     arrange(Simulation)
   
@@ -962,7 +962,7 @@ Calculate_Pct_Change_Time_To_Threshold <- function(countries) {
     mutate(Pct_change = 
              ((Days_since_lockdown - Days_since_lockdown_natural_history) / Days_since_lockdown_natural_history)) %>%
     select(-contains("Days")) %>%
-    mutate(Outcome = "Time to threshold") %>%
+    mutate(Outcome = "Time_to_threshold") %>%
     relocate(Outcome, .after = History) %>%
     arrange(Country)
   
@@ -1017,7 +1017,7 @@ Calculate_Pct_Change_Total_Cases <- function(countries) {
              ((Mean_cumulative_cases_end - Mean_cumulative_cases_end_natural_history) / 
                 Mean_cumulative_cases_end_natural_history)) %>%
     select(-contains("Mean")) %>%
-    mutate(Outcome = "Total cases") %>%
+    mutate(Outcome = "Total_cases") %>%
     relocate(Outcome, .after = History) %>%
     arrange(Country)
   

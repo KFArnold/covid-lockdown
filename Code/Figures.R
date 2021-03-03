@@ -1850,7 +1850,7 @@ Plot_Within_Length_Lockdown <- function(effects) {
   
   # Filter dataframe with effect sizes by relevant outcome
   effects_length_lockdown <- effects %>% 
-    filter(Outcome == "Length of lockdown") 
+    filter(Outcome == "Length_of_lockdown") 
   
   # Create plot
   plot <- ggplot(data = effects_length_lockdown,
@@ -1894,7 +1894,7 @@ Plot_Within_Time_To_Thresholds <- function(effects) {
   
   # Filter dataframe with effect sizes by relevant outcome
   effects_time_to_threshold <- effects %>% 
-    filter(Outcome == "Time to threshold") 
+    filter(Outcome == "Time_to_threshold") 
   
   # Create plot
   plot <- ggplot(data = effects_time_to_threshold,
@@ -1934,7 +1934,7 @@ Plot_Within_Total_Cases <- function(effects) {
   
   # Filter dataframe with effect sizes by relevant outcome
   effects_total_cases <- effects %>% 
-    filter(Outcome == "Total cases") 
+    filter(Outcome == "Total_cases") 
   
   # Create plot
   plot <- ggplot(data = effects_total_cases,
