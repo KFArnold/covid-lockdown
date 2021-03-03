@@ -86,6 +86,9 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
   date_first_restriction <- summary_eur_country %>% pull(Date_first_restriction)
   date_lockdown <- summary_eur_country %>% pull(Date_lockdown)
   
+  # Record total number of knots (i.e. number of interventions)
+  n_knots <- knots_best_country %>% pull(N_knots)
+  
   # Print message that n_days_lockdown will be ignored if country didn't enter lockdown
   # Set value of n_days_lockdown to NA
   if (is.na(date_lockdown)) {
@@ -93,20 +96,14 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
                    ". Parameter n_days_lockdown will be ignored."))
     n_days_lockdown <- as.numeric(NA)
   } else {
-    # Print message that smaller n_days parameter will be overriden
-    # if country implemented first restriction and lockdown on same day
-    # Set smaller n_days parameter to value of other
+    # Print message that n_days_first_restriction parameter will be overriden
+    # if it differs from n_days_lockdown parameter, if country entered lockdown immediately
+    # Set value of n_days_first_restriction to zero
     if (date_first_restriction == date_lockdown & 
         n_days_first_restriction != n_days_lockdown) {
-      if (n_days_first_restriction < n_days_lockdown) {
-        warn <- "Parameter n_days_first_restriction will be overriden."
-        n_days_first_restriction <- n_days_lockdown
-      } else {
-        warn <- "Parameter n_days_lockdown will be overriden."
-        n_days_lockdown <- n_days_first_restriction
-      }
       warning(paste0("First restriction and lockdown were implemented simultaneously in ", country,
-                     ". ", warn))
+                     ". Parameter n_days_first_restriction will be overriden."))
+      n_days_first_restriction <- n_days_lockdown
     }
   }
   
@@ -144,9 +141,9 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
   date_start <- summary_eur_country %>% pull(Date_start)
   date_end <- as.Date(date_start + max_t)
   
-  # Record incident and cumulative cases (MA7) on date_start - 1
-  inc_startminus1 <- data_eur_country %>% filter(Date == (date_start - 1)) %>% pull(Daily_cases_MA7)
-  cum_startminus1 <- data_eur_country %>% filter(Date == (date_start - 1)) %>% pull(Cumulative_cases_end_MA7)
+  # Record incident and cumulative cases (MA7) on date_start
+  inc_start <- data_eur_country %>% filter(Date == date_start) %>% pull(Daily_cases_MA7)
+  cum_start <- data_eur_country %>% filter(Date == date_start) %>% pull(Cumulative_cases_end_MA7)
   
   # Create empty list for storing simulated incidence data
   daily_cases_sim <- list()
@@ -156,9 +153,6 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
     
     # Refilter best knots dataframe by row i
     knots_best_country_sim_i <- knots_best_country_sim %>% filter(row_number() == i)
-    
-    # Record number of knots
-    n_knots_i <- knots_best_country_sim_i %>% pull(N_knots)
     
     # Set knot dates
     knot_date_1_i <- knots_best_country_sim_i %>% pull(Knot_date_1)
@@ -173,9 +167,9 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
     # Estimate incident cases over modelling period
     daily_cases_sim_i <- Simulate_Growth(date_start = date_start, 
                                          date_end = date_end, 
-                                         start_value = inc_startminus1,
+                                         start_value = inc_start,
                                          n_runs = n_runs_i,
-                                         n_knots = n_knots_i,
+                                         n_knots = n_knots,
                                          knot_date_1 = knot_date_1_i, 
                                          knot_date_2 = knot_date_2_i,
                                          parameters = parameters_i)
@@ -193,7 +187,7 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
   
   # Calculate cumulative cases
   daily_cases_sim_copy <- daily_cases_sim
-  daily_cases_sim_copy[, 1] <- cum_startminus1
+  daily_cases_sim_copy[, 1] <- cum_start
   cumulative_cases_end_sim <- apply(X = daily_cases_sim_copy, MARGIN = 1, FUN = cumsum) %>% t
   
   # Record summaries (mean, 2.5 and 97.5 centiles)
@@ -276,25 +270,25 @@ Round_preserve_sum <- function(x, digits = 0) {
 # (2) date_end = end date
 # (3) start value = value of daily cases on which to start simulation
 # (4) n_runs = number of simulation runs
-# (5) n_knots = number of knots (where growth factor changes)
+# (5) n_knots = total number of knot dates (corresponds to number of interventions)
 # (6) knot_date_1 = date of first knot
 # (7) knot_date_2 = date of second knot
 # (8) parameters = list containing growth parameters 
 # Returns: matrix of simulated incident cases
 Simulate_Growth <- function(date_start, date_end, start_value,
                             n_runs,
-                            n_knots = c(0, 1, 2),
+                            n_knots = c(1, 2),
                             knot_date_1, knot_date_2,
                             parameters) {
   
   # Set dates over which to simulate growth
-  dates <- seq.Date(from = date_start, to = date_end, by = 1)
+  dates <- seq.Date(from = date_start + 1, to = date_end, by = 1)
   
   # Create matrices for simulated incidence data for given knot dates
   # (1 row per simulation run, 1 col per date)
   daily_cases_sim <- 
     matrix(nrow = n_runs, ncol = length(dates) + 1,
-           dimnames = list(NULL, as.character(seq.Date(from = date_start - 1, to = date_end, by = 1))))
+           dimnames = list(NULL, as.character(seq.Date(from = date_start, to = date_end, by = 1))))
   
   # Initialise matrix with data at date_start - 1
   daily_cases_sim[, 1] <- start_value
@@ -306,28 +300,10 @@ Simulate_Growth <- function(date_start, date_end, start_value,
     inc_tminus1 <- daily_cases_sim[, as.character(t-1)]
     
     # Define growth parameters
-    if (n_knots == 0) {  # NO knot points
+    if (n_knots == 1) {  # one knot (i.e. first restriction only)
       
       # Define growth factor
-      growth <- rlnorm(n = n_runs,
-                       meanlog = Calculate_mean_log(mean = parameters$Growth_factor_1, 
-                                                    sd = parameters$Growth_factor_1_sd),
-                       sdlog = Calculate_sd_log(mean = parameters$Growth_factor_1, 
-                                                sd = parameters$Growth_factor_1_sd))
-      
-    } else if (n_knots == 1) {  # ONE knot point
-      
-      # Set value of knot point:
-      # If knot_date_1 falls on date when we begin modelling, then knot point is really knot_date_2;
-      # Otherwise, the knot point is knot_date_1
-      if (date_start == knot_date_1) {
-        knot_date <- knot_date_2
-      } else {
-        knot_date <- knot_date_1
-      }
-      
-      # Define growth factor
-      if (t <= knot_date) {
+      if (t <= knot_date_1) {
         growth <- rlnorm(n = n_runs,
                          meanlog = Calculate_mean_log(mean = parameters$Growth_factor_1, 
                                                       sd = parameters$Growth_factor_1_sd),
@@ -341,7 +317,7 @@ Simulate_Growth <- function(date_start, date_end, start_value,
                                                   sd = parameters$Growth_factor_2_sd))
       }
       
-    } else {  # TWO knot points
+    } else {  # two knots (i.e. both first restriction and lockdown)
       
       # Define growth factor
       if (t <= knot_date_1) {

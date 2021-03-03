@@ -378,7 +378,7 @@ summary_eur <- summary_eur %>% group_by(Country) %>%
 # Manually replace start date for Denmark, Estonia, Norway, Slovenia, and Sweden
 summary_eur <- summary_eur %>% 
   mutate(Date_start = if_else(Country == "Denmark", as.Date("2020-03-14") + 3, Date_start),
-         Date_start = if_else(Country == "Estonia", as.Date("2020-03-17") + 3, Date_start),
+         Date_start = if_else(Country == "Estonia", as.Date("2020-03-16") + 3, Date_start),
          Date_start = if_else(Country == "Norway", as.Date("2020-03-14") + 3, Date_start),
          Date_start = if_else(Country == "Slovenia", as.Date("2020-03-18") + 3, Date_start),
          Date_start = if_else(Country == "Sweden", as.Date("2020-03-14") + 3, Date_start))
@@ -451,12 +451,17 @@ Estimate_Best_Knots <- function(country, criteria = c("Pois_dev_inc", "Pois_dev_
   # cumulative cases >= starting threshold and up to date_T
   data_eur_country_in_range <- data_eur_country %>% filter(Date >= date_start & Date <= date_T)
   
-  # Calculate potential knot dates
+  # Calculate total number of knots for the given country:
+  # If country implemented both first restriction and lockdown, there two knot points;
+  # If country implemented only the first restriction, there is only one knot point.
+  n_knots <- c(date_first_restriction, date_lockdown) %>% 
+    as.logical %>% sum(na.rm = TRUE)
+  
+  # Calculate potential knot date(s)
   knot_dates <- Calculate_Potential_Knots(country = country,
                                           date_first_restriction = date_first_restriction,
                                           date_lockdown = date_lockdown,
                                           date_start = date_start,
-                                          date_T = date_T,
                                           window = c(2, 28))
   
   # Print warning and stop if there are no potential knot dates
@@ -469,6 +474,7 @@ Estimate_Best_Knots <- function(country, criteria = c("Pois_dev_inc", "Pois_dev_
   knot_summaries <- tibble(Knot_date_1 = as.Date(character()),
                            Knot_date_2 = as.Date(character()),
                            N_knots = as.numeric(),
+                           N_knots_in_range = as.numeric(),
                            Growth_factor_1 = as.numeric(),
                            Growth_factor_2 = as.numeric(),
                            Growth_factor_3 = as.numeric(),
@@ -489,128 +495,175 @@ Estimate_Best_Knots <- function(country, criteria = c("Pois_dev_inc", "Pois_dev_
     knot_date_1 <- knot_dates[[i, "Knot_date_1"]]
     knot_date_2 <- knot_dates[[i, "Knot_date_2"]]
     
-    # Estimate growth parameters
-    ## If first knot occurs before or at first date for which we begin modelling,
-    ## there may be either no knots, OR 1 knot (occurring at knot_date_2).
-    ## Otherwise, there may be either 1 knot (occurring at knot_date_1),
-    ## OR 2 knots (occurring at knot_date_1 and knot_date_2)
-    if (knot_date_1 <= date_start) {
+    # Define number of knots that fall within the modelling range,
+    # set the values of the knot points, 
+    # create a dataframe for fitting spline models using values of knot points, 
+    # and specify whether model should estimate an intercept.
+    
+    # (1) If the country has one knot (i.e. two periods of growth), 
+    # either none or one of them may fall within range 
+    # (i.e. one or two periods of growth observed).
+    # (2) If the country has two knots (i.e. three periods of growth)
+    # either none, one, or two of them may fall within range
+    # (i.e. one, two, or three periods of growth observed).
+    if (n_knots == 1) {  
       
-      if (is.na(knot_date_2) | knot_date_2 <= date_start) {  # NO knot points
+      if (knot_date_1 <= date_start) {
         
-        # Set number of knot points
-        n_knots <- 0
+        # If first knot date is before/at the time we begin modelling,
+        # there are NO knot points within modelling range
         
-        # Set knot point
+        # Set number of knots in modelling range to zero (i.e. one segment)
+        n_knots_in_range <- 0
+        
+        # Set knot points
         knot_1 <- NA
         knot_2 <- NA
         
-        # Define data to be used for fitting
-        data_i <- data_eur_country_in_range %>% select(Daily_cases, Cumulative_cases_beg)
-        covariates <- "Cumulative_cases_beg"
+        # Create dataframe for fitting manual splines
+        # (second spline segment is observed, i.e. growth following first restriction)
+        data_i <- data_eur_country_in_range %>% select(Daily_cases, Cumulative_cases_beg) %>%
+          rename("Cumulative_cases_beg_2" = Cumulative_cases_beg)
+        covariates <- data_i %>% select(contains("Cumulative")) %>% names
         
-        # Estimate growth parameters
-        # (Arima spline model with 1 knot and intercept)
-        parameters <- Estimate_Growth_Parameters(n_knots = n_knots,
-                                                 knot_1, knot_2,
-                                                 intercept = TRUE,
-                                                 data = data_i, 
-                                                 covariates = covariates)
+        # Specify that spline model should estimate an intercept
+        # (because spline segment in range is not the first)
+        intercept <- TRUE
         
-        # Skip to next iteration if error occurred in estimation
-        if (parameters$Error == TRUE) { next }
+      } else {
         
-      } else {  # ONE knot point (at knot_date_2)
+        # If first knot date is after the time we begin modelling,
+        # there is ONE knot point within modelling range (i.e. at knot_date_1)
         
-        # Set number of knot points
-        n_knots <- 1
+        # Set number of knots in modelling range to one (i.e. two segments)
+        n_knots_in_range <- 1
         
         # Set knot points
-        knot_1 <- data_eur_country_in_range %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
+        knot_1 <- data_eur_country_in_range %>% filter(Date == knot_date_1) %>% pull(Cumulative_cases_beg)
         knot_2 <- NA
         
         # Create dataframe for fitting manual splines
+        # (first and second segments are observed)
         data_i <- data.frame(lspline(data_eur_country_in_range$Cumulative_cases_beg, knots = c(knot_1)))
         names(data_i) <- covariates <- paste0("Cumulative_cases_beg_", 1:2)
         data_i <- bind_cols(Daily_cases = data_eur_country_in_range$Daily_cases, data_i)
         
-        # Estimate growth parameters
-        # (Arima spline model with 1 knot and intercept)
-        parameters <- Estimate_Growth_Parameters(n_knots = n_knots,
-                                                 knot_1, knot_2,
-                                                 intercept = TRUE,
-                                                 data = data_i, 
-                                                 covariates = covariates)
-        
-        # Skip to next iteration if error occurred in estimation
-        if (parameters$Error == TRUE) { next }
+        # Specify that spline model should not estimate an intercept
+        # (because first spline segment in range is first so must go through zero)
+        intercept <- FALSE
         
       }
       
-    } else {
+    } else {  # (n_knots = 2)
       
-      if (is.na(knot_date_2)) {  # ONE knot point (at knot_date_1)
+      if (knot_date_2 <= date_start) {
         
-        # Set number of knot points 
-        n_knots <- 1
+        # If the second knot date is before/at the time we begin modelling,
+        # there are NO knot points within modelling range
+        
+        # Set number of knots in modelling range to zero (i.e. one segment)
+        n_knots_in_range <- 0
         
         # Set knot points
-        knot_1 <- data_eur_country_in_range %>% filter(Date == knot_date_1) %>% pull(Cumulative_cases_beg)
+        knot_1 <- NA
         knot_2 <- NA
         
         # Create dataframe for fitting manual splines
-        data_i <- data.frame(lspline(data_eur_country_in_range$Cumulative_cases_beg, knots = c(knot_1)))
-        names(data_i) <- covariates <- paste0("Cumulative_cases_beg_", 1:2)
-        data_i <- bind_cols(Daily_cases = data_eur_country_in_range$Daily_cases, data_i)
+        # (third spline segment is observed, i.e. growth under lockdown)
+        data_i <- data_eur_country_in_range %>% select(Daily_cases, Cumulative_cases_beg) %>%
+          rename("Cumulative_cases_beg_3" = Cumulative_cases_beg)
+        covariates <- data_i %>% select(contains("Cumulative")) %>% names
         
-        # Estimate growth parameters
-        # (Arima spline model with 1 knot and no intercept)
-        parameters <- Estimate_Growth_Parameters(n_knots = n_knots,
-                                                 knot_1, knot_2,
-                                                 intercept = FALSE,
-                                                 data = data_i, 
-                                                 covariates = covariates)
+        # Specify that spline model should estimate an intercept
+        # (because spline segment in range is not the first)
+        intercept <- TRUE
         
-        # Skip to next iteration if error occurred in estimation
-        if (parameters$Error == TRUE) { next }
+      } else if (knot_date_1 <= date_start) {
         
-      } else {  # TWO knot points (at knot_date_1 and knot_date_2)
+        # If only the first knot date is before/at the time we begin modelling,
+        # there is ONE knot point within modelling range (i.e. at knot_date_2)
         
-        # Set number of knot points
-        n_knots <- 2
+        # Set number of knots in modelling range to one (i.e. two segments)
+        n_knots_in_range <- 1
         
         # Set knot points
-        knot_1 <- data_eur_country_in_range %>% filter(Date == knot_date_1) %>% pull(Cumulative_cases_beg)
+        knot_1 <- NA
         knot_2 <- data_eur_country_in_range %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
         
         # Create dataframe for fitting manual splines
-        data_i <- data.frame(lspline(data_eur_country_in_range$Cumulative_cases_beg, knots = c(knot_1, knot_2)))
-        names(data_i) <- covariates <- paste0("Cumulative_cases_beg_", 1:3)
+        # (second and third spline segments are observed)
+        data_i <- data.frame(lspline(data_eur_country_in_range$Cumulative_cases_beg, knots = c(knot_2)))
+        names(data_i) <- covariates <- paste0("Cumulative_cases_beg_", 2:3)
         data_i <- bind_cols(Daily_cases = data_eur_country_in_range$Daily_cases, data_i)
         
-        # Estimate growth parameters
-        # (Arima spline model with 2 knots and no intercept)
-        parameters <- Estimate_Growth_Parameters(n_knots = n_knots,
-                                                 knot_1, knot_2,
-                                                 intercept = FALSE,
-                                                 data = data_i, 
-                                                 covariates = covariates)
+        # Specify that spline model should estimate an intercept
+        # (because spline segments in range are not the first)
+        intercept <- TRUE
         
-        # Skip to next iteration if error occurred in estimation
-        if (parameters$Error == TRUE) { next }
+      } else {
+        
+        # BOTH knots (i.e. knot_date_1 and knot_date_2) fall within modelling range 
+        
+        # Set number of knots in modelling range to two 
+        n_knots_in_range <- 2
+        
+        # If knot dates are equal, there is only one DISTINCT knot point within modelling range
+        if (knot_date_1 == knot_date_2) {
+          
+          # Set knot points
+          # (knot_1 is NA because it is not unique value, i.e. it is same as knot_2)
+          knot_1 <- NA
+          knot_2 <- data_eur_country_in_range %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
+          
+          # Create dataframe for fitting manual splines
+          # (first and third spline segments observed)
+          data_i <- data.frame(lspline(data_eur_country_in_range$Cumulative_cases_beg, knots = c(knot_2)))
+          names(data_i) <- covariates <- paste0("Cumulative_cases_beg_", c(1, 3))
+          data_i <- bind_cols(Daily_cases = data_eur_country_in_range$Daily_cases, data_i)
+          
+        } else {
+          
+          # Set knot points
+          knot_1 <- data_eur_country_in_range %>% filter(Date == knot_date_1) %>% pull(Cumulative_cases_beg)
+          knot_2 <- data_eur_country_in_range %>% filter(Date == knot_date_2) %>% pull(Cumulative_cases_beg)
+          
+          # Create dataframe for fitting manual splines
+          # (all three spline segments observed)
+          data_i <- data.frame(lspline(data_eur_country_in_range$Cumulative_cases_beg, knots = c(knot_1, knot_2)))
+          names(data_i) <- covariates <- paste0("Cumulative_cases_beg_", 1:3)
+          data_i <- bind_cols(Daily_cases = data_eur_country_in_range$Daily_cases, data_i)
+          
+        }
+        
+        # Specify that spline model should not estimate an intercept
+        # (because first spline segment in range is first so must go through zero)
+        intercept <- FALSE
         
       }
       
-    }  # (close section which estimates growth parameters)
+    }
     
-    # Record incident and cumulative cases (MA7) on date_start - 1
-    inc_startminus1 <- data_eur_country %>% filter(Date == (date_start - 1)) %>% pull(Daily_cases_MA7)
-    cum_startminus1 <- data_eur_country %>% filter(Date == (date_start - 1)) %>% pull(Cumulative_cases_end_MA7)
+    # Estimate growth parameters using an Arima spline model 
+    # and specified number of knots
+    parameters <- Estimate_Growth_Parameters(n_knots = n_knots,
+                                             n_knots_in_range = n_knots_in_range,
+                                             knot_1 = knot_1, 
+                                             knot_2 = knot_2,
+                                             intercept = intercept,
+                                             data = data_i, 
+                                             covariates = covariates)
+    
+    # Skip to next iteration if error occurred in estimation
+    if (parameters$Error == TRUE) { next }
+    
+    # Record incident and cumulative cases (MA7) on date_start
+    inc_start <- data_eur_country %>% filter(Date == date_start) %>% pull(Daily_cases_MA7)
+    cum_start <- data_eur_country %>% filter(Date == date_start) %>% pull(Cumulative_cases_end_MA7)
     
     # Estimate incident cases over modelling period
     daily_cases_sim <- Estimate_Growth(date_start = date_start,
                                        date_end = date_T,
-                                       start_value = inc_startminus1,
+                                       start_value = inc_start,
                                        n_knots = n_knots,
                                        knot_date_1 = knot_date_1,
                                        knot_date_2 = knot_date_2,
@@ -618,23 +671,24 @@ Estimate_Best_Knots <- function(country, criteria = c("Pois_dev_inc", "Pois_dev_
     
     # Calculate cumulative cases over modelling period
     daily_cases_sim_copy <- daily_cases_sim
-    daily_cases_sim_copy[, 1] <- cum_startminus1
+    daily_cases_sim_copy[, 1] <- cum_start
     cumulative_cases_end_sim <- apply(X = daily_cases_sim_copy, MARGIN = 1, FUN = cumsum) %>% t
     
     # Calculate and record Poisson deviance
     ## (1) For predicted vs true (7-day moving average) incident cases
     true_inc <- data_eur_country_in_range$Daily_cases_MA7
-    pred_inc <- daily_cases_sim[1, -1]
+    pred_inc <- daily_cases_sim[1, ]
     pois_dev_inc <- Calc_Pois_Dev(obs = true_inc, sim = pred_inc)
     ## (2) For predicted vs true (7-day moving average) cumulative cases
     true_cum <- data_eur_country_in_range$Cumulative_cases_end_MA7
-    pred_cum <- cumulative_cases_end_sim[1, -1]
+    pred_cum <- cumulative_cases_end_sim[1, ]
     pois_dev_cum <- Calc_Pois_Dev(obs = true_cum, sim = pred_cum)
     
     # Convert parameters list to dataframe, 
-    # label with knot dates, number of knots, and Poisson deviances
+    # label with knot dates, number of knots (total and in range), and Poisson deviances
     parameters <- parameters %>% bind_cols %>% 
-      mutate(Knot_date_1 = knot_date_1, Knot_date_2 = knot_date_2, N_knots = n_knots,
+      mutate(Knot_date_1 = knot_date_1, Knot_date_2 = knot_date_2, 
+             N_knots = n_knots, N_knots_in_range = n_knots_in_range,
              Pois_dev_inc = pois_dev_inc, Pois_dev_cum = pois_dev_cum) 
     
     # Bind model parameters to summary table
@@ -646,12 +700,11 @@ Estimate_Best_Knots <- function(country, criteria = c("Pois_dev_inc", "Pois_dev_
   }  # (close loop 1 (i))
   
   # Remove from consideration knot date pairs for which ...
-  # (1) growth factor 1 is less than 1 AND growth factor 3 exists 
-  # (because where there are 3 segments, the first scenario must represent initial uncontrolled growth)
+  # (1) growth_factor_1 is less than 1 (because this represents initial uncontrolled growth)
   # (2) any of growth factors are negative
   # (3) growth factor 1 is less than 2, or 2 is less than 3
   # (4) any of growth factor SDs are NaN
-  remove_1 <- knot_summaries %>% filter(Growth_factor_1 < 1 & !is.na(Growth_factor_3)) 
+  remove_1 <- knot_summaries %>% filter(Growth_factor_1 < 1) 
   remove_2 <- knot_summaries %>% filter(Growth_factor_1 < 0 | Growth_factor_2 < 0 | Growth_factor_3 < 0)
   remove_3 <- knot_summaries %>% filter(Growth_factor_1 < Growth_factor_2 | Growth_factor_2 < Growth_factor_3)
   remove_4 <- knot_summaries %>% filter(is.nan(Growth_factor_1_sd) | is.nan(Growth_factor_2_sd) | is.nan(Growth_factor_3_sd))
@@ -675,65 +728,79 @@ Estimate_Best_Knots <- function(country, criteria = c("Pois_dev_inc", "Pois_dev_
   
 }
 
-# Function to calculate all potential knot dates for a given country
+# Function to calculate all possible unique combinations of knot dates for a given country
 # Arguments:
 # (1) country = country to calculate
 # (2) date_first_restriction = date of first restriction in country
 # (3) date_lockdown = date of lockdown in country
 # (4) date_start = start date of modelling period
-# (5) date_T = end date of modelling period
-# (6) window = vector of two values representing the min and max number of days after a restriction
+# (5) window = vector of two values representing the min and max number of days after a restriction
 ###### that its results might potentially be realised
-# Returns: grid of of all possible combinations of knot dates
+# Returns: grid of of all possible unique combinations of knot dates
 Calculate_Potential_Knots <- function(country, date_first_restriction, date_lockdown,
-                                      date_start, date_T, window) {
+                                      date_start, window) {
   
-  # Countries with only one distinct intervention
-  if (is.na(date_lockdown) | date_first_restriction == date_lockdown) {
+  # 3 possible scenarios:
+  # (1) Country did not implement lockdown, so there is only one knot date which
+  # corresponds to the effect of the first restriction (second not date is NA); 
+  # (2) Country implemented lockdown immediately, so there are two EQUAL knot dates which 
+  # correspond to the effect of lockdown
+  # (3) Country implemented both first restriction and lockdown on different days,
+  # so there are two corresponding knot dates
+  if (is.na(date_lockdown)) {
     
-    # Calculate potential knot dates
-    possible_knot_dates_1 <- seq(from = date_first_restriction + window[1], 
+    # Define potential values of first knot date
+    # (second knot date is NA, because country did not implement lockdown)
+    possible_knot_dates_1 <- seq.Date(from = date_first_restriction + window[1], 
                                  to = date_first_restriction + window[2], by = 1)
+    possible_knot_dates_2 <- as.Date(NA)
     
-    # Create grid of potential knot dates
-    grid <- tibble("Knot_date_1" = possible_knot_dates_1) %>% 
-      mutate("Knot_date_2" = as.Date(NA))
+    # Create grid of potential knot date pairs
+    grid <- expand_grid("Knot_date_1" = possible_knot_dates_1,
+                        "Knot_date_2" = possible_knot_dates_2)
     
-    # If multiple combinations have knot_date_1 < date_start, 
-    # remove all but one, since these cannot be distinguished from one another
-    remove <- grid %>% filter(Knot_date_1 < date_start) %>% head(-1)
-    grid <- anti_join(grid, remove, by = names(grid))
+  } else if (date_first_restriction == date_lockdown) {
     
-  } else { # Countries with potentially two distinct interventions
+    # Define potential values of second knot date
+    possible_knot_dates_2 <- seq(from = date_lockdown + window[1], 
+                                 to = date_lockdown + window[2], by = 1)
     
-    # Calculate potential knot dates
+    # Set first knot date equal to second knot date, because country implemented lockdown immediately
+    # and skipped over period of growth under first restriction
+    possible_knot_dates_1 <- possible_knot_dates_2
+    
+    # Create grid of potential knot date pairs
+    grid <- tibble(Knot_date_1 = possible_knot_dates_1,
+                   Knot_date_2 = possible_knot_dates_2)
+    
+  } else {
+    
+    # Define potential values of first and second knot dates
     possible_knot_dates_1 <- seq(from = date_first_restriction + window[1], 
                                  to = date_first_restriction + window[2], by = 1)
     possible_knot_dates_2 <- seq(from = date_lockdown + window[1], 
                                  to = date_lockdown + window[2], by = 1)
     
-    # Create grid of potential knot dates, with restriction that 
-    # first knot date is before/at the same time as second
-    grid <- expand_grid("Knot_date_1" = possible_knot_dates_1,
-                        "Knot_date_2" = possible_knot_dates_2) %>% 
-      filter(Knot_date_1 <= Knot_date_2)
-    
-    # For each knot_date_2, if there are multiple values of knot_date_1 < date_start,
-    # remove all but one, since these cannot be distinguished from one another
-    remove <- grid %>% group_by(Knot_date_2) %>%
-      filter(Knot_date_1 < date_start) %>% head(-1) %>% ungroup
-    grid <- anti_join(grid, remove, by = names(grid))
-    
-    # If first knot date equals second knot date, replace second with NA 
-    # (i.e. effects of interventions realised on same day)
-    for (g in 1:nrow(grid)) {
-      k_1 <- grid[[g, "Knot_date_1"]]
-      k_2 <- grid[[g, "Knot_date_2"]]
-      if (k_1 == k_2) {grid[[g, "Knot_date_2"]] <- NA}
-      
-    }
+    # Create grid of potential knot date pairs
+    grid <- expand_grid(Knot_date_1 = possible_knot_dates_1,
+                        Knot_date_2 = possible_knot_dates_2)
     
   }
+  
+  # Remove knot date pairs for which second knot date is less than first knot date
+  remove <- grid %>% filter(Knot_date_2 < Knot_date_1)
+  grid <- anti_join(grid, remove, by = names(grid))
+  
+  # Replace all knot dates that are before or equal to date_start
+  # with date_start and keep only unique pairs, because all knot dates that occur
+  # at or before we start modelling cannot be distinguished from one another
+  # (if both dates are before or equal to date_start, all models have 0 knots
+  # which fall within the modelling period; 
+  # if only first knot date is before or equal to date_start, all models have 1 knot
+  # which falls within the modelling period)
+  grid <- grid %>% mutate(across(.cols = everything(), 
+                                 ~if_else(. <= date_start, date_start, .))) %>% 
+    unique
   
   # Return grid of potential knot dates
   return(grid)
@@ -742,14 +809,16 @@ Calculate_Potential_Knots <- function(country, date_first_restriction, date_lock
 
 # Function to estimate the growth parameters for given knot dates using an Arima (spline) model
 # Arguments:
-# (1) n_knots = number of knot dates
-# (2) knot_1 = value of knot 1 (cumulative cases)
-# (3) knot_2 = value of knot 2 (cumulative cases)
-# (4) intercept = whether to fit an intercept
-# (5) data = dataframe containing daily and cumulative cases
-# (6) covariates = names of covariates in the model
+# (1) n_knots = total number of knot dates (corresponds to number of interventions)
+# (2) n_knot_in_range = number of knot dates that fall during the modelling period
+# (3) knot_1 = value of knot 1 (cumulative cases)
+# (4) knot_2 = value of knot 2 (cumulative cases)
+# (5) intercept = whether to fit an intercept
+# (6) data = dataframe containing daily and cumulative cases
+# (7) covariates = names of covariates in the model
 # Returns: list of model parameters, and indicator for whether error occurred in model estimation
-Estimate_Growth_Parameters <- function(n_knots = c(0, 1, 2), 
+Estimate_Growth_Parameters <- function(n_knots = c(1, 2), 
+                                       n_knots_in_range = c(0, 1, 2),
                                        knot_1, knot_2, 
                                        intercept = c(TRUE, FALSE),
                                        data, covariates) {
@@ -777,40 +846,87 @@ Estimate_Growth_Parameters <- function(n_knots = c(0, 1, 2),
                                             Intercept_3 = as.numeric(NA),
                                             Error = error_occurred)) }
   
-  # Record model parameters (intercept, slope, and SD of slope),
-  # and calculate growth factor(s)
-  if (n_knots == 0) {
+  # Record all model parameters from spline model
+  slope_1 <- as.numeric(coef(model)["Cumulative_cases_beg_1"])
+  slope_2 <- as.numeric(coef(model)["Cumulative_cases_beg_2"])
+  slope_3 <- as.numeric(coef(model)["Cumulative_cases_beg_3"])
+  slope_1_sd <- ifelse(!is.na(slope_1), 
+                       sqrt(diag(model$var.coef))[["Cumulative_cases_beg_1"]], NA)
+  slope_2_sd <- ifelse(!is.na(slope_2),
+                       sqrt(diag(model$var.coef))[["Cumulative_cases_beg_2"]], NA)
+  slope_3_sd <- ifelse(!is.na(slope_3),
+                       sqrt(diag(model$var.coef))[["Cumulative_cases_beg_3"]], NA)
+  growth_factor_1 <- slope_1 + 1
+  growth_factor_2 <- slope_2 + 1
+  growth_factor_3 <- slope_3 + 1
+  
+  # Calculate intercepts for all spline segments
+  intercept_1 <- 0  # always zero, even if unobserved
+  
+  # Depending on how many knots are in full model and how many of those are actually
+  # observed within the modelling period,
+  # the intercept estimated within the model will correspond to different spline segments
+  if (n_knots == 1) {
     
-    intercept_1 <- as.numeric(coef(model)["intercept"])
-    slope_1 <- as.numeric(coef(model)["Cumulative_cases_beg"])
-    slope_1_sd <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg"]]
-    growth_factor_1 <- slope_1 + 1
+    if (n_knots_in_range == 0) {
+      
+      # If there are no knots within the modelling range, then
+      # the intercept estimated in spline model corresponds to segment 2
+      intercept_2 <- as.numeric(coef(model)["intercept"])
+      
+    } else {  # (n_knots_in_range == 1)
+      
+      # If there is one knot within the modelling period, then
+      # no intercept is calculated in the model and intercept corresponding to
+      # segment 2 must be calcualted
+      intercept_2 <- (intercept_1 + slope_1*knot_1) - slope_2*knot_1
+      
+    }
     
-  } else if (n_knots == 1) {
-    
-    intercept_1 <- 0
-    slope_1 <- as.numeric(coef(model)["Cumulative_cases_beg_1"])
-    slope_2 <- as.numeric(coef(model)["Cumulative_cases_beg_2"])
-    slope_1_sd <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_1"]]
-    slope_2_sd <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_2"]]
-    intercept_2 <- (intercept_1 + slope_1*knot_1) - slope_2*knot_1
-    growth_factor_1 <- slope_1 + 1
-    growth_factor_2 <- slope_2 + 1
+    # The intercept corresponding to segment 3 does not exist 
+    intercept_3 <- as.numeric(NA)
     
   } else {
     
-    intercept_1 <- 0
-    slope_1 <- as.numeric(coef(model)["Cumulative_cases_beg_1"])
-    slope_2 <- as.numeric(coef(model)["Cumulative_cases_beg_2"])
-    slope_3 <- as.numeric(coef(model)["Cumulative_cases_beg_3"])
-    slope_1_sd <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_1"]]
-    slope_2_sd <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_2"]]
-    slope_3_sd <- sqrt(diag(model$var.coef))[["Cumulative_cases_beg_3"]]
-    intercept_2 <- (intercept_1 + slope_1*knot_1) - slope_2*knot_1
-    intercept_3 <- (intercept_2 + slope_2*knot_2) - slope_3*knot_2
-    growth_factor_1 <- slope_1 + 1
-    growth_factor_2 <- slope_2 + 1
-    growth_factor_3 <- slope_3 + 1
+    if (n_knots_in_range == 0) {
+      
+      # If there are no knots within the modelling range, then
+      # the intercept estimated in spline model corresponds to segment 3
+      # (and the intercept corresponding to segment 2 cannot be calculated 
+      # because the entire segment is unobserved)
+      intercept_2 <- as.numeric(NA)
+      intercept_3 <- as.numeric(coef(model)["intercept"])
+      
+    } else if (n_knots_in_range == 1) {
+      
+      # If there is only one knot within the modelling period, then
+      # the intercept estimated in the spline model corresponds to segment 2
+      intercept_2 <- as.numeric(coef(model)["intercept"])
+      intercept_3 <- (intercept_2 + slope_2*knot_2) - slope_3*knot_2
+      
+    } else {  # (n_knots_in_range == 2)
+      
+      # If there are two knots within the modelling period, 
+      # no intercept is calculated in the model
+      
+      if (is.na(knot_1)) {
+        
+        # If knots are not distinct (i.e. knot_date_1 = knot_date_2), 
+        # segment 2 does not exist so only the intercept coresponding to segment 3
+        # must be calculated
+        intercept_2 <- as.numeric(NA)
+        intercept_3 <- (intercept_1 + slope_1*knot_2) - slope_3*knot_2
+        
+      } else {
+        
+        # If there are two distinct knots within the modelling period, then
+        # intercepts corresponding to segments 2 and 3 must be calcualted
+        intercept_2 <- (intercept_1 + slope_1*knot_1) - slope_2*knot_1
+        intercept_3 <- (intercept_2 + slope_2*knot_2) - slope_3*knot_2
+        
+      }
+      
+    }
     
   }
   
@@ -833,26 +949,26 @@ Estimate_Growth_Parameters <- function(n_knots = c(0, 1, 2),
 # (1) date_start = start date
 # (2) date_end = end date
 # (3) start value = value of daily cases on which to start simulation
-# (4) n_knots = number of knots (where growth factor changes)
+# (4) n_knots = total number of knot dates (corresponds to number of interventions)
 # (5) knot_date_1 = date of first knot
 # (6) knot_date_2 = date of second knot
 # (7) parameters = list containing growth parameters 
 # Returns: matrix of simulated incident cases
 Estimate_Growth <- function(date_start, date_end, start_value, 
-                            n_knots = c(0, 1, 2),
+                            n_knots = c(1, 2),
                             knot_date_1, knot_date_2,
                             parameters) {
   
   # Set dates over which to simulate growth
-  dates <- seq.Date(from = date_start, to = date_end, by = 1)
+  dates <- seq.Date(from = date_start + 1, to = date_end, by = 1)
   
   # Create matrices for simulated incidence data 
   # (1 row per simulation run, 1 col per date)
   daily_cases_sim <- 
     matrix(nrow = 1, ncol = length(dates) + 1,
-           dimnames = list(1, as.character(seq.Date(from = date_start - 1, to = date_end, by = 1))))
+           dimnames = list(1, as.character(seq.Date(from = date_start, to = date_end, by = 1))))
   
-  # Initialise matrix with data at date_start - 1
+  # Initialise matrix with data at date_start
   daily_cases_sim[, 1] <- start_value
   
   # Iterate through dates
@@ -862,30 +978,16 @@ Estimate_Growth <- function(date_start, date_end, start_value,
     inc_tminus1 <- daily_cases_sim[, as.character(t-1)]
     
     # Define growth parameters
-    if (n_knots == 0) {  # NO knot points
+    if (n_knots == 1) {  # one knot (i.e. first restriction only)
       
       # Define growth factor
-      growth <- parameters$Growth_factor_1  
-      
-    } else if (n_knots == 1) {  # ONE knot point
-      
-      # Set value of knot point:
-      # If knot_date_1 falls on date when we begin modelling, then knot point is really knot_date_2;
-      # Otherwise, the knot point is knot_date_1
-      if (date_start == knot_date_1) {
-        knot_date <- knot_date_2
-      } else {
-        knot_date <- knot_date_1
-      }
-      
-      # Define growth factor
-      if (t <= knot_date) {
+      if (t <= knot_date_1) {
         growth <- parameters$Growth_factor_1
       } else {
         growth <- parameters$Growth_factor_2
       }
       
-    } else {  # TWO knot points
+    } else {  # two knots (i.e. both first restriction and lockdown)
       
       # Define growth factor
       if (t <= knot_date_1) {
@@ -926,7 +1028,7 @@ Calc_Pois_Dev <- function(obs, sim) {
 
 # Specify parameters
 criteria <- "Pois_dev_inc"  # criteria for selecting best knot points
-n_best <- 10  # number of best knot points to select per country
+n_best <- 10  # maximum number of best knot points to select per country
 
 ### Parallelised ---------------------------------------------------------------
 
@@ -1045,91 +1147,75 @@ Calculate_Possible_Counterfactual_Days <- function(country, knots) {
   date_first_restriction <- summary_eur_country %>% pull(Date_first_restriction)
   date_lockdown <- summary_eur_country %>% pull(Date_lockdown)
   
-  # Calculate maximum number of knots in knots dataframe
-  max_n_knots <- knots_country %>% pull(N_knots) %>% max(na.rm = TRUE) %>% 
-    suppressWarnings
+  # Record total number of knots
+  n_knots <- knots_country %>% pull(N_knots) %>% unique
   
-  # Calculate possible counterfactuals
-  if (max_n_knots == 2) {  # evidence of two unique intervention effects
+  # Calculate possible date combinations for which counterfactual can be estimated
+  if (n_knots == 2) {
     
-    # Calculate maximum number of days earlier we can estimate first restriction
-    # (minimum value of knot_date_1 greater than or equal to date_start)
-    max_days_counterfactual_first_restriction <- knots_country %>% 
-      mutate(Diff = Knot_date_1 - date_start) %>% pull(Diff) %>% min %>% as.numeric 
-    
-    # Calculate minimum date we can estimate first restriction
-    min_date_first_restriction <- date_first_restriction - max_days_counterfactual_first_restriction
-    
-    # Calculate minimum date we can estimate lockdown (must be after date of first restriction)
-    min_date_lockdown <- min_date_first_restriction + 1
-    
-    # Determine all possible combinations of dates for first restriction and lockdown
-    # (first restriction must be before lockdown)
-    possible_dates_counterfactual <- expand_grid(Date_first_restriction = seq.Date(min_date_first_restriction, date_first_restriction, 1),
-                                                 Date_lockdown = seq.Date(min_date_lockdown, date_lockdown, 1)) %>%
-      filter(Date_first_restriction < Date_lockdown)
-    
-    # Calculate all possible combinations of counterfactual days for first restriction and lockdown, label
-    possible_days_counterfactual <- possible_dates_counterfactual %>%
-      mutate(N_days_first_restriction = as.numeric(date_first_restriction - Date_first_restriction),
-             N_days_lockdown = as.numeric(date_lockdown - Date_lockdown)) 
-    
-  } else if (max_n_knots == 1) {  # evidence of only one unique intervention effect
-    
-    # Calculate maximum number of days earlier we can estimate first restriction
-    # (minimum value of knot_date_1 greater than or equal to date_start)
-    max_days_counterfactual_first_restriction <- knots_country %>% 
-      mutate(Diff = Knot_date_1 - date_start) %>% pull(Diff) %>% min %>% as.numeric 
-    
-    # Calculate minimum date we can estimate first restriction
-    min_date_first_restriction <- date_first_restriction - max_days_counterfactual_first_restriction
-    
-    # Determine possible combinations of dates for first restriction and lockdown
-    if (is.na(date_lockdown)) {  ## (no lockdown implemented)
-      # Determine all possible dates for first restriction 
-      # (lockdown date is NA)
-      possible_dates_counterfactual <- tibble(Date_first_restriction = seq.Date(min_date_first_restriction, date_first_restriction, 1),
-                                              Date_lockdown = as.Date(NA))
-    } else if (date_first_restriction == date_lockdown) {  ## (lockdown implemented same day as first restriction)
+    if (date_first_restriction == date_lockdown) {
+      
+      # Calculate maximum number of days earlier we can estimate first restriction
+      # (minimum value of knot_date_1 greater than or equal to date_start)
+      max_days_counterfactual_first_restriction <- knots_country %>% 
+        mutate(Diff = Knot_date_1 - date_start) %>% pull(Diff) %>% min %>% as.numeric 
+      
+      # Calculate minimum date we can estimate first restriction
+      min_date_first_restriction <- date_first_restriction - max_days_counterfactual_first_restriction
+      
       # Determine all possible dates for first restriction 
       # (lockdown date is equal to date of first restriction)
       possible_dates_counterfactual <- tibble(Date_first_restriction = seq.Date(min_date_first_restriction, date_first_restriction, 1),
                                               Date_lockdown = Date_first_restriction)
-    } else {  ## (lockdown implemented, but didn't have unique effect on growth)
+      
+    } else {
+      
+      # Calculate maximum number of days earlier we can estimate first restriction
+      # (minimum value of knot_date_1 greater than or equal to date_start)
+      max_days_counterfactual_first_restriction <- knots_country %>% 
+        mutate(Diff = Knot_date_1 - date_start) %>% pull(Diff) %>% min %>% as.numeric 
+      
+      # Calculate minimum date we can estimate first restriction
+      min_date_first_restriction <- date_first_restriction - max_days_counterfactual_first_restriction
+      
       # Calculate minimum date we can estimate lockdown (must be after date of first restriction)
       min_date_lockdown <- min_date_first_restriction + 1
+      
       # Determine all possible combinations of dates for first restriction and lockdown
       # (first restriction must be before lockdown)
       possible_dates_counterfactual <- expand_grid(Date_first_restriction = seq.Date(min_date_first_restriction, date_first_restriction, 1),
                                                    Date_lockdown = seq.Date(min_date_lockdown, date_lockdown, 1)) %>%
         filter(Date_first_restriction < Date_lockdown)
+      
     }
     
-    # Determine all possible counterfactual days for first restriction
-    possible_days_counterfactual <- possible_dates_counterfactual %>%
-      mutate(N_days_first_restriction = as.numeric(date_first_restriction - Date_first_restriction),
-             N_days_lockdown = as.numeric(date_lockdown - Date_lockdown)) 
+  } else {  # (n_knots == 1)
     
-  } else {  # only natural history is possible
+    # Calculate maximum number of days earlier we can estimate first restriction
+    # (minimum value of knot_date_1 greater than or equal to date_start)
+    max_days_counterfactual_first_restriction <- knots_country %>% 
+      mutate(Diff = Knot_date_1 - date_start) %>% pull(Diff) %>% min %>% as.numeric 
     
-    # Specify values of number of days by which interventions can be brought forward
-    # (NA if intervention not implemented, 0 if intervention implemented)
-    n_days_first_restriction <- ifelse(is.na(date_first_restriction), as.numeric(NA), 0)
-    n_days_lockdown <- ifelse(is.na(date_lockdown), as.numeric(NA), 0)
+    # Calculate minimum date we can estimate first restriction
+    min_date_first_restriction <- date_first_restriction - max_days_counterfactual_first_restriction
     
-    # Specify only natural history is possible
-    possible_days_counterfactual <- tibble(Date_first_restriction = as.Date(date_first_restriction),
-                                           Date_lockdown = as.Date(date_lockdown),
-                                           N_days_first_restriction = n_days_first_restriction,
-                                           N_days_lockdown = n_days_lockdown) 
+    # Determine all possible dates for first restriction 
+    # (lockdown date is NA)
+    possible_dates_counterfactual <- tibble(Date_first_restriction = seq.Date(min_date_first_restriction, date_first_restriction, 1),
+                                            Date_lockdown = as.Date(NA))
     
   }
   
-  # Label dataframe with country, max knots
+  # Determine all possible counterfactual days for first restriction
+  possible_days_counterfactual <- possible_dates_counterfactual %>%
+    mutate(N_days_first_restriction = as.numeric(date_first_restriction - Date_first_restriction),
+           N_days_lockdown = as.numeric(date_lockdown - Date_lockdown)) 
+  
+  # Label dataframe with country, n_knots
   possible_days_counterfactual <- possible_days_counterfactual %>% 
-    mutate(Country = country, Max_n_knots = max_n_knots) %>%
+    mutate(Country = country, N_knots = n_knots) %>%
     arrange(N_days_first_restriction, N_days_lockdown) %>%
-    relocate(Country, Max_n_knots, N_days_first_restriction, N_days_lockdown)
+    relocate(Country, N_knots, N_days_first_restriction, N_days_lockdown)
   
   # Return dataframe containing possible counterfactual days
   return(possible_days_counterfactual)
@@ -1150,6 +1236,6 @@ write_csv(possible_days_counterfactual, file = paste0(results_directory, "possib
 
 # Create list of countries which can be modelled, save
 countries_eur_modelled <- possible_days_counterfactual %>% 
-  filter(Max_n_knots != 0) %>% pull(Country) %>% unique %>% as.list
+  pull(Country) %>% unique %>% as.list
 save(countries_eur_modelled, file = paste0(results_directory, "countries_eur_modelled.RData"))
 

@@ -323,8 +323,9 @@ Plot_Splines <- function(country, out) {
   # Define important dates
   date_start <- summary_eur_country %>% pull(Date_start)  # first date of observed data included
   date_T <- summary_eur_country %>% pull(Date_T)  # final date of observed data to include
-  date_first_restriction <- summary_eur_country %>% pull(Date_first_restriction)
-  date_lockdown <- summary_eur_country %>% pull(Date_lockdown)
+  
+  # Define total number of knot points
+  n_knots <- knots_best_country %>% pull(N_knots) %>% unique
   
   # Create In_range variable to indicate whether date is within range of observed data to include
   # (date_start <= Date <= date_T)
@@ -385,6 +386,9 @@ Plot_Splines <- function(country, out) {
     min_cc <- data_eur_country %>% filter(In_range == TRUE) %>% pull(Cumulative_cases_beg) %>% min
     max_cc <- data_eur_country %>% filter(In_range == TRUE) %>% pull(Cumulative_cases_beg) %>% max
     
+    # Define number of knots within modelling range
+    n_knots_in_range <- knots_best_country_i %>% pull(N_knots_in_range)
+    
     # Define Arima spline parameters
     slope_1 <- knots_best_country_i %>% pull(Growth_factor_1) %>% head(1) - 1
     slope_2 <- knots_best_country_i %>% pull(Growth_factor_2) %>% head(1) - 1
@@ -394,23 +398,15 @@ Plot_Splines <- function(country, out) {
     intercept_3 <- knots_best_country_i %>% pull(Intercept_3) %>% head(1)
     
     # Add fitted line
-    if (knot_date_1 <= date_start) {
-      if (is.na(knot_date_2)) {  # NO knot points
+    if (n_knots == 1) {
+      if (n_knots_in_range == 0) {
+        # Second segment only
         plot <- plot +
           geom_segment(aes_(x = min_cc, xend = max_cc,
-                            y = intercept_1 + slope_1*min_cc, yend = intercept_1 + slope_1*max_cc),
+                            y = intercept_2 + slope_2*min_cc, yend = intercept_2 + slope_2*max_cc),
                        color = color, size = 0.15, alpha = 0.1, linetype = "dashed")
-      } else {  # ONE knot point (at knot_date_2)
-        plot <- plot +
-          geom_segment(aes_(x = min_cc, xend = knot_2,
-                            y = intercept_1 + slope_1*min_cc, yend = intercept_1 + slope_1*knot_2),
-                       color = color, size = 0.15, alpha = 0.1, linetype = "dashed") +
-          geom_segment(aes_(x = knot_2, xend = max_cc,
-                            y = intercept_2 + slope_2*knot_2, yend = intercept_2 + slope_2*max_cc),
-                       color = color, size = 0.15, alpha = 0.1, linetype = "dashed") 
-      }
-    } else {
-      if (is.na(knot_date_2)) {  # ONE knot point (at knot_date_1)
+      } else {  # (n_knots_in_range == 1)
+        # First and second segments
         plot <- plot +
           geom_segment(aes_(x = min_cc, xend = knot_1,
                             y = intercept_1 + slope_1*min_cc, yend = intercept_1 + slope_1*knot_1),
@@ -418,17 +414,46 @@ Plot_Splines <- function(country, out) {
           geom_segment(aes_(x = knot_1, xend = max_cc,
                             y = intercept_2 + slope_2*knot_1, yend = intercept_2 + slope_2*max_cc),
                        color = color, size = 0.15, alpha = 0.1, linetype = "dashed") 
-      } else {  # TWO knot points (at knot_date_1 and knot_date_2)
+      }
+    } else {  # (n_knots == 2)
+      if (n_knots_in_range == 0) {
+        # Third segment only
         plot <- plot +
-          geom_segment(aes_(x = min_cc, xend = knot_1,
-                            y = intercept_1 + slope_1*min_cc, yend = intercept_1 + slope_1*knot_1),
-                       color = color, size = 0.15, alpha = 0.1, linetype = "dashed") +
-          geom_segment(aes_(x = knot_1, xend = knot_2,
-                            y = intercept_2 + slope_2*knot_1, yend = intercept_2 + slope_2*knot_2),
+          geom_segment(aes_(x = min_cc, xend = max_cc,
+                            y = intercept_3 + slope_3*min_cc, yend = intercept_3 + slope_3*max_cc),
+                       color = color, size = 0.15, alpha = 0.1, linetype = "dashed")
+      } else if (n_knots_in_range == 1) {
+        # Second and third segments
+        plot <- plot +
+          geom_segment(aes_(x = min_cc, xend = knot_2,
+                            y = intercept_2 + slope_2*min_cc, yend = intercept_2 + slope_2*knot_2),
                        color = color, size = 0.15, alpha = 0.1, linetype = "dashed") +
           geom_segment(aes_(x = knot_2, xend = max_cc,
                             y = intercept_3 + slope_3*knot_2, yend = intercept_3 + slope_3*max_cc),
                        color = color, size = 0.15, alpha = 0.1, linetype = "dashed") 
+      } else {  # (n_knots_in_range == 2)
+        if (knot_1 == knot_2) {
+          # First and third segments
+          plot <- plot +
+            geom_segment(aes_(x = min_cc, xend = knot_2,
+                              y = intercept_1 + slope_1*min_cc, yend = intercept_1 + slope_1*knot_2),
+                         color = color, size = 0.15, alpha = 0.1, linetype = "dashed") +
+            geom_segment(aes_(x = knot_2, xend = max_cc,
+                              y = intercept_3 + slope_3*knot_2, yend = intercept_3 + slope_3*max_cc),
+                         color = color, size = 0.15, alpha = 0.1, linetype = "dashed") 
+        } else {
+          # All three segments
+          plot <- plot +
+            geom_segment(aes_(x = min_cc, xend = knot_1,
+                              y = intercept_1 + slope_1*min_cc, yend = intercept_1 + slope_1*knot_1),
+                         color = color, size = 0.15, alpha = 0.1, linetype = "dashed") +
+            geom_segment(aes_(x = knot_1, xend = knot_2,
+                              y = intercept_2 + slope_2*knot_1, yend = intercept_2 + slope_2*knot_2),
+                         color = color, size = 0.15, alpha = 0.1, linetype = "dashed") +
+            geom_segment(aes_(x = knot_2, xend = max_cc,
+                              y = intercept_3 + slope_3*knot_2, yend = intercept_3 + slope_3*max_cc),
+                         color = color, size = 0.15, alpha = 0.1, linetype = "dashed") 
+        }
       }
     }  # (close if-else section)
   }  # (close fitted line section)
@@ -1168,6 +1193,9 @@ Plot_Exponential_Growth_Sim <- function(country, title, labs = c(TRUE, FALSE),
     y_max <- max(filter(sim_data, Date <= max_date)$C_975_daily_cases)
   }
   
+  # Define total number of knot points
+  n_knots <- knots %>% pull(N_knots) %>% unique
+  
   # Define color, size, and transparency for fitted lines
   color <- simulation_aes %>% filter(Simulation == "0,0") %>% pull(Color)
   size <- 0.1
@@ -1211,6 +1239,9 @@ Plot_Exponential_Growth_Sim <- function(country, title, labs = c(TRUE, FALSE),
     min_cc <- obs_data %>% filter(In_range == TRUE) %>% pull(Cumulative_cases_beg) %>% min
     max_cc <- obs_data %>% filter(In_range == TRUE) %>% pull(Cumulative_cases_beg) %>% max
     
+    # Define number of knots within modelling range
+    n_knots_in_range <- knots_i %>% pull(N_knots_in_range)
+    
     # Define Arima spline parameters
     slope_1 <- knots_i %>% pull(Growth_factor_1) %>% head(1) - 1
     slope_2 <- knots_i %>% pull(Growth_factor_2) %>% head(1) - 1
@@ -1220,23 +1251,15 @@ Plot_Exponential_Growth_Sim <- function(country, title, labs = c(TRUE, FALSE),
     intercept_3 <- knots_i %>% pull(Intercept_3) %>% head(1)
     
     # Add fitted line
-    if (knot_date_1 <= date_start) {
-      if (is.na(knot_date_2)) {  # NO knot points
+    if (n_knots == 1) {
+      if (n_knots_in_range == 0) {
+        # Second segment only
         plot <- plot +
           geom_segment(aes_(x = min_cc, xend = max_cc,
-                            y = intercept_1 + slope_1*min_cc, yend = intercept_1 + slope_1*max_cc),
+                            y = intercept_2 + slope_2*min_cc, yend = intercept_2 + slope_2*max_cc),
                        color = color, size = size, alpha = alpha, linetype = "dashed")
-      } else {  # ONE knot point (at knot_date_2)
-        plot <- plot +
-          geom_segment(aes_(x = min_cc, xend = knot_2,
-                            y = intercept_1 + slope_1*min_cc, yend = intercept_1 + slope_1*knot_2),
-                       color = color, size = size, alpha = alpha, linetype = "dashed") +
-          geom_segment(aes_(x = knot_2, xend = max_cc,
-                            y = intercept_2 + slope_2*knot_2, yend = intercept_2 + slope_2*max_cc),
-                       color = color, size = size, alpha = alpha, linetype = "dashed") 
-      }
-    } else {
-      if (is.na(knot_date_2)) {  # ONE knot point (at knot_date_1)
+      } else {  # (n_knots_in_range == 1)
+        # First and second segments
         plot <- plot +
           geom_segment(aes_(x = min_cc, xend = knot_1,
                             y = intercept_1 + slope_1*min_cc, yend = intercept_1 + slope_1*knot_1),
@@ -1244,17 +1267,46 @@ Plot_Exponential_Growth_Sim <- function(country, title, labs = c(TRUE, FALSE),
           geom_segment(aes_(x = knot_1, xend = max_cc,
                             y = intercept_2 + slope_2*knot_1, yend = intercept_2 + slope_2*max_cc),
                        color = color, size = size, alpha = alpha, linetype = "dashed") 
-      } else {  # TWO knot points (at knot_date_1 and knot_date_2)
+      }
+    } else {  # (n_knots == 2)
+      if (n_knots_in_range == 0) {
+        # Third segment only
         plot <- plot +
-          geom_segment(aes_(x = min_cc, xend = knot_1,
-                            y = intercept_1 + slope_1*min_cc, yend = intercept_1 + slope_1*knot_1),
-                       color = color, size = size, alpha = alpha, linetype = "dashed") +
-          geom_segment(aes_(x = knot_1, xend = knot_2,
-                            y = intercept_2 + slope_2*knot_1, yend = intercept_2 + slope_2*knot_2),
+          geom_segment(aes_(x = min_cc, xend = max_cc,
+                            y = intercept_3 + slope_3*min_cc, yend = intercept_3 + slope_3*max_cc),
+                       color = color, size = size, alpha = alpha, linetype = "dashed")
+      } else if (n_knots_in_range == 1) {
+        # Second and third segments
+        plot <- plot +
+          geom_segment(aes_(x = min_cc, xend = knot_2,
+                            y = intercept_2 + slope_2*min_cc, yend = intercept_2 + slope_2*knot_2),
                        color = color, size = size, alpha = alpha, linetype = "dashed") +
           geom_segment(aes_(x = knot_2, xend = max_cc,
                             y = intercept_3 + slope_3*knot_2, yend = intercept_3 + slope_3*max_cc),
                        color = color, size = size, alpha = alpha, linetype = "dashed") 
+      } else {  # (n_knots_in_range == 2)
+        if (knot_1 == knot_2) {
+          # First and third segments
+          plot <- plot +
+            geom_segment(aes_(x = min_cc, xend = knot_2,
+                              y = intercept_1 + slope_1*min_cc, yend = intercept_1 + slope_1*knot_2),
+                         color = color, size = size, alpha = alpha, linetype = "dashed") +
+            geom_segment(aes_(x = knot_2, xend = max_cc,
+                              y = intercept_3 + slope_3*knot_2, yend = intercept_3 + slope_3*max_cc),
+                         color = color, size = size, alpha = alpha, linetype = "dashed") 
+        } else {
+          # All three segments
+          plot <- plot +
+            geom_segment(aes_(x = min_cc, xend = knot_1,
+                              y = intercept_1 + slope_1*min_cc, yend = intercept_1 + slope_1*knot_1),
+                         color = color, size = size, alpha = alpha, linetype = "dashed") +
+            geom_segment(aes_(x = knot_1, xend = knot_2,
+                              y = intercept_2 + slope_2*knot_1, yend = intercept_2 + slope_2*knot_2),
+                         color = color, size = size, alpha = alpha, linetype = "dashed") +
+            geom_segment(aes_(x = knot_2, xend = max_cc,
+                              y = intercept_3 + slope_3*knot_2, yend = intercept_3 + slope_3*max_cc),
+                         color = color, size = size, alpha = alpha, linetype = "dashed") 
+        }
       }
     }  # (close if-else section)
   }  # (close fitted line section)
@@ -1292,7 +1344,7 @@ countries <- countries_eur_lockdown
 
 # Specify simulations to include in figures 
 #simulations <- c("0,0", "7,7", "14,14")
-simulations <- c("0,0", "0,3", "0,7", "3,3", "7,7")
+simulations <- c("0,0", "0,3", "0,7", "3,3", "7,7", "14,14")
 
 # Specify thresholds to include in figure
 thresholds <- summary_thresholds_sim_all %>% pull(Threshold) %>% unique
@@ -1304,25 +1356,25 @@ figure_sim_results <- foreach(i = countries, .errorhandling = "pass") %do%
                           thresholds = thresholds, 
                           out = out_folder)
 
-# Create multipanel figures of simulated incident and cumulative cases 
-# for all countries, and save
-rows <- 7; cols <- 5
-figure_sim_results_inc <- figure_sim_results %>%
-  map(., .f = ~.x$plot_inc) %>%
-  ggarrange(plotlist = ., nrow = rows, ncol = cols,
-            common.legend = TRUE, legend = "bottom") %>%
-  annotate_figure(.,
-                  top = text_grob("Simulated incident cases of COVID-19", size = 50),
-                  left = text_grob("Incident number of cases", rot = 90, size = 15),
-                  bottom = text_grob("Date", size = 15))
-figure_sim_results_cum <- figure_sim_results %>%
-  map(., .f = ~.x$plot_cum) %>%
-  ggarrange(plotlist = ., nrow = rows, ncol = cols,
-            common.legend = TRUE, legend = "bottom") %>%
-  annotate_figure(.,
-                  top = text_grob("Simulated cumulative cases of COVID-19", size = 50),
-                  left = text_grob("Cumulative number of cases", rot = 90, size = 15),
-                  bottom = text_grob("Date", size = 15))
+## Create multipanel figures of simulated incident and cumulative cases 
+## for all countries, and save
+#rows <- 7; cols <- 5
+#figure_sim_results_inc <- figure_sim_results %>%
+#  map(., .f = ~.x$plot_inc) %>%
+#  ggarrange(plotlist = ., nrow = rows, ncol = cols,
+#            common.legend = TRUE, legend = "bottom") %>%
+#  annotate_figure(.,
+#                  top = text_grob("Simulated incident cases of COVID-19", size = 50),
+#                  left = text_grob("Incident number of cases", rot = 90, size = 15),
+#                  bottom = text_grob("Date", size = 15))
+#figure_sim_results_cum <- figure_sim_results %>%
+#  map(., .f = ~.x$plot_cum) %>%
+#  ggarrange(plotlist = ., nrow = rows, ncol = cols,
+#            common.legend = TRUE, legend = "bottom") %>%
+#  annotate_figure(.,
+#                  top = text_grob("Simulated cumulative cases of COVID-19", size = 50),
+#                  left = text_grob("Cumulative number of cases", rot = 90, size = 15),
+#                  bottom = text_grob("Date", size = 15))
 #ggsave(paste0(results_directory, "Figure - Simulation results (incident cases).png"),
 #       plot = figure_sim_results_inc, width = 6*cols, height = 6*rows, limitsize = FALSE)
 #ggsave(paste0(results_directory, "Figure - Simulation results (cumulative cases).png"),
