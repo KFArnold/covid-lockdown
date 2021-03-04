@@ -117,8 +117,10 @@ effects_between_countries_best <- effects_between_countries_best %>%
   mutate(Adjusted = ifelse(is.na(Covariates), "Unadjusted", "Adjusted"),
          Adjusted = as.factor(Adjusted))
 
-# Import dataframe containing model fit statistics
+# Import dataframes containing model fit statistics
 model_fit <- read_csv(paste0(results_directory, "model_fit.csv")) %>%
+  mutate(across(where(is.character), as.factor))
+model_fit_summary <- read_csv(paste0(results_directory, "model_fit_summary.csv")) %>%
   mutate(across(where(is.character), as.factor))
 
 ## Formatting ------------------------------------------------------------------
@@ -325,7 +327,7 @@ Summary_Table_Descriptive_Statistics <- function(countries = countries_eur,
   
 }
 
-# Function to create and save summary table of important dates
+# Function to create and save summary table of important dates (summary_eur.csv)
 # Arguments:
 # (1) countries = list of countries
 # (2) dates = vector of dates (from summary_eur dataframe) to include
@@ -356,13 +358,14 @@ Summary_Table_Important_Dates <- function(countries = countries_eur,
 }
 
 # Function to create and save summary table of best knots and associated parameters
+# (best_knots.csv)
 # Arguments:
 # (1) countries = list of countries
 # (2) n_decimals = number of decimals to include in parameters
 # (3) out = folder to save formatted table
 # Returns: summary table with country name, dates of first restriction and lockdown,
 # best knot dates, growth factors (SDs in parentheses) in same column, and probability of knot pairs
-Summary_Table_Best_Knots <- function(countries, 
+Summary_Table_Best_Knots <- function(countries = countries_eur_modelled, 
                                      n_decimals = 3, 
                                      out = figures_tables_directory) {
   
@@ -394,7 +397,7 @@ Summary_Table_Best_Knots <- function(countries,
 }
 
 # Function to create and save formatted table of between-country effects
-# from best-fitting models
+# from best-fitting models (effects_between_countries_best.csv)
 # Arguments:
 # (1) outcomes = vector of outcomes to include
 # (2) n_decimals = number of decimals to include in effects
@@ -437,7 +440,8 @@ Summary_Table_Effects_Between_Countries <- function(outcomes = c("Length_lockdow
 }
 
 
-# Function to create and save formatted table of within-country effects
+# Function to create and save formatted table of within-country effects 
+# (effects_within_countries_summary.csv)
 # (i.e. percentage change in different outcomes compared to natural history)
 # Arguments:
 # (1) outcomes = vector of outcomes to include
@@ -482,8 +486,46 @@ Summary_Table_Effects_Within_Countries <- function(outcomes = c("Length_lockdown
   
 }
 
-
-# Model fit?
+# Function to create and save formatted table of within-country summary statistics
+# (model_fit_summary.csv)
+# Arguments:
+# (1) measures = vector of measures to include (from model_fit_summary dataframe)
+# (2) n_decimals = number of decimals to include in effects
+# (3) out = folder to save formatted table
+# Returns: formatted table for specfied measures,
+# with mean (SD), and median (IQR) in single columm
+Summary_Table_Model_Fit <- function(measures = c("Diff_time_to_threshold",
+                                                 "Diff_total_cases",
+                                                 "Pois_dev_inc",
+                                                 "Pois_dev_cum"),
+                                    n_decimals = 2, 
+                                    out = figures_tables_directory) {
+  
+  # Filter summary table of model fit statistics by specified measures,
+  # and with specified number of decimals
+  model_fit_summary_filt <- model_fit_summary %>%
+    filter(Measure %in% measures) %>%
+    mutate(across(c(Mean, SD, Median, IQR), 
+                  ~formatC(round(., digits = n_decimals), 
+                           format = "f", big.mark = ",", digits = n_decimals))) %>%
+    arrange(Type, desc(Measure), Threshold) %>%
+    select(where(~sum(!is.na(.x)) > 0))
+  
+  # Combine mean and SD, median and IQR values into single column
+  model_fit_summary_filt <- model_fit_summary_filt %>%
+    mutate(SD = paste0("(", SD, ")"),
+           IQR = paste0("(", IQR, ")")) %>%
+    unite(col = "Mean_SD", c(Mean, SD), sep = " ") %>%
+    unite(col = "Median_IQR", c(Median, IQR), sep = " ")
+  
+  # Save formatted table to specified folder
+  write_csv(model_fit_summary_filt, 
+            paste0(out, "model_fit_summary_formatted.csv"))
+  
+  # Return formatted table
+  return(model_fit_summary_filt)
+  
+}
 
 ## Tables ----------------------------------------------------------------------
 
@@ -505,8 +547,8 @@ Summary_Table_Effects_Between_Countries(outcomes = "Length_lockdown",
 Summary_Table_Effects_Within_Countries(outcomes = c("Length_lockdown",
                                                     "Total_cases"))
 
-
-
+# Save formatted summary table of model fit statistics
+Summary_Table_Model_Fit()
 
 # ------------------------------------------------------------------------------
 # Important dates
