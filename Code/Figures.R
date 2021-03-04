@@ -20,7 +20,7 @@
 packrat::restore()
 
 # Load required packages
-library(tidyverse); library(ggrepel); library(scales)
+library(tidyverse); library(lubridate); library(ggrepel); library(scales)
 library(ggpubr); library(foreach); library(RColorBrewer); library(ggh4x)
 
 # Define storage directory for where formatted data is located
@@ -325,6 +325,36 @@ Summary_Table_Descriptive_Statistics <- function(countries = countries_eur,
   
 }
 
+# Function to create and save summary table of important dates
+# Arguments:
+# (1) countries = list of countries
+# (2) dates = vector of dates (from summary_eur dataframe) to include
+# (3) out = folder to save formatted table
+# Returns: summary table of important dates for specified countries
+Summary_Table_Important_Dates <- function(countries = countries_eur,
+                                          dates = c("Date_1", 
+                                                    "Date_first_restriction", 
+                                                    "Date_lockdown", 
+                                                    "Date_lockdown_eased",
+                                                    "Date_start", 
+                                                    "Date_T"),
+                                          out = figures_tables_directory) {
+  
+  # Filter summary table by specified countries and dates,
+  # and convert dates to characters
+  important_dates <- summary_eur %>%
+    filter(Country %in% countries) %>%
+    select(Country, all_of(dates)) %>%
+    mutate(across(where(is.Date), ~strftime(., "%b %d %Y")))
+  
+  # Save formatted table to specified folder
+  write_csv(important_dates, paste0(out, "important_dates_formatted.csv"))
+  
+  # Return summary table
+  return(important_dates)
+  
+}
+
 # Function to create and save summary table of best knots and associated parameters
 # Arguments:
 # (1) countries = list of countries
@@ -362,7 +392,6 @@ Summary_Table_Best_Knots <- function(countries,
   return(knots_summary)
   
 }
-
 
 # Function to create and save formatted table of between-country effects
 # from best-fitting models
@@ -454,14 +483,15 @@ Summary_Table_Effects_Within_Countries <- function(outcomes = c("Length_lockdown
 }
 
 
-# Knot dates
 # Model fit?
-# Important dates?
 
 ## Tables ----------------------------------------------------------------------
 
 # Save formatted table of descriptive statistics
 Summary_Table_Descriptive_Statistics()
+
+# Save formatted table of important dates
+Summary_Table_Important_Dates()
 
 # Save summary table of best knot dates
 Summary_Table_Best_Knots(countries = list("Greece", "Switzerland","Spain"))
