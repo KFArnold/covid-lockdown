@@ -212,6 +212,158 @@ effect_aes <- tibble(Effect = c("Unadjusted", "Adjusted"),
 
 ## Functions -------------------------------------------------------------------
 
+# Function to create and save table of variable summary statistics 
+# (min, max, mean, SD, median, IQR) for outcomes, cases, and covariates used in analyses; 
+# and density and QQ-plots plots of untransformed and log-transformed values
+# Arguments:
+# (1) countries = list of countries
+# (2) outcomes = vector of outcomes to summarise
+# (3) dates_cases = list containing pairs of dates and case types, describing
+##### important dates and the types of cases to summarise on those dates
+# (4) covariates = vector of covariates to summarise
+# (5) n_decimals = number of decimals to include in statistics
+# (6) out = folder to save formatted table
+# Returns: list of 3: summary table; density plots and QQ-plots of raw and log-transformed variables
+Summary_Table_Descriptive_Statistics <- function(countries = countries_eur, 
+                                                 outcomes = c("Length_lockdown"),
+                                                 dates_cases = list(c("Date_lockdown", "Daily_cases_MA7"),
+                                                                    c("Date_lockdown", "Cumulative_cases_beg"),
+                                                                    c("Date_T", "Daily_cases_MA7"),
+                                                                    c("Date_T", "Cumulative_cases_end")),
+                                                 covariates = c("Area_sq_km", "Population"),
+                                                 n_decimals = 2,
+                                                 out = figures_tables_directory) {
+  
+  # Get data for all outcomes, exposures, and covariates for designated countries
+  ## Exposures: Cases on dates of interest 
+  data_cases <- dates_cases %>% 
+    map(., .f = ~select(summary_eur, c(Country, .x[1]))) %>%
+    map(., .f = ~full_join(.x, data_eur, by = "Country")) %>%
+    map2(., .y = dates_cases, .f = ~select(., c(Country, contains("Date"), .y[2]))) %>%
+    map2(., .y = dates_cases, .f = ~filter(., Date == eval(parse(text = .y[1])))) %>%
+    map(., .f = ~select(., -contains("Date"))) %>% 
+    map2(., .y = dates_cases, .f = ~mutate(., Date = .y[1])) %>%
+    map(., .f = ~pivot_longer(.x, cols = contains("cases"), names_to = "Case_type", values_to = "Value")) %>%
+    map(., .f = ~mutate(., Case_type = paste0(Case_type, "_", Date))) %>%
+    map(., .f = ~select(., -Date)) %>%
+    bind_rows %>%
+    pivot_wider(., names_from = Case_type, values_from = Value) %>%
+    filter(Country %in% countries)
+  ## Covariates: Country stats
+  data_covariates <- summary_eur %>% filter(Country %in% countries) %>% 
+    select(Country, all_of(covariates)) 
+  ## Outcomes
+  data_outcomes <- summary_eur %>% filter(Country %in% countries) %>% 
+    select(Country, all_of(outcomes))
+  
+  # Combine all data into single dataframe
+  data_all <- data_cases %>% 
+    full_join(., data_covariates, by = "Country") %>%
+    full_join(., data_outcomes, by = "Country") 
+  
+  # Create density plots of raw and log-transformed variables
+  density_raw <- data_all %>% keep(is.numeric) %>% 
+    pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value") %>%
+    ggplot(aes(Value)) +
+    labs(title = "Untransformed values") +
+    facet_wrap(~ Variable, scales = "free") + 
+    geom_density()
+  density_log <- data_all %>% keep(is.numeric) %>% 
+    pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value") %>%
+    ggplot(aes(log(Value))) +
+    labs(title = "Log-transformed values") +
+    facet_wrap(~ Variable, scales = "free") + 
+    geom_density()
+  density <- ggarrange(plotlist = list(density_raw, density_log), ncol = 2) %>%
+    annotate_figure(top = text_grob("Density plots", size = 20))
+  
+  # Produce QQ-plots of raw and log-transformed variables
+  qq_raw <- data_all %>% keep(is.numeric) %>% 
+    pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value") %>%
+    ggplot(aes(sample = Value)) +
+    labs(title = "Untransformed values") +
+    stat_qq() +
+    stat_qq_line() +
+    facet_wrap(~ Variable, scales = "free") 
+  qq_log <- data_all %>% keep(is.numeric) %>% 
+    pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value") %>%
+    ggplot(aes(sample = log(Value))) +
+    labs(title = "Log-transformed values") +
+    stat_qq() +
+    stat_qq_line() +
+    facet_wrap(~ Variable, scales = "free") 
+  qq <- ggarrange(plotlist = list(qq_raw, qq_log), ncol = 2) %>%
+    annotate_figure(top = text_grob("QQ plots", size = 20))
+  
+  # Create summary table with specicied numver of decimals
+  summary <- data_all %>% 
+    pivot_longer(cols = -Country, names_to = "Variable", values_to = "Value") %>%
+    group_by(Variable) %>% 
+    summarise(across(Value, list(Min = ~min(., na.rm = TRUE),
+                                 Max = ~max(., na.rm = TRUE),
+                                 Mean = ~mean(., na.rm = TRUE),
+                                 SD = ~sd(., na.rm = TRUE),
+                                 Median = ~median(., na.rm = TRUE),
+                                 IQR = ~IQR(., na.rm = TRUE),
+                                 N = ~sum(!is.na(Value))),
+                     .names = "{fn}"),
+              .groups = "keep") %>%
+    mutate(across(-N, ~formatC(round(., digits = n_decimals), 
+                               format = "f", big.mark = ",", digits = n_decimals)))
+  
+  # Save formatted table and density/QQ plots to specified folder
+  write_csv(summary, paste0(out, "descriptive_statistics_formatted.csv"))
+  ggsave(paste0(figures_tables_directory, "descriptive_statistics_density.png"),
+         plot = density, width = 18, height = 9, limitsize = FALSE)
+  ggsave(paste0(figures_tables_directory, "descriptive_statistics_qq.png"),
+         plot = qq, width = 18, height = 9, limitsize = FALSE)
+  
+  # Return density plots, QQ plots, and summary table
+  return(list(density = density,
+              qq = qq,
+              summary = summary))
+  
+}
+
+# Function to create and save summary table of best knots and associated parameters
+# Arguments:
+# (1) countries = list of countries
+# (2) n_decimals = number of decimals to include in parameters
+# (3) out = folder to save formatted table
+# Returns: summary table with country name, dates of first restriction and lockdown,
+# best knot dates, growth factors (SDs in parentheses) in same column, and probability of knot pairs
+Summary_Table_Best_Knots <- function(countries, 
+                                     n_decimals = 3, 
+                                     out = figures_tables_directory) {
+  
+  # Filter summary datafame by specified countries
+  summary_eur_countries <- summary_eur %>% filter(Country %in% countries) %>%
+    select(Country, Date_first_restriction, Date_lockdown)
+  
+  # Filter best knots dataframe by specified countries
+  knots_best_countries <- knots_best %>% filter(Country %in% countries) %>%
+    select(Country, Knot_date_1, Knot_date_2, contains("Growth"), Prob_unequal) %>%
+    mutate(across(where(is.numeric), ~round(., digits = n_decimals)))
+  
+  # Join summary dataframe with best knots dataframe
+  knots_summary <- full_join(summary_eur_countries, knots_best_countries, by = "Country")
+  
+  # Collapse combine growth factors and associated SDs into same cell
+  knots_summary <- knots_summary %>% 
+    mutate(Growth_factor_1 = paste0(Growth_factor_1, " (", Growth_factor_1_sd, ")"),
+           Growth_factor_2 = paste0(Growth_factor_2, " (", Growth_factor_2_sd, ")"),
+           Growth_factor_3 = paste0(Growth_factor_3, " (", Growth_factor_3_sd, ")")) %>%
+    select(-contains("sd"))
+  
+  # Save formatted table and density/QQ plots to specified folder
+  write_csv(knots_summary, paste0(out, "best_knots_formatted.csv"))
+  
+  # Return summary table
+  return(knots_summary)
+  
+}
+
+
 # Function to create and save formatted table of between-country effects
 # from best-fitting models
 # Arguments:
@@ -302,23 +454,27 @@ Summary_Table_Effects_Within_Countries <- function(outcomes = c("Length_lockdown
 }
 
 
-# Descriptive statistics
 # Knot dates
 # Model fit?
 # Important dates?
 
 ## Tables ----------------------------------------------------------------------
 
-# Create and save formatted summary table of between-country effects
-# (from best-fitting models)
-summary_table_effects_between_countries <-
-  Summary_Table_Effects_Between_Countries(outcomes = "Length_lockdown",
-                                          leverage_points = "Included")
+# Save formatted table of descriptive statistics
+Summary_Table_Descriptive_Statistics()
 
-# Create and save formatted summary table of within-country effects
-summary_table_effects_within_countries <- 
-  Summary_Table_Effects_Within_Countries(outcomes = c("Length_lockdown",
-                                                      "Total_cases"))
+# Save summary table of best knot dates
+Summary_Table_Best_Knots(countries = list("Greece", "Switzerland","Spain"))
+
+# Save formatted summary table of between-country effects
+# (from best-fitting models)
+Summary_Table_Effects_Between_Countries(outcomes = "Length_lockdown",
+                                        leverage_points = "Included")
+
+# Save formatted summary table of within-country effects
+Summary_Table_Effects_Within_Countries(outcomes = c("Length_lockdown",
+                                                    "Total_cases"))
+
 
 
 
