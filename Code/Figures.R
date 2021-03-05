@@ -233,7 +233,7 @@ Summary_Table_Descriptive_Statistics <- function(countries = countries_eur,
                                                                     c("Date_T", "Daily_cases_MA7"),
                                                                     c("Date_T", "Cumulative_cases_end")),
                                                  covariates = c("Area_sq_km", "Population"),
-                                                 n_decimals = 2,
+                                                 n_decimals = 0,
                                                  out = figures_tables_directory) {
   
   # Get data for all outcomes, exposures, and covariates for designated countries
@@ -1756,13 +1756,11 @@ Plot_Model_Residuals_Combined <- function(country, out) {
   
   # Plot residuals of incident cases
   plot_inc <- Plot_Model_Residuals(country = country,
-                                   cases = "Daily_cases",
-                                   out = out)
+                                   cases = "Daily_cases")
   
   # Plot residuals of cumulative cases
   plot_cum <- Plot_Model_Residuals(country = country,
-                                   cases = "Cumulative_cases_end",
-                                   out = out)
+                                   cases = "Cumulative_cases_end")
   
   # Create copy of plots with description as title
   plot_inc_copy <- plot_inc + 
@@ -2199,7 +2197,7 @@ Plot_Within_Length_Lockdown <- function(effects) {
   
   # Filter dataframe with effect sizes by relevant outcome
   effects_length_lockdown <- effects %>% 
-    filter(Outcome == "Length_of_lockdown") 
+    filter(Outcome == "Length_lockdown") 
   
   # Create plot
   plot <- ggplot(data = effects_length_lockdown,
@@ -2320,19 +2318,19 @@ Plot_Within_Total_Cases <- function(effects) {
 
 ### Figures --------------------------------------------------------------------
 
-# Specify simulations to include in figures (comparison is natural history 0,0)
-#simulations <- c("0,1", "0,3", "0,5", "0,7", "1,1", "3,3", "5,5", "7,7", "14,14")
-#simulations <- c("1,1", "3,3", "5,5", "7,7", "14,14")
-simulations <- c("0,1", "0,3", "0,5", "0,7")
-
-# Specify description of figure simulations
-#description <- "all"
-#description <- "earlier sequence"
-description <- "earlier lockdown"
+# Specify simulations and their descriptions to include in figures
+# (comparison is natural history 0,0)
+simulations <- list(c("0,1", "0,3", "0,5", "0,7"),
+                    c("1,1", "3,3", "5,5", "7,7", "14,14"),
+                    c("0,1", "0,3", "0,5", "0,7", "1,1", "3,3", "5,5", "7,7", "14,14"))
+description <- list("earlier lockdown",
+                    "earlier sequence",
+                    "all")
 
 # Create figures
-figure_within_country_effects <- Plot_Within_Country_Effects(simulations = simulations,
-                                                             plots = c("plot_length_lockdown",
-                                                                       "plot_total_cases"),
-                                                             description = description)
-
+figure_within_country_effects <- foreach(i = simulations, 
+                                         j = description) %do%
+  Plot_Within_Country_Effects(simulations = i,
+                              plots = c("plot_length_lockdown",
+                                        "plot_total_cases"),
+                              description = j)
