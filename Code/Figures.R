@@ -20,14 +20,17 @@
 packrat::restore()
 
 # Load required packages
-library(tidyverse); library(ggrepel); library(scales)
+library(tidyverse); library(lubridate); library(ggrepel); library(scales)
 library(ggpubr); library(foreach); library(RColorBrewer); library(ggh4x)
 
-# Define storage directory for formatted data
+# Define storage directory for where formatted data is located
 data_directory_f <- paste0("./Data/Formatted/")
 
-# Define storage directory for results
+# Define storage directory where results are located
 results_directory <- paste0("./Results/")
+
+# Define storage directory where formatted tables and figures will be saved
+figures_tables_directory <- paste0(results_directory, "Figures and Tables/")
 
 # Load formatted data
 data_eur <- read_csv(paste0(data_directory_f, "Cases_deaths_data_europe.csv"))
@@ -102,18 +105,22 @@ rm(summary_cumulative_cases_beg_sim_all, summary_daily_cases_sim_all, summary_cu
 ## Import estimated effects ----------------------------------------------------
 
 # Import (best) between- and within-country effect estimates
-effects_between_countries <- read_csv(paste0(results_directory, "effects_between_countries_best.csv")) %>% 
+effects_between_countries_best <- read_csv(paste0(results_directory, "effects_between_countries_best.csv")) %>% 
   mutate(across(where(is.character), as.factor))
 effects_within_countries <- read_csv(paste0(results_directory, "effects_within_countries.csv")) %>% 
   mutate(across(where(is.character), as.factor))
+effects_within_countries_summary <- read_csv(paste0(results_directory, "effects_within_countries_summary.csv")) %>% 
+  mutate(across(where(is.character), as.factor))
 
 # Create variable for adjusted vs unadjusted in between-country dataframe
-effects_between_countries <- effects_between_countries %>% 
+effects_between_countries_best <- effects_between_countries_best %>% 
   mutate(Adjusted = ifelse(is.na(Covariates), "Unadjusted", "Adjusted"),
          Adjusted = as.factor(Adjusted))
 
-# Import dataframe containing model fit statistics
+# Import dataframes containing model fit statistics
 model_fit <- read_csv(paste0(results_directory, "model_fit.csv")) %>%
+  mutate(across(where(is.character), as.factor))
+model_fit_summary <- read_csv(paste0(results_directory, "model_fit_summary.csv")) %>%
   mutate(across(where(is.character), as.factor))
 
 ## Formatting ------------------------------------------------------------------
@@ -135,10 +142,14 @@ summary_thresholds_sim_all <- summary_thresholds_sim_all %>%
   mutate(Threshold = factor(Threshold, levels = threshold_levels),
          Simulation = factor(Simulation, levels = simulation_levels),
          History = factor(History, levels = history_levels))
-effects_between_countries <- effects_between_countries %>%
+effects_between_countries_best <- effects_between_countries_best %>%
   mutate(Exposure = factor(Exposure, levels = exposure_levels),
          Leverage_points = factor(Leverage_points, levels = leverage_levels))
 effects_within_countries <- effects_within_countries %>% 
+  mutate(Threshold = factor(Threshold, levels = threshold_levels),
+         Simulation = factor(Simulation, levels = simulation_levels),
+         History = factor(History, levels = history_levels))
+effects_within_countries_summary <- effects_within_countries_summary %>%
   mutate(Threshold = factor(Threshold, levels = threshold_levels),
          Simulation = factor(Simulation, levels = simulation_levels),
          History = factor(History, levels = history_levels))
@@ -198,6 +209,348 @@ effect_aes <- tibble(Effect = c("Unadjusted", "Adjusted"),
                      Shape = c(15, 16))
 
 # ------------------------------------------------------------------------------
+# Formatted tables
+# ------------------------------------------------------------------------------
+
+## Functions -------------------------------------------------------------------
+
+# Function to create and save table of variable summary statistics 
+# (min, max, mean, SD, median, IQR) for outcomes, cases, and covariates used in analyses; 
+# and density and QQ-plots plots of untransformed and log-transformed values
+# Arguments:
+# (1) countries = list of countries
+# (2) outcomes = vector of outcomes to summarise
+# (3) dates_cases = list containing pairs of dates and case types, describing
+##### important dates and the types of cases to summarise on those dates
+# (4) covariates = vector of covariates to summarise
+# (5) n_decimals = number of decimals to include in statistics
+# (6) out = folder to save formatted table
+# Returns: list of 3: summary table; density plots and QQ-plots of raw and log-transformed variables
+Summary_Table_Descriptive_Statistics <- function(countries = countries_eur, 
+                                                 outcomes = c("Length_lockdown"),
+                                                 dates_cases = list(c("Date_lockdown", "Daily_cases_MA7"),
+                                                                    c("Date_lockdown", "Cumulative_cases_beg"),
+                                                                    c("Date_T", "Daily_cases_MA7"),
+                                                                    c("Date_T", "Cumulative_cases_end")),
+                                                 covariates = c("Area_sq_km", "Population"),
+                                                 n_decimals = 0,
+                                                 out = figures_tables_directory) {
+  
+  # Get data for all outcomes, exposures, and covariates for designated countries
+  ## Exposures: Cases on dates of interest 
+  data_cases <- dates_cases %>% 
+    map(., .f = ~select(summary_eur, c(Country, .x[1]))) %>%
+    map(., .f = ~full_join(.x, data_eur, by = "Country")) %>%
+    map2(., .y = dates_cases, .f = ~select(., c(Country, contains("Date"), .y[2]))) %>%
+    map2(., .y = dates_cases, .f = ~filter(., Date == eval(parse(text = .y[1])))) %>%
+    map(., .f = ~select(., -contains("Date"))) %>% 
+    map2(., .y = dates_cases, .f = ~mutate(., Date = .y[1])) %>%
+    map(., .f = ~pivot_longer(.x, cols = contains("cases"), names_to = "Case_type", values_to = "Value")) %>%
+    map(., .f = ~mutate(., Case_type = paste0(Case_type, "_", Date))) %>%
+    map(., .f = ~select(., -Date)) %>%
+    bind_rows %>%
+    pivot_wider(., names_from = Case_type, values_from = Value) %>%
+    filter(Country %in% countries)
+  ## Covariates: Country stats
+  data_covariates <- summary_eur %>% filter(Country %in% countries) %>% 
+    select(Country, all_of(covariates)) 
+  ## Outcomes
+  data_outcomes <- summary_eur %>% filter(Country %in% countries) %>% 
+    select(Country, all_of(outcomes))
+  
+  # Combine all data into single dataframe
+  data_all <- data_cases %>% 
+    full_join(., data_covariates, by = "Country") %>%
+    full_join(., data_outcomes, by = "Country") 
+  
+  # Create density plots of raw and log-transformed variables
+  density_raw <- data_all %>% keep(is.numeric) %>% 
+    pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value") %>%
+    ggplot(aes(Value)) +
+    labs(title = "Untransformed values") +
+    facet_wrap(~ Variable, scales = "free") + 
+    geom_density()
+  density_log <- data_all %>% keep(is.numeric) %>% 
+    pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value") %>%
+    ggplot(aes(log(Value))) +
+    labs(title = "Log-transformed values") +
+    facet_wrap(~ Variable, scales = "free") + 
+    geom_density()
+  density <- ggarrange(plotlist = list(density_raw, density_log), ncol = 2) %>%
+    annotate_figure(top = text_grob("Density plots", size = 20))
+  
+  # Produce QQ-plots of raw and log-transformed variables
+  qq_raw <- data_all %>% keep(is.numeric) %>% 
+    pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value") %>%
+    ggplot(aes(sample = Value)) +
+    labs(title = "Untransformed values") +
+    stat_qq() +
+    stat_qq_line() +
+    facet_wrap(~ Variable, scales = "free") 
+  qq_log <- data_all %>% keep(is.numeric) %>% 
+    pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value") %>%
+    ggplot(aes(sample = log(Value))) +
+    labs(title = "Log-transformed values") +
+    stat_qq() +
+    stat_qq_line() +
+    facet_wrap(~ Variable, scales = "free") 
+  qq <- ggarrange(plotlist = list(qq_raw, qq_log), ncol = 2) %>%
+    annotate_figure(top = text_grob("QQ plots", size = 20))
+  
+  # Create summary table with specicied numver of decimals
+  summary <- data_all %>% 
+    pivot_longer(cols = -Country, names_to = "Variable", values_to = "Value") %>%
+    group_by(Variable) %>% 
+    summarise(across(Value, list(Min = ~min(., na.rm = TRUE),
+                                 Max = ~max(., na.rm = TRUE),
+                                 Mean = ~mean(., na.rm = TRUE),
+                                 SD = ~sd(., na.rm = TRUE),
+                                 Median = ~median(., na.rm = TRUE),
+                                 IQR = ~IQR(., na.rm = TRUE),
+                                 N = ~sum(!is.na(Value))),
+                     .names = "{fn}"),
+              .groups = "keep") %>%
+    mutate(across(-N, ~formatC(round(., digits = n_decimals), 
+                               format = "f", big.mark = ",", digits = n_decimals)))
+  
+  # Save formatted table and density/QQ plots to specified folder
+  write_csv(summary, paste0(out, "descriptive_statistics_formatted.csv"))
+  ggsave(paste0(figures_tables_directory, "descriptive_statistics_density.png"),
+         plot = density, width = 18, height = 9, limitsize = FALSE)
+  ggsave(paste0(figures_tables_directory, "descriptive_statistics_qq.png"),
+         plot = qq, width = 18, height = 9, limitsize = FALSE)
+  
+  # Return density plots, QQ plots, and summary table
+  return(list(density = density,
+              qq = qq,
+              summary = summary))
+  
+}
+
+# Function to create and save summary table of important dates (summary_eur.csv)
+# Arguments:
+# (1) countries = list of countries
+# (2) dates = vector of dates (from summary_eur dataframe) to include
+# (3) out = folder to save formatted table
+# Returns: summary table of important dates for specified countries
+Summary_Table_Important_Dates <- function(countries = countries_eur,
+                                          dates = c("Date_1", 
+                                                    "Date_first_restriction", 
+                                                    "Date_lockdown", 
+                                                    "Date_lockdown_eased",
+                                                    "Date_start", 
+                                                    "Date_T"),
+                                          out = figures_tables_directory) {
+  
+  # Filter summary table by specified countries and dates,
+  # and convert dates to characters
+  important_dates <- summary_eur %>%
+    filter(Country %in% countries) %>%
+    select(Country, all_of(dates)) %>%
+    mutate(across(where(is.Date), ~strftime(., "%b %d %Y")))
+  
+  # Save formatted table to specified folder
+  write_csv(important_dates, paste0(out, "important_dates_formatted.csv"))
+  
+  # Return summary table
+  return(important_dates)
+  
+}
+
+# Function to create and save summary table of best knots and associated parameters
+# (best_knots.csv)
+# Arguments:
+# (1) countries = list of countries
+# (2) n_decimals = number of decimals to include in parameters
+# (3) out = folder to save formatted table
+# Returns: summary table with country name, dates of first restriction and lockdown,
+# best knot dates, growth factors (SDs in parentheses) in same column, and probability of knot pairs
+Summary_Table_Best_Knots <- function(countries = countries_eur_modelled, 
+                                     n_decimals = 3, 
+                                     out = figures_tables_directory) {
+  
+  # Filter summary datafame by specified countries
+  summary_eur_countries <- summary_eur %>% filter(Country %in% countries) %>%
+    select(Country, Date_first_restriction, Date_lockdown)
+  
+  # Filter best knots dataframe by specified countries
+  knots_best_countries <- knots_best %>% filter(Country %in% countries) %>%
+    select(Country, Knot_date_1, Knot_date_2, contains("Growth"), Prob_unequal) %>%
+    mutate(across(where(is.numeric), ~round(., digits = n_decimals)))
+  
+  # Join summary dataframe with best knots dataframe
+  knots_summary <- full_join(summary_eur_countries, knots_best_countries, by = "Country")
+  
+  # Collapse combine growth factors and associated SDs into same cell
+  knots_summary <- knots_summary %>% 
+    mutate(Growth_factor_1 = paste0(Growth_factor_1, " (", Growth_factor_1_sd, ")"),
+           Growth_factor_2 = paste0(Growth_factor_2, " (", Growth_factor_2_sd, ")"),
+           Growth_factor_3 = paste0(Growth_factor_3, " (", Growth_factor_3_sd, ")")) %>%
+    select(-contains("sd"))
+  
+  # Save formatted table and density/QQ plots to specified folder
+  write_csv(knots_summary, paste0(out, "best_knots_formatted.csv"))
+  
+  # Return summary table
+  return(knots_summary)
+  
+}
+
+# Function to create and save formatted table of between-country effects
+# from best-fitting models (effects_between_countries_best.csv)
+# Arguments:
+# (1) outcomes = vector of outcomes to include
+# (2) n_decimals = number of decimals to include in effects
+# (3) leverage_points = whether to present models with leverage points included/excluded
+# (4) out = folder to save formatted table
+# Returns: formatted table for specified outcomes,
+# with estimated effect and 95% confidence interval in single column
+Summary_Table_Effects_Between_Countries <- function(outcomes = c("Length_lockdown",
+                                                                 "Median_growth_factor_lockdown"),
+                                                    n_decimals = 2,
+                                                    leverage_points = c("Included",
+                                                                        "Excluded"),
+                                                    out = figures_tables_directory) {
+  
+  # Filter summary table containing between-country effects from best-fitting models
+  # by specified outcomes, leverage points, and with specified number of decimals
+  effects_formatted <- effects_between_countries_best %>%
+    mutate(across(c(Effect:R_squared), 
+                  ~formatC(round(., digits = n_decimals), format = "f", digits = n_decimals)),
+           BIC = round(BIC, digits = 0)) %>%
+    filter(Outcome %in% outcomes,
+           Leverage_points %in% leverage_points) %>%
+    relocate(Adjusted, .after = Exposure) %>%
+    arrange(Leverage_points, Outcome, Adjusted, Exposure) %>%
+    select(where(~sum(!is.na(.x)) > 0))
+  
+  # Combine effect, CI_lower, and CI_upper values into single column
+  effects_formatted <- effects_formatted %>%
+    unite(col = "CI", c(CI_lower, CI_upper), sep = ", ") %>%
+    mutate(CI = paste0("(", CI, ")")) %>%
+    unite(col = "Effect_CI", c(Effect, CI), sep = " ")
+  
+  # Save formatted table to specified folder
+  write_csv(effects_formatted, 
+            paste0(out, "effects_between_countries_best_formatted.csv"))
+  
+  # Return formatted table
+  return(effects_formatted)
+  
+}
+
+
+# Function to create and save formatted table of within-country effects 
+# (effects_within_countries_summary.csv)
+# (i.e. percentage change in different outcomes compared to natural history)
+# Arguments:
+# (1) outcomes = vector of outcomes to include
+# (2) n_decimals = number of decimals to include in effects
+# (3) out = folder to save formatted table
+# Returns: formatted table for specfied outcomes,
+# with median effect and (QR1, QR3) in single column
+Summary_Table_Effects_Within_Countries <- function(outcomes = c("Length_lockdown",
+                                                                "Time_to_threshold",
+                                                                "Total_cases"), 
+                                                   n_decimals = 2,
+                                                   out = figures_tables_directory) {
+  
+  # Filter summary table containing within-country effects by specified outcomes, 
+  # and with specified number of decimals
+  effects_formatted <- effects_within_countries_summary %>%
+    mutate(across(contains("pct"), ~100*.x), 
+           across(contains("pct"), 
+                  ~formatC(round(., digits = n_decimals), format = "f", digits = n_decimals))) %>%
+    arrange(Outcome, History, Simulation, Threshold) %>%
+    filter(Outcome %in% outcomes) %>%
+    select(where(~sum(!is.na(.x)) > 0))
+  
+  # Combine median, QR1, and QR3 values into single column
+  effects_formatted <- effects_formatted %>%
+    unite(col = "QR1_QR3", c(QR1_pct_change, QR3_pct_change), sep = ", ") %>%
+    mutate(QR1_QR3 = paste0("(", QR1_QR3, ")")) %>%
+    unite(col = "Median_pct_change_QR1_QR3", c(Median_pct_change, QR1_QR3), sep = " ")
+  
+  # Pivot table to wide format
+  effects_formatted <- effects_formatted %>% 
+    mutate(Outcome = str_replace_all(Outcome, " ", "_")) %>%
+    pivot_wider(names_from = Outcome, values_from = Median_pct_change_QR1_QR3) %>%
+    relocate(N_countries, .after = last_col())
+  
+  # Save formatted table to specified folder
+  write_csv(effects_formatted, 
+            paste0(out, "effects_within_countries_summary_formatted.csv"))
+  
+  # Return formatted table
+  return(effects_formatted)
+  
+}
+
+# Function to create and save formatted table of within-country summary statistics
+# (model_fit_summary.csv)
+# Arguments:
+# (1) measures = vector of measures to include (from model_fit_summary dataframe)
+# (2) n_decimals = number of decimals to include in effects
+# (3) out = folder to save formatted table
+# Returns: formatted table for specfied measures,
+# with mean (SD), and median (IQR) in single columm
+Summary_Table_Model_Fit <- function(measures = c("Diff_time_to_threshold",
+                                                 "Diff_total_cases",
+                                                 "Pois_dev_inc",
+                                                 "Pois_dev_cum"),
+                                    n_decimals = 2, 
+                                    out = figures_tables_directory) {
+  
+  # Filter summary table of model fit statistics by specified measures,
+  # and with specified number of decimals
+  model_fit_summary_filt <- model_fit_summary %>%
+    filter(Measure %in% measures) %>%
+    mutate(across(c(Mean, SD, Median, IQR), 
+                  ~formatC(round(., digits = n_decimals), 
+                           format = "f", big.mark = ",", digits = n_decimals))) %>%
+    arrange(Type, desc(Measure), Threshold) %>%
+    select(where(~sum(!is.na(.x)) > 0))
+  
+  # Combine mean and SD, median and IQR values into single column
+  model_fit_summary_filt <- model_fit_summary_filt %>%
+    mutate(SD = paste0("(", SD, ")"),
+           IQR = paste0("(", IQR, ")")) %>%
+    unite(col = "Mean_SD", c(Mean, SD), sep = " ") %>%
+    unite(col = "Median_IQR", c(Median, IQR), sep = " ")
+  
+  # Save formatted table to specified folder
+  write_csv(model_fit_summary_filt, 
+            paste0(out, "model_fit_summary_formatted.csv"))
+  
+  # Return formatted table
+  return(model_fit_summary_filt)
+  
+}
+
+## Tables ----------------------------------------------------------------------
+
+# Save formatted table of descriptive statistics
+Summary_Table_Descriptive_Statistics()
+
+# Save formatted table of important dates
+Summary_Table_Important_Dates()
+
+# Save summary table of best knot dates
+Summary_Table_Best_Knots(countries = list("Greece", "Switzerland","Spain"))
+
+# Save formatted summary table of between-country effects
+# (from best-fitting models)
+Summary_Table_Effects_Between_Countries(outcomes = "Length_lockdown",
+                                        leverage_points = "Included")
+
+# Save formatted summary table of within-country effects
+Summary_Table_Effects_Within_Countries(outcomes = c("Length_lockdown",
+                                                    "Total_cases"))
+
+# Save formatted summary table of model fit statistics
+Summary_Table_Model_Fit()
+
+# ------------------------------------------------------------------------------
 # Important dates
 # ------------------------------------------------------------------------------
 
@@ -208,7 +561,8 @@ effect_aes <- tibble(Effect = c("Unadjusted", "Adjusted"),
 # (2) dates = dataframe containing dates to display, with text descriptions and aes mappings (color, shape, size)
 # (3) order = date by which to order countries in figure
 # (4) out = folder to save figure
-Plot_Important_Dates <- function(countries, dates, order, out) {
+Plot_Important_Dates <- function(countries, dates, order, 
+                                 out = figures_tables_directory) {
   
   # Filter observed dataset and summary data by specified countries and dates
   data_eur_filt <- data_eur %>% filter(Country %in% countries)
@@ -299,8 +653,7 @@ order <- "Date_first_restriction"
 # Create figure
 figure_dates <- Plot_Important_Dates(countries = countries_eur, 
                                      dates = dates,
-                                     order = order, 
-                                     out = results_directory)
+                                     order = order)
 
 # ------------------------------------------------------------------------------
 # Fitted splines
@@ -470,7 +823,7 @@ Plot_Splines <- function(country, out) {
 
 # Create folder for storing figures of exponential growth with fitted splines, 
 # if none already exists
-out_folder <- paste0(results_directory, "Figures - Fitted splines by country")
+out_folder <- paste0(figures_tables_directory, "Figures - Fitted splines by country")
 if(!dir.exists(out_folder)) {
   dir.create(out_folder)
 } else {
@@ -479,14 +832,14 @@ if(!dir.exists(out_folder)) {
 
 # Create figures (individual)
 figure_splines <- foreach(i = countries_eur_lockdown, .errorhandling = "pass") %do% 
-  Plot_Splines(country = i, 
+  Plot_Splines(country = i,
                out = out_folder)
 
 # Create figures (combined)
 rows <- cols <- length(figure_splines) %>% sqrt %>% ceiling
 p <- ggarrange(plotlist = figure_splines, nrow = rows, ncol = cols)
 p_annotated <- annotate_figure(p, top = text_grob("Exponential growth of COVID-19 cases: Cumulative versus incident cases", size = 30))
-ggsave(paste0(results_directory, "Figure - Fitted splines.png"),
+ggsave(paste0(figures_tables_directory, "Figure - Fitted splines.png"),
        plot = p_annotated, width = 6*cols, height = 6*rows, limitsize = FALSE)
 
 # Create combined figure for sample of countries
@@ -495,7 +848,7 @@ index <- match(countries, countries_eur_lockdown)
 p <- ggarrange(plotlist = figure_splines[index], ncol = length(index),
                labels = "AUTO")
 p_annotated <- annotate_figure(p, top = text_grob("Exponential growth of COVID-19 cases: Fitted splines", size = 20))
-ggsave(paste0(results_directory, "Figure - Fitted splines (sample).png"),
+ggsave(paste0(figures_tables_directory, "Figure - Fitted splines (sample).png"),
        plot = p_annotated, width = 6*length(index), height = 6, limitsize = FALSE)
 
 rm(rows, cols, p, p_annotated)
@@ -516,7 +869,7 @@ Plot_Growth_Factor_Lockdown <- function(countries,
                                         cases = c("Daily_cases_MA7",
                                                   "Cumulative_cases_beg"),
                                         log = c(TRUE, FALSE),
-                                        out) {
+                                        out = figures_tables_directory) {
   
   # Record number of specified cases
   n_cases <- length(cases)
@@ -597,8 +950,7 @@ countries <- countries_eur_lockdown[!countries_eur_lockdown %in% countries_exclu
 figure_growth_factor <- Plot_Growth_Factor_Lockdown(countries = countries,
                                                     cases = c("Daily_cases_MA7",
                                                               "Cumulative_cases_beg"),
-                                                    log = TRUE,
-                                                    out = results_directory)
+                                                    log = TRUE)
 
 # ------------------------------------------------------------------------------
 # Length of lockdown (observed) vs cases at lockdown
@@ -616,7 +968,7 @@ Plot_Length_Lockdown <- function(countries,
                                  cases = c("Daily_cases_MA7",
                                            "Cumulative_cases_beg",),
                                  log = c(TRUE, FALSE),
-                                 out) {
+                                 out = figures_tables_directory) {
   
   # Record number of specified cases
   n_cases <- length(cases)
@@ -686,8 +1038,7 @@ countries <- countries_eur_lockdown[!countries_eur_lockdown %in% countries_exclu
 figure_length_lockdown <- Plot_Length_Lockdown(countries = countries,
                                                     cases = c("Daily_cases_MA7",
                                                               "Cumulative_cases_beg"),
-                                                    log = TRUE,
-                                                    out = results_directory)
+                                                    log = TRUE)
 
 # ------------------------------------------------------------------------------
 # Length of time to reach threshold (simulated)
@@ -701,7 +1052,8 @@ figure_length_lockdown <- Plot_Length_Lockdown(countries = countries,
 # (1) countries = list of countries
 # (2) simulations = vector of simulations to include
 # (3) out = folder to save figure
-Plot_Time_To_Threshold <- function(countries, simulations, out) {
+Plot_Time_To_Threshold <- function(countries, simulations, 
+                                   out = figures_tables_directory) {
   
   # Filter thresholds dataframe by specified countries and simulations,
   # and order Simulation and History factor levels
@@ -773,8 +1125,7 @@ simulations <- c("0,0", "0,1", "0,3", "0,5", "0,7")
 
 # Create figure
 plot_time_to_threshold <- Plot_Time_To_Threshold(countries = countries,
-                                                 simulations = simulations,
-                                                 out = results_directory)
+                                                 simulations = simulations)
 
 # ------------------------------------------------------------------------------
 # Simulation results: natural vs counterfactual histories
@@ -1332,7 +1683,7 @@ Plot_Exponential_Growth_Sim <- function(country, title, labs = c(TRUE, FALSE),
 
 # Create folder for storing figures of incident and cumulative cases by country, 
 # if none already exists
-out_folder <- paste0(results_directory, "Figures - Simulation results by country")
+out_folder <- paste0(figures_tables_directory, "Figures - Simulation results by country")
 if(!dir.exists(out_folder)) {
   dir.create(out_folder)
 } else {
@@ -1375,9 +1726,9 @@ figure_sim_results <- foreach(i = countries, .errorhandling = "pass") %do%
 #                  top = text_grob("Simulated cumulative cases of COVID-19", size = 50),
 #                  left = text_grob("Cumulative number of cases", rot = 90, size = 15),
 #                  bottom = text_grob("Date", size = 15))
-#ggsave(paste0(results_directory, "Figure - Simulation results (incident cases).png"),
+#ggsave(paste0(figures_tables_directory, "Figure - Simulation results (incident cases).png"),
 #       plot = figure_sim_results_inc, width = 6*cols, height = 6*rows, limitsize = FALSE)
-#ggsave(paste0(results_directory, "Figure - Simulation results (cumulative cases).png"),
+#ggsave(paste0(figures_tables_directory, "Figure - Simulation results (cumulative cases).png"),
 #       plot = figure_sim_results_cum, width = 6*cols, height = 6*rows, limitsize = FALSE)
 
 # Create combined figure of incident and cumulative cases for sample of countries
@@ -1387,7 +1738,7 @@ figure_sim_results_sample <- index %>%
   map(., .f = ~figure_sim_results[[.x]]) %>%
   map(., .f = ~.x$plots_two_annotated) %>%
   ggarrange(plotlist = ., nrow = length(index), labels = "AUTO")
-ggsave(paste0(results_directory, "Figure - Simulation results (sample).png"),
+ggsave(paste0(figures_tables_directory, "Figure - Simulation results (sample).png"),
        plot = figure_sim_results_sample, width = 6*2, height = 6*length(index), limitsize = FALSE)
 
 # ------------------------------------------------------------------------------
@@ -1405,13 +1756,11 @@ Plot_Model_Residuals_Combined <- function(country, out) {
   
   # Plot residuals of incident cases
   plot_inc <- Plot_Model_Residuals(country = country,
-                                   cases = "Daily_cases",
-                                   out = out)
+                                   cases = "Daily_cases")
   
   # Plot residuals of cumulative cases
   plot_cum <- Plot_Model_Residuals(country = country,
-                                   cases = "Cumulative_cases_end",
-                                   out = out)
+                                   cases = "Cumulative_cases_end")
   
   # Create copy of plots with description as title
   plot_inc_copy <- plot_inc + 
@@ -1436,8 +1785,7 @@ Plot_Model_Residuals_Combined <- function(country, out) {
 # Arguments:
 # (1) country = country to plot
 # (2) cases = type of cases to display (cumulative or incident)
-# (3) out = folder to save combined figure
-Plot_Model_Residuals <- function(country, cases = c("Daily_cases", "Cumulative_cases_beg"), out) {
+Plot_Model_Residuals <- function(country, cases = c("Daily_cases", "Cumulative_cases_beg")) {
   
   # Filter observed cases/deaths and summary dataframes by country, and
   # select relevant variables
@@ -1505,7 +1853,7 @@ Plot_Model_Residuals <- function(country, cases = c("Daily_cases", "Cumulative_c
 
 # Create folder for storing figures of model residuals by country, 
 # if none already exists
-out_folder <- paste0(results_directory, "Figures - Model residuals by country")
+out_folder <- paste0(figures_tables_directory, "Figures - Model residuals by country")
 if(!dir.exists(out_folder)) {
   dir.create(out_folder)
 } else {
@@ -1529,13 +1877,13 @@ rows <- cols <- length(figure_model_residuals_inc) %>% sqrt %>% ceiling
 p_inc <- ggarrange(plotlist = figure_model_residuals_inc, nrow = rows, ncol = cols)
 p_inc_annotated <- annotate_figure(p_inc, 
                                    top = text_grob("Model residuals: incident cases", size = 30))
-ggsave(paste0(results_directory, "Figure - Model residuals (incident cases).png"),
+ggsave(paste0(figures_tables_directory, "Figure - Model residuals (incident cases).png"),
        plot = p_inc_annotated, width = 6*cols, height = 6*rows, limitsize = FALSE)
 ## Cumulative cases
 p_cum <- ggarrange(plotlist = figure_model_residuals_cum, nrow = rows, ncol = cols)
 p_cum_annotated <- annotate_figure(p_cum, 
                                    top = text_grob("Model residuals: cumulative cases", size = 30))
-ggsave(paste0(results_directory, "Figure - Model residuals (cumulative cases).png"),
+ggsave(paste0(figures_tables_directory, "Figure - Model residuals (cumulative cases).png"),
        plot = p_cum_annotated, width = 6*cols, height = 6*rows, limitsize = FALSE)
 
 # ------------------------------------------------------------------------------
@@ -1552,7 +1900,7 @@ ggsave(paste0(results_directory, "Figure - Model residuals (cumulative cases).pn
 Plot_Model_Fit <- function(countries, 
                            measures = c("Diff_time_to_threshold", "Diff_total_cases", 
                                        "Pois_dev_inc", "Pois_dev_cum"),
-                           out) {
+                           out = figures_tables_directory) {
   
   # Filter model fit data by designated countries and measures
   model_fit_filt <- model_fit %>% filter(Country %in% countries, Measure %in% measures)
@@ -1601,8 +1949,7 @@ Plot_Model_Fit <- function(countries,
 countries <- countries_eur_lockdown[!countries_eur_lockdown %in% countries_excluded_all]
 
 # Create figure
-figure_model_fit <- Plot_Model_Fit(countries = countries,
-                                   out = results_directory)
+figure_model_fit <- Plot_Model_Fit(countries = countries)
 
 # ------------------------------------------------------------------------------
 # Analysis: effect sizes
@@ -1624,7 +1971,7 @@ Plot_Between_Country_Effects <- function(exposures = c("Daily_cases_MA7",
                                                        "Cumulative_cases_beg"), 
                                          plots = c("plot_length_lockdown",
                                                    "plot_growth_factor"), 
-                                         out) {
+                                         out = figures_tables_directory) {
   
   
   # Record number of specified exposures and plots
@@ -1632,19 +1979,19 @@ Plot_Between_Country_Effects <- function(exposures = c("Daily_cases_MA7",
   n_plots <- length(plots)
   
   # Filter between-country effects by specified exposures
-  effects_between_countries_exposures <- 
+  effects_between_countries_best_exposures <- 
     map(.x = as.list(exposures),
-        .f = ~filter(effects_between_countries, str_detect(Exposure, .x))) %>%
+        .f = ~filter(effects_between_countries_best, str_detect(Exposure, .x))) %>%
     bind_rows
   
   # Plot length of lockdown
   if ("plot_length_lockdown" %in% plots) {
-    plot_length_lockdown <- Plot_Between_Length_Lockdown(effects = effects_between_countries_exposures)
+    plot_length_lockdown <- Plot_Between_Length_Lockdown(effects = effects_between_countries_best_exposures)
   } 
 
   # Plot growth factor under lockdown
   if ("plot_growth_factor" %in% plots) {
-    plot_growth_factor <- Plot_Between_Growth_Factor(effects = effects_between_countries_exposures)
+    plot_growth_factor <- Plot_Between_Growth_Factor(effects = effects_between_countries_best_exposures)
   }
 
   # Create list of specified plots
@@ -1657,7 +2004,7 @@ Plot_Between_Country_Effects <- function(exposures = c("Daily_cases_MA7",
                                          top = text_grob("Estimated effects of each additional case of COVID-19 at lockdown"))
   
   # Save combined plot to Results folder
-  ggsave(paste0(results_directory, "Figure - Effects between countries.png"), 
+  ggsave(paste0(out, "Figure - Effects between countries.png"), 
          plot = plots_all_annotated, width = 3*n_exp*n_plots, height = 7)
   
   # Return list of individual and combined plots
@@ -1768,8 +2115,7 @@ Plot_Between_Growth_Factor <- function(effects) {
 # Create figures
 figure_between_country_effects <- Plot_Between_Country_Effects(exposures = c("Daily_cases_MA7",
                                                                              "Cumulative_cases_beg"),
-                                                               plots = c("plot_length_lockdown"),
-                                                               out = results_directory)
+                                                               plots = c("plot_length_lockdown"))
 
 ## (2) Within-country effects --------------------------------------------------
 
@@ -1788,7 +2134,8 @@ Plot_Within_Country_Effects <- function(simulations,
                                         plots = c("plot_time_to_thresholds",
                                                   "plot_length_lockdown",
                                                   "plot_total_cases"),
-                                        description, out) {
+                                        description, 
+                                        out = figures_tables_directory) {
   
   # Record number of specified simulations and plots
   n_sim <- length(simulations)
@@ -1850,7 +2197,7 @@ Plot_Within_Length_Lockdown <- function(effects) {
   
   # Filter dataframe with effect sizes by relevant outcome
   effects_length_lockdown <- effects %>% 
-    filter(Outcome == "Length of lockdown") 
+    filter(Outcome == "Length_lockdown") 
   
   # Create plot
   plot <- ggplot(data = effects_length_lockdown,
@@ -1894,7 +2241,7 @@ Plot_Within_Time_To_Thresholds <- function(effects) {
   
   # Filter dataframe with effect sizes by relevant outcome
   effects_time_to_threshold <- effects %>% 
-    filter(Outcome == "Time to threshold") 
+    filter(Outcome == "Time_to_threshold") 
   
   # Create plot
   plot <- ggplot(data = effects_time_to_threshold,
@@ -1934,7 +2281,7 @@ Plot_Within_Total_Cases <- function(effects) {
   
   # Filter dataframe with effect sizes by relevant outcome
   effects_total_cases <- effects %>% 
-    filter(Outcome == "Total cases") 
+    filter(Outcome == "Total_cases") 
   
   # Create plot
   plot <- ggplot(data = effects_total_cases,
@@ -1971,20 +2318,19 @@ Plot_Within_Total_Cases <- function(effects) {
 
 ### Figures --------------------------------------------------------------------
 
-# Specify simulations to include in figures (comparison is natural history 0,0)
-#simulations <- c("0,1", "0,3", "0,5", "0,7", "1,1", "3,3", "5,5", "7,7", "14,14")
-#simulations <- c("1,1", "3,3", "5,5", "7,7", "14,14")
-simulations <- c("0,1", "0,3", "0,5", "0,7")
-
-# Specify description of figure simulations
-#description <- "all"
-#description <- "earlier sequence"
-description <- "earlier lockdown"
+# Specify simulations and their descriptions to include in figures
+# (comparison is natural history 0,0)
+simulations <- list(c("0,1", "0,3", "0,5", "0,7"),
+                    c("1,1", "3,3", "5,5", "7,7", "14,14"),
+                    c("0,1", "0,3", "0,5", "0,7", "1,1", "3,3", "5,5", "7,7", "14,14"))
+description <- list("earlier lockdown",
+                    "earlier sequence",
+                    "all")
 
 # Create figures
-figure_within_country_effects <- Plot_Within_Country_Effects(simulations = simulations,
-                                                             plots = c("plot_length_lockdown",
-                                                                       "plot_total_cases"),
-                                                             description = description,
-                                                             out = results_directory)
-
+figure_within_country_effects <- foreach(i = simulations, 
+                                         j = description) %do%
+  Plot_Within_Country_Effects(simulations = i,
+                              plots = c("plot_length_lockdown",
+                                        "plot_total_cases"),
+                              description = j)
