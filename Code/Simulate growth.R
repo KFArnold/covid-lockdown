@@ -98,7 +98,7 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
   } else {
     # Print message that n_days_first_restriction parameter will be overriden
     # if it differs from n_days_lockdown parameter, if country entered lockdown immediately
-    # Set value of n_days_first_restriction to zero
+    # Set value of n_days_first_restriction to n_days_lockdown
     if (date_first_restriction == date_lockdown & 
         n_days_first_restriction != n_days_lockdown) {
       warning(paste0("First restriction and lockdown were implemented simultaneously in ", country,
@@ -290,7 +290,7 @@ Simulate_Growth <- function(date_start, date_end, start_value,
     matrix(nrow = n_runs, ncol = length(dates) + 1,
            dimnames = list(NULL, as.character(seq.Date(from = date_start, to = date_end, by = 1))))
   
-  # Initialise matrix with data at date_start - 1
+  # Initialise matrix with data at date_start
   daily_cases_sim[, 1] <- start_value
   
   # Iterate through dates
