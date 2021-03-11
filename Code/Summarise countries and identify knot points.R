@@ -654,7 +654,7 @@ Estimate_Best_Knots <- function(country, criteria = c("Pois_dev_inc", "Pois_dev_
                                              covariates = covariates)
     
     # Skip to next iteration if error occurred in estimation
-    if (parameters$Error == TRUE) { next }
+    if (parameters$Error_occurred == TRUE) { next }
     
     # Record incident and cumulative cases (MA7) on date_start
     inc_start <- data_eur_country %>% filter(Date == date_start) %>% pull(Daily_cases_MA7)
@@ -713,10 +713,16 @@ Estimate_Best_Knots <- function(country, criteria = c("Pois_dev_inc", "Pois_dev_
     anti_join(., remove_3, by = names(knot_summaries)) %>%
     anti_join(., remove_4, by = names(knot_summaries)) 
   
-  # Find best knot points (by lowest value of specified criteria) and label with country
-  knots_best <- knot_summaries %>% arrange(eval(parse(text = criteria))) %>% 
-    head(n_best) %>% select(-Error_occurred) %>%
-    mutate(Country = country) %>% relocate(Country) %>%
+  # Find best knot points (by lowest value of specified criteria),
+  # and label with country and dates of first restriction and lockdown
+  knots_best <- knot_summaries %>% 
+    arrange(eval(parse(text = criteria))) %>% 
+    head(n_best) %>% 
+    select(-Error_occurred) %>%
+    mutate(Country = country, 
+           Date_first_restriction = date_first_restriction,
+           Date_lockdown = date_lockdown) %>% 
+    relocate(Country, Date_first_restriction, Date_lockdown) %>%
     arrange(Knot_date_1, Knot_date_2)
   
   # Update progress bar
@@ -844,7 +850,7 @@ Estimate_Growth_Parameters <- function(n_knots = c(1, 2),
                                             Intercept_1 = as.numeric(NA),
                                             Intercept_2 = as.numeric(NA),
                                             Intercept_3 = as.numeric(NA),
-                                            Error = error_occurred)) }
+                                            Error_occurred = error_occurred)) }
   
   # Record all model parameters from spline model
   slope_1 <- as.numeric(coef(model)["Cumulative_cases_beg_1"])
