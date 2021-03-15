@@ -131,13 +131,29 @@ Calculate_Parameter_Summary <- function(countries,
   
 }
 
-## Calculate parameter summaries and save --------------------------------------
+## Calculate parameter summaries -----------------------------------------------
 
 # Calculate simulation parameter summaries
 parameter_summary <- Calculate_Parameter_Summary(countries = countries_eur_lockdown)
 
+# Calculate median growth factors for each country -----------------------------
+
+# Calculate median growth factors for each country among best knots
+median_growth_factors <- knots_best %>% 
+  group_by(Country) %>%
+  summarise(Median_growth_factor_1 = median(Growth_factor_1, na.rm = TRUE),
+            Median_growth_factor_2 = median(Growth_factor_2, na.rm = TRUE),
+            Median_growth_factor_3 = median(Growth_factor_3, na.rm = TRUE),
+            .groups = "keep") %>%
+  ungroup
+
+# Save all output --------------------------------------------------------------
+
 # Save table of parameter summaries
 write_csv(parameter_summary, paste0(results_directory, "parameter_summary.csv"))
+
+# Save table of median growth factors for each country
+write_csv(median_growth_factors, file = paste0(results_directory, "median_growth_factors.csv"))
 
 # ------------------------------------------------------------------------------
 # Model fit

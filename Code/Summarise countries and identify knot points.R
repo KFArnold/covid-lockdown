@@ -1114,19 +1114,10 @@ knots_best <- knots_best %>% mutate(Prob_min = min(Prob_unequal),
                                     Min_n_unequal = round(Prob_unequal * Mult)) %>%
   select(-c(Prob_min, Mult))
 
-# Calculate median growth factors for each country among best knots
-median_growth_factors <- knots_best %>% summarise(Median_growth_factor_1 = median(Growth_factor_1, na.rm = TRUE),
-                                                  Median_growth_factor_2 = median(Growth_factor_2, na.rm = TRUE),
-                                                  Median_growth_factor_3 = median(Growth_factor_3, na.rm = TRUE),
-                                                  .groups = "keep")
-
-## SAVE all output -------------------------------------------------------------
+## Save table of best knots ----------------------------------------------------
 
 # Export knots_best dataframe
 write_csv(knots_best, file = paste0(results_directory, "knots_best.csv"))
-
-# Export median growth factors
-write_csv(median_growth_factors, file = paste0(results_directory, "median_growth_factors.csv"))
 
 # ------------------------------------------------------------------------------
 # Calculate possible counterfactual conditions
