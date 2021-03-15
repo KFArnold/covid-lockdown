@@ -89,6 +89,73 @@ summary_cases_sim_all <- full_join(summary_cumulative_cases_beg_sim_all,
 rm(summary_cumulative_cases_beg_sim_all, summary_daily_cases_sim_all, summary_cumulative_cases_end_sim_all)
 
 # ------------------------------------------------------------------------------
+# Parameter summaries
+# ------------------------------------------------------------------------------
+
+## Functions -------------------------------------------------------------------
+
+# Function to calculate summary (median, Q1, Q3) of simulation parameters 
+# (i.e. growth factors 1-3, lag periods between interventions and knot dates)
+# Arguments:
+# (1) countries = list of countries
+# (2) n_decimals = number of decimals to include
+# Returns table containing parameter, median, Q1, Q3, and number of observations
+Calculate_Parameter_Summary <- function(countries,
+                                        n_decimals = 3) {
+  
+  # Filter best knots dataframe by designated countries
+  knots_best_filt <- knots_best %>%
+    filter(Country %in% countries)
+  
+  # Calculate lags between intervention and knot dates
+  knots_best_filt <- knots_best_filt %>%
+    mutate(Lag_1 = Knot_date_1 - Date_first_restriction,
+           Lag_2 = Knot_date_2 - Date_lockdown) 
+  
+  # Summarise median, Q1, and Q3 of lags and growth factors,
+  # with designated number of decimals
+  summary <- knots_best_filt %>%
+    select(Lag_1, Lag_2, Growth_factor_1, Growth_factor_2, Growth_factor_3) %>%
+    mutate(across(.cols = everything(), as.double)) %>%
+    pivot_longer(cols = everything(), names_to = "Parameter", values_to = "Value") %>%
+    group_by(Parameter) %>%
+    summarise(Median = median(Value, na.rm = TRUE),
+              Q1 = quantile(Value, 0.25, na.rm = TRUE),
+              Q3 = quantile(Value, 0.75, na.rm = TRUE),
+              N = sum(!is.na(Value)),
+              .groups = "drop") %>%
+    mutate(across(where(is.double), ~round(., digits = n_decimals)))
+  
+  # Return summary table
+  return(summary)
+  
+}
+
+## Calculate parameter summaries -----------------------------------------------
+
+# Calculate simulation parameter summaries
+parameter_summary <- Calculate_Parameter_Summary(countries = countries_eur_lockdown)
+
+# Calculate median growth factors for each country -----------------------------
+
+# Calculate median growth factors for each country among best knots
+median_growth_factors <- knots_best %>% 
+  group_by(Country) %>%
+  summarise(Median_growth_factor_1 = median(Growth_factor_1, na.rm = TRUE),
+            Median_growth_factor_2 = median(Growth_factor_2, na.rm = TRUE),
+            Median_growth_factor_3 = median(Growth_factor_3, na.rm = TRUE),
+            .groups = "keep") %>%
+  ungroup
+
+# Save all output --------------------------------------------------------------
+
+# Save table of parameter summaries
+write_csv(parameter_summary, paste0(results_directory, "parameter_summary.csv"))
+
+# Save table of median growth factors for each country
+write_csv(median_growth_factors, file = paste0(results_directory, "median_growth_factors.csv"))
+
+# ------------------------------------------------------------------------------
 # Model fit
 # ------------------------------------------------------------------------------
 
