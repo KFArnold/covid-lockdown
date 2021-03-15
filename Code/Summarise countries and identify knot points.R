@@ -92,7 +92,8 @@ Calculate_Policy_Dates <- function(country, measures_any_restriction,
   # Determine number of recommended or required measures values on each date
   data_any_restriction <- Summarise_N_Measures(data = policies_eur_country,
                                                measures = measures_any_restriction$measures,
-                                               cutoffs = measures_any_restriction$cutoffs)
+                                               cutoffs = measures_any_restriction$cutoffs,
+                                               scope = measures_any_restriction$scope)
   
   # Determine whether any measures were recommended/required (i.e. threshold exceeded) for each date,
   # and whether number of measures decreases (i.e. diff is negative) for each date
@@ -152,11 +153,13 @@ Calculate_Policy_Dates <- function(country, measures_any_restriction,
   # (1) lockdown (general or targeted)
   data_lockdown <- Summarise_N_Measures(data = policies_eur_country,
                                         measures = measures_lockdown$measures,
-                                        cutoffs = measures_lockdown$cutoffs)
+                                        cutoffs = measures_lockdown$cutoffs,
+                                        scope = measures_lockdown$scope)
   # (2) alternate lockdown measures
   data_lockdown_alt <- Summarise_N_Measures(data = policies_eur_country, 
                                             measures = measures_lockdown_alt$measures, 
-                                            cutoffs = measures_lockdown_alt$cutoffs)
+                                            cutoffs = measures_lockdown_alt$cutoffs,
+                                            scope = measures_lockdown_alt$scope)
   
   # Merge two dataframes together
   data_lockdown_all <- full_join(data_lockdown, data_lockdown_alt, by = "Date", suffix = c("_lockdown", "_lockdown_alt"))
@@ -240,25 +243,42 @@ Calculate_Policy_Dates <- function(country, measures_any_restriction,
 # (1) data = full policies dataframe (i.e. contains all measures) for one country;
 # (2) measures = a list of the measures to evaluate;
 # (3) cutoffs = a list of the cutoff points corresponding to each individual measure;
+# (4) scope = a list of values corresponding to geographic scope(s) of interest
+#### (0 indicates targeted scope, 1 indicates general)
 # Returns: 
 # Dataframe with 3 columns: (1) Date; (2) N_measures; (3) N_measures_diff (change from previous day)
-Summarise_N_Measures <- function(data, measures, cutoffs) {
+Summarise_N_Measures <- function(data, measures, cutoffs, scope) {
   
   # Print warning if each measure doesn't have its own cutoff point
   if (length(measures) != length(cutoffs)) {
     stop("Error: Each measure must have its own cutoff point.")
   }
   
-  # Subset dataset to include only selected Measures
-  data <- data %>% ungroup() %>% select(Date, unlist(measures))
+  # Define flags associated with specified measures
+  flags <- measures %>% 
+    map(., .f = ~str_extract(.x, "[^_]+")) %>%
+    map(., .f = ~paste0(.x, "_Flag"))
+  
+  # Subset dataset to include only selected Measures and associated Flags
+  data <- data %>% ungroup %>% 
+    select(Date, unlist(measures), unlist(flags)) %>%
+    select(sort(names(.))) %>%
+    relocate(Date)
   
   # For each measure, determine whether it is greater than or equal to its cutoff
+  # AND whether it is within the specified geographic scope
   # If yes, assign 1; if no, assign 0
-  for (i in 1:length(measures)) {
-    measure <- measures[[i]]
-    data[, measure] <- ifelse(data[, measure] >= cutoffs[[i]], 1, 0)
-  }
-  
+  data <- map2(.x = measures, .y = flags, 
+       .f = ~select(data, Date, Measure_value = all_of(.x), Flag = all_of(.y))) %>%
+    map2(., .y = cutoffs, .f = ~mutate(., Cutoff = .y)) %>% 
+    map2(., .y = measures, .f = ~mutate(., Measure = .y)) %>%
+    map(., .f = ~mutate(., Conditions_met = ifelse(Measure_value >= Cutoff & 
+                                                     Flag %in% unlist(scope),
+                                                   1, 0))) %>%
+    map(., .f = ~select(., Date, Measure, Conditions_met)) %>%
+    reduce(bind_rows) %>%
+    pivot_wider(., names_from = Measure, values_from = Conditions_met)
+    
   # Calculate number of measures above cutoff (i.e. row sums)
   data$N_measures <- apply(data[, unlist(measures)], 1, sum, na.rm = TRUE)
   
@@ -322,10 +342,14 @@ summary_eur_cases <- full_join(data_eur, pct, by = "Country") %>%
   unique %>% ungroup
 rm(pct)
 
-# Define policy measures of interest, cutoff points for whether measures have been implemented
-# (1 corresponds to measure recommended, 2-3 corresponds to measure required),
-# and threshold values (i.e. how many measures together constitute a given restriction)
-## (1) Any restrictions 
+# Define:
+# (a) policy measures of interest
+# (b) cutoff points for whether measures have been implemented
+### (1 corresponds to measure recommended, 2-3 corresponds to measure required),
+# (c) geographic scope(s) for measures of interest
+### (0 corresponds to targeted, 1 corresponds to general)
+# (d) threshold values (i.e. how many measures together constitute a given restriction)
+## (1) Any restrictions (recommended or required, targeted or general)
 measures_any_restriction <- list("measures" = list("C1_School_closing", 
                                                    "C2_Workplace_closing", 
                                                    "C3_Cancel_public_events",
@@ -333,18 +357,21 @@ measures_any_restriction <- list("measures" = list("C1_School_closing",
                                                    "C6_Stay_at_home_requirements",
                                                    "C7_Restrictions_on_internal_movement"),
                                  "cutoffs" = list(1, 1, 1, 1, 1, 1),
+                                 "scope" = list(0, 1), 
                                  "threshold" = 1)
-## (2) Lockdown measure
+## (2) Lockdown measure (required, general)
 measures_lockdown <- list("measures" = list("C6_Stay_at_home_requirements"),
                           "cutoffs" = list(2),
+                          "scope" = list(1),
                           "threshold" = 1)
-## (3) Alternate group of measures which together are broadly equivalent to lockdown
+## (3) Alternate group of measures which together are broadly equivalent to lockdown (required, general)
 measures_lockdown_alt <- list("measures" = list("C1_School_closing", 
                                                 "C2_Workplace_closing", 
                                                 "C3_Cancel_public_events",
                                                 "C5_Close_public_transport", 
                                                 "C7_Restrictions_on_internal_movement"),
                               "cutoffs" = list(2, 2, 2, 2, 2),
+                              "scope" = list(1),
                               "threshold" = 3)
 
 # Create summary table containing dates of policy thresholds
@@ -375,10 +402,11 @@ if (length(countries_eur_lockdown) != length(countries_eur)) {
 summary_eur <- summary_eur %>% group_by(Country) %>% 
   mutate(Date_start = max(Date_5, Date_pop_pct)) %>% ungroup
 
-# Manually replace start date for Denmark, Estonia, Norway, Slovenia, and Sweden
+# Manually replace start date for Denmark, Estonia, Finland, Norway, Slovenia, and Sweden
 summary_eur <- summary_eur %>% 
   mutate(Date_start = if_else(Country == "Denmark", as.Date("2020-03-14") + 3, Date_start),
          Date_start = if_else(Country == "Estonia", as.Date("2020-03-16") + 3, Date_start),
+         Date_start = if_else(Country == "Finland", as.Date("2020-03-15") + 3, Date_start),
          Date_start = if_else(Country == "Norway", as.Date("2020-03-14") + 3, Date_start),
          Date_start = if_else(Country == "Slovenia", as.Date("2020-03-18") + 3, Date_start),
          Date_start = if_else(Country == "Sweden", as.Date("2020-03-14") + 3, Date_start))
