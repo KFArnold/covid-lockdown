@@ -402,10 +402,11 @@ if (length(countries_eur_lockdown) != length(countries_eur)) {
 summary_eur <- summary_eur %>% group_by(Country) %>% 
   mutate(Date_start = max(Date_5, Date_pop_pct)) %>% ungroup
 
-# Manually replace start date for Denmark, Estonia, Norway, Slovenia, and Sweden
+# Manually replace start date for Denmark, Estonia, Finland, Norway, Slovenia, and Sweden
 summary_eur <- summary_eur %>% 
   mutate(Date_start = if_else(Country == "Denmark", as.Date("2020-03-14") + 3, Date_start),
          Date_start = if_else(Country == "Estonia", as.Date("2020-03-16") + 3, Date_start),
+         Date_start = if_else(Country == "Finland", as.Date("2020-03-15") + 3, Date_start),
          Date_start = if_else(Country == "Norway", as.Date("2020-03-14") + 3, Date_start),
          Date_start = if_else(Country == "Slovenia", as.Date("2020-03-18") + 3, Date_start),
          Date_start = if_else(Country == "Sweden", as.Date("2020-03-14") + 3, Date_start))
