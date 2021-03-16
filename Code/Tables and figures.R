@@ -370,10 +370,11 @@ Summary_Table_Best_Knots <- function(countries = countries_eur_modelled,
                                      out = figures_tables_directory) {
   
   # Filter best knots dataframe by specified countries
-  knots_summary <- knots_best %>% filter(Country %in% countries) %>%
+  knots_summary <- knots_best %>% 
+    filter(Country %in% countries) %>%
+    arrange(match(Country, all_of(countries))) %>%
     select(Country, Date_first_restriction, Date_lockdown, 
            Knot_date_1, Knot_date_2, contains("Growth"), Prob_unequal) %>%
-    select(Country, Knot_date_1, Knot_date_2, contains("Growth"), Prob_unequal) %>%
     mutate(across(where(is.numeric), ~round(., digits = n_decimals)))
   
   # Collapse combine growth factors and associated SDs into same cell
