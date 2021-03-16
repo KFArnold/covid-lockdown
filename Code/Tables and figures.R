@@ -370,10 +370,11 @@ Summary_Table_Best_Knots <- function(countries = countries_eur_modelled,
                                      out = figures_tables_directory) {
   
   # Filter best knots dataframe by specified countries
-  knots_summary <- knots_best %>% filter(Country %in% countries) %>%
+  knots_summary <- knots_best %>% 
+    filter(Country %in% countries) %>%
+    arrange(match(Country, all_of(countries))) %>%
     select(Country, Date_first_restriction, Date_lockdown, 
            Knot_date_1, Knot_date_2, contains("Growth"), Prob_unequal) %>%
-    select(Country, Knot_date_1, Knot_date_2, contains("Growth"), Prob_unequal) %>%
     mutate(across(where(is.numeric), ~round(., digits = n_decimals)))
   
   # Collapse combine growth factors and associated SDs into same cell
@@ -582,15 +583,25 @@ Plot_Important_Dates <- function(countries, dates, order,
                  aes(x = Value, y = Country)) + 
     theme_minimal() +
     theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
-          legend.position = "bottom") +
+          legend.position = "bottom",
+          legend.box = "vertical",
+          legend.margin = margin(0, 0, 0, 0, "cm"),
+          legend.spacing.y = unit(0.1, "cm"),
+          plot.caption = element_text(margin = margin(0.5, 0, 0, 0, "cm"))) +
     labs(title = "Important dates in COVID-19 European policy responses",
-         #subtitle = paste("Dates when:", paste(dates$Description, collapse = ", ")),
-         caption = "Data from Oxford Covid-19 Government Response Tracker (https://github.com/OxCGRT/covid-policy-tracker).") +
+         caption = "Data from Johns Hopkins University CSSE COVID-19 Data Repository (https://github.com/CSSEGISandData/COVID-19)
+         and Oxford Covid-19 Government Response Tracker (https://github.com/OxCGRT/covid-policy-tracker).") +
     theme(plot.caption = element_text(size = 7),
           plot.subtitle = element_text(size = 10)) +
-    geom_line(data = summary_eur_filt_long %>% filter(Date %in% c("Date_start", "Date_T")),
-              aes(group = Country),
-              color = "grey70", alpha = 0.5, size = 2) +
+    geom_line(data = summary_eur_filt_long %>% 
+                filter(Country %in% countries_eur_lockdown,
+                       Date %in% c("Date_start", "Date_T")),
+              aes(group = Country, color = "grey70"),
+              alpha = 0.5, size = 2) +
+    scale_color_manual(name = "",
+                       values = "grey70",
+                       labels = "range of dates included in analysis (1 \u2264 t \u2264 T)") +
+    ggnewscale::new_scale_color() +
     geom_point(aes(color = Date, shape = Date, size = Date)) +
     scale_color_manual(name = "Date of:",
                        values = dates$Color,
@@ -628,13 +639,13 @@ dates <- bind_rows(tibble(Date = "Date_1",
                           Size = 4),
                    tibble(Date = "Date_first_restriction",
                           Description = "first restriction",
-                          Color = "navyblue",
-                          Shape = "\u25A0",
+                          Color = "darkorange",
+                          Shape = "\u25CF",
                           Size = 4),
                    tibble(Date = "Date_lockdown",
                           Description = "lockdown",
-                          Color = "darkorange",
-                          Shape = "\u25CF",
+                          Color = "navyblue",
+                          Shape = "\u25A0",
                           Size = 4),
                    tibble(Date = "Date_lockdown_eased",
                           Description = "lockdown easing",
@@ -643,7 +654,7 @@ dates <- bind_rows(tibble(Date = "Date_1",
                           Size = 3))
 
 # Specify ordering variable
-order <- "Date_first_restriction"
+order <- "Date_lockdown"
 
 # Create figure
 figure_dates <- Plot_Important_Dates(countries = countries_eur, 
