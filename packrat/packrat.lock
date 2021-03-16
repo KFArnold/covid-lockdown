@@ -285,6 +285,12 @@ Version: 0.1.2.1
 Hash: 3eb160f5bfcca1f697a2a3babc47830e
 Requires: ggplot2, gtable, rlang, scales, vctrs
 
+Package: ggnewscale
+Source: CRAN
+Version: 0.4.5
+Hash: 92379d7446f012b2803d148b86a729b6
+Requires: ggplot2
+
 Package: ggplot2
 Source: CRAN
 Version: 3.3.2
