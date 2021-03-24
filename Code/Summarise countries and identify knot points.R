@@ -303,6 +303,7 @@ Calculate_Pop_Threshold_Values <- function(country, year = 2019, thresholds) {
 ## Summaries -------------------------------------------------------------------
 
 # Calculate 0.0001% of population for each country
+# (equivalent to 0.0001 cases per 100, or 1 case per million population)
 pct <- worldbank_eur %>% filter(Year == 2019) %>% 
   mutate(Pop_pct = 0.000001 * Population) %>% select(Country, Pop_pct)
 
