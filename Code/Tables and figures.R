@@ -1919,9 +1919,9 @@ Plot_Model_Fit <- function(countries,
   n_groups <- model_fit_filt %>% group_by(Measure, Type) %>% n_groups
   
   # Create faceted plot
-  plot <- ggplot(data = model_fit_filt,
-         aes(x = Threshold, y = Value, 
-             color = Measure)) +
+  plot <- ggplot(data = model_fit_filt, 
+                 aes(x = Threshold, y = Value, 
+                     color = Measure)) +
     theme_light() +
     theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
           axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5),
@@ -1932,6 +1932,9 @@ Plot_Model_Fit <- function(countries,
     geom_hline(yintercept = 0, color = "gray20", lty = "dashed") +
     labs(title = "Model fit statistics") +
     geom_point(shape = 16, alpha = 0.6) +
+    geom_text(aes(label = ifelse(Outlier == TRUE, paste(Country), "")),
+              size = 2.5, hjust = 0, vjust = 1, color = "gray40",
+              fontface = "italic") + 
     stat_summary(fun = median, shape = 18, size = 1.5) +
     facet_nested_wrap(. ~ Measure + Type,
                scale = "free", ncol = n_groups,
@@ -1939,7 +1942,8 @@ Plot_Model_Fit <- function(countries,
                                    Type = type_labels)) +
     scale_x_discrete(labels = threshold_labels) +
     scale_y_continuous(name = "",
-                       labels = comma_format())
+                       labels = comma_format()) +
+    coord_cartesian(clip = "off")
   
   # Save combined plot to Results folder
   ggsave(paste0(out, "Figure - Model fit.png"), plot = plot, width = 2*n_groups, height = 7)
