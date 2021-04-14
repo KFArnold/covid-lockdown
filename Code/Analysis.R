@@ -415,9 +415,7 @@ model_fit <- model_fit %>%
 # Calculate summary statistics for all model fit statistics
 model_fit_summary <- model_fit %>% 
   group_by(Measure, Type, Threshold) %>%
-  summarise(Mean = mean(Value, na.rm = TRUE),
-            SD = sd(Value, na.rm = TRUE),
-            Median = median(Value, na.rm = TRUE),
+  summarise(Median = median(Value, na.rm = TRUE),
             IQR = IQR(Value, na.rm = TRUE),
             N_countries = sum(!is.na(Value)),
             .groups = "keep") %>%
