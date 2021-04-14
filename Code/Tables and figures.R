@@ -155,9 +155,9 @@ effects_within_countries_summary <- effects_within_countries_summary %>%
          History = factor(History, levels = history_levels))
 
 # Create key for threshold labels
-threshold_labels <- c("0.0010%" = "0.0010%\nof population",
-                      "0.0050%" = "0.0050%\nof population",
-                      "0.0100%" = "0.0100%\nof population")
+threshold_labels <- c("0.0010%" = "1 case per\n100,000",
+                      "0.0050%" = "1 case per\n20,000",
+                      "0.0100%" = "1 case per\n10,000")
 
 # Create key for simulation labels
 simulation_labels <- c("0,0" = "(a - 0 , b - 0)", 
