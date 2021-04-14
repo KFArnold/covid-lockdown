@@ -125,7 +125,7 @@ model_fit_summary <- read_csv(paste0(results_directory, "model_fit_summary.csv")
 
 ## Formatting ------------------------------------------------------------------
 
-# Define ordering of threshold, simulation, history, exposure, and leverage levels
+# Define ordering of threshold, simulation, history, exposure, leverage, and model fit levels
 threshold_levels <- c("0.0010%", "0.0050%", "0.0100%")
 simulation_levels <- c("0,0", "0,1", "0,3", "0,5", "0,7", 
                        "1,1", "3,3", "5,5", "7,7", "14,14")
@@ -133,6 +133,7 @@ history_levels <- c("Natural history", "Counterfactual history")
 exposure_levels <- c("Daily_cases_MA7", "log(Daily_cases_MA7)",
                      "Cumulative_cases_beg", "log(Cumulative_cases_beg)")
 leverage_levels <- c("Included", "Excluded")
+model_fit_levels <- c("Pois_dev_inc", "Pois_dev_cum", "Diff_total_cases", "Diff_time_to_threshold")
 
 # Reorder levels of Threshold, Simulation, History, and Exposure factors in dataframes
 summary_cases_sim_all <- summary_cases_sim_all %>%
@@ -153,6 +154,10 @@ effects_within_countries_summary <- effects_within_countries_summary %>%
   mutate(Threshold = factor(Threshold, levels = threshold_levels),
          Simulation = factor(Simulation, levels = simulation_levels),
          History = factor(History, levels = history_levels))
+model_fit <- model_fit %>%
+  mutate(Measure = factor(Measure, levels = model_fit_levels))
+model_fit_summary <- model_fit_summary %>%
+  mutate(Measure = factor(Measure, levels = model_fit_levels))
 
 # Create key for threshold labels
 threshold_labels <- c("0.0010%" = "1 case per\n100,000",
