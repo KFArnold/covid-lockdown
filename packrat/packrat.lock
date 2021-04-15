@@ -170,8 +170,8 @@ Requires: ggplot2, gtable, rlang, scales
 
 Package: cpp11
 Source: CRAN
-Version: 0.2.4
-Hash: 5374c8908db1d918b1c7fc6f2ec065da
+Version: 0.2.7
+Hash: 872459b771164e51ce5ac17ade5f0344
 
 Package: crayon
 Source: CRAN
@@ -610,7 +610,7 @@ Requires: Matrix, MatrixModels, SparseM
 Package: readr
 Source: CRAN
 Version: 1.4.0
-Hash: ac3574d75319f4d51c6e90677c868ac4
+Hash: 1fbb38170f037341b4fc4451b2e49422
 Requires: BH, R6, cli, clipr, cpp11, crayon, hms, lifecycle, rlang,
     tibble
 
@@ -746,10 +746,10 @@ Requires: cli, crayon, ellipsis, fansi, lifecycle, magrittr, pillar,
 
 Package: tidyr
 Source: CRAN
-Version: 1.0.2
-Hash: 7183ff9a4d4c4680bd1e6f79086c6405
-Requires: Rcpp, dplyr, ellipsis, glue, lifecycle, magrittr, purrr,
-    rlang, stringi, tibble, tidyselect, vctrs
+Version: 1.1.3
+Hash: 11fb4ddfd4ecf97b12500a46945cf2f1
+Requires: cpp11, dplyr, ellipsis, glue, lifecycle, magrittr, purrr,
+    rlang, tibble, tidyselect, vctrs
 
 Package: tidyselect
 Source: CRAN
@@ -796,9 +796,9 @@ Hash: f3f97ce59092abc8ed3fd098a59e236c
 
 Package: vctrs
 Source: CRAN
-Version: 0.3.1
-Hash: bd8a497a3228d001519a2234d718c19c
-Requires: digest, ellipsis, glue, rlang
+Version: 0.3.7
+Hash: d685c186ed578bc5b9ca96e0c472b234
+Requires: ellipsis, glue, rlang
 
 Package: viridisLite
 Source: CRAN
