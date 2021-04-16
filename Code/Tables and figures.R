@@ -40,6 +40,7 @@ worldbank_eur <- read_csv(paste0(data_directory_f, "Worldbank_data_europe.csv"))
 knots_best <- read_csv(paste0(results_directory, "knots_best.csv"))
 median_growth_factors <- read_csv(paste0(results_directory, "median_growth_factors.csv"))
 summary_eur <- read_csv(paste0(results_directory, "summary_eur.csv"))
+thresholds_eur <- read_csv(paste0(results_directory, "thresholds_eur.csv"))
 
 # Load list of European countries for which we have both cases/deaths data and policy data,
 # those which entered lockdown, and those which can be modelled 
@@ -126,7 +127,7 @@ model_fit_summary <- read_csv(paste0(results_directory, "model_fit_summary.csv")
 ## Formatting ------------------------------------------------------------------
 
 # Define ordering of threshold, simulation, history, exposure, leverage, and model fit levels
-threshold_levels <- c("0.0010%", "0.0050%", "0.0100%")
+threshold_levels <- c("1 case per 100,000", "1 case per 20,000", "1 case per 10,000")
 simulation_levels <- c("0,0", "0,1", "0,3", "0,5", "0,7", 
                        "1,1", "3,3", "5,5", "7,7", "14,14")
 history_levels <- c("Natural history", "Counterfactual history")
@@ -160,9 +161,9 @@ model_fit_summary <- model_fit_summary %>%
   mutate(Measure = factor(Measure, levels = model_fit_levels))
 
 # Create key for threshold labels
-threshold_labels <- c("0.0010%" = "1 case per\n100,000",
-                      "0.0050%" = "1 case per\n20,000",
-                      "0.0100%" = "1 case per\n10,000")
+threshold_labels <- c("1 case per 100,000" = "1 case per\n100,000",
+                      "1 case per 20,000" = "1 case per\n20,000",
+                      "1 case per 10,000" = "1 case per\n10,000")
 
 # Create key for simulation labels
 simulation_labels <- c("0,0" = "(a - 0 , b - 0)", 
@@ -1186,10 +1187,11 @@ plot_time_to_threshold <- Plot_Time_To_Threshold(countries = countries,
 # and each individual panel, with country as title
 Plot_Simulation_Results <- function(country, simulations, thresholds, out) {
   
-  # Filter observed cases/deaths, best knots, and summary dataframes by country
+  # Filter observed cases/deaths, best knots, summary, and thresholds dataframes by country
   data_eur_country <- data_eur %>% filter(Country == country)
   knots_best_country <- knots_best %>% filter(Country == country)
   summary_eur_country <- summary_eur %>% filter(Country == country)
+  thresholds_eur_country <- thresholds_eur %>% filter(Country == country)
   
   # Filter simulation aesthetics dataframe by simulations
   simulation_aes_filt <- simulation_aes %>% filter(Simulation %in% simulations)
@@ -1215,9 +1217,6 @@ Plot_Simulation_Results <- function(country, simulations, thresholds, out) {
   # Filter simulation results by specified country and simulations
   summary_cases_sim_country <- summary_cases_sim_all %>%
     filter(Country == country, Simulation %in% simulations) %>% droplevels
-  summary_thresholds_sim_country <- summary_thresholds_sim_all %>% 
-    filter(Country == country, Simulation %in% simulations,
-           Threshold %in% thresholds) %>% droplevels
   
   # If no simulated data for country, print warning and stop
   if (nrow(summary_cases_sim_country) == 0) { 
@@ -1239,10 +1238,6 @@ Plot_Simulation_Results <- function(country, simulations, thresholds, out) {
     full_join(., simulations_actual_key, by = c("History", "Simulation")) %>%
     mutate(Simulation = Simulation_actual) %>%
     select(-Simulation_actual) 
-  summary_thresholds_sim_country <- summary_thresholds_sim_country %>% 
-    full_join(., simulations_actual_key, by = c("History", "Simulation")) %>%
-    mutate(Simulation = Simulation_actual) %>%
-    select(-Simulation_actual) 
   
   # Modify simulation aesthetics to reflect actual interventions implemented in country
   simulation_aes_actual <- simulations_actual_key %>% 
@@ -1255,19 +1250,11 @@ Plot_Simulation_Results <- function(country, simulations, thresholds, out) {
   data_eur_country <- data_eur_country %>% 
     mutate(In_range = ifelse(Date >= date_start & Date <= date_T, TRUE, FALSE))
   
-  # Pull first date for which incident cases go below lowest threshold
-  date_lowest_threshold <- summary_thresholds_sim_country %>% filter(Threshold_value == min(Threshold_value)) %>% 
-    pull(Date_cases_below_threshold) %>% max(na.rm = TRUE)
-  
   # Calculate min_date (min date to display on plots)
   min_date <- date_1 - 14
   
   # Calculate max_date (max date to display on plots)
-  if (is.infinite(date_lowest_threshold)) { 
-    max_date <- date_T + 21
-  } else {
-    max_date <- max(date_lowest_threshold + 14, date_T + 14)
-  }
+  max_date <- date_T + 21
   
   # Create plots for triple panel figure
   plot_inc <- Plot_Daily_Cases_Sim(country = country,
@@ -1277,7 +1264,7 @@ Plot_Simulation_Results <- function(country, simulations, thresholds, out) {
                                    max_date = max_date,
                                    obs_data = data_eur_country,
                                    sim_data = summary_cases_sim_country,
-                                   threshold_data = summary_thresholds_sim_country,
+                                   threshold_data = thresholds_eur_country,
                                    simulations = simulations_actual,
                                    aesthetics = simulation_aes_actual)
   plot_cum <- Plot_Cumulative_Cases_Sim(country = country, 
@@ -1328,7 +1315,7 @@ Plot_Simulation_Results <- function(country, simulations, thresholds, out) {
                                    max_date = max_date,
                                    obs_data = data_eur_country,
                                    sim_data = summary_cases_sim_country,
-                                   threshold_data = summary_thresholds_sim_country,
+                                   threshold_data = thresholds_eur_country,
                                    simulations = simulations,
                                    aesthetics = simulation_aes_filt)
   plot_cum <- Plot_Cumulative_Cases_Sim(country = country, 
@@ -1739,7 +1726,7 @@ countries <- countries_eur_lockdown
 simulations <- c("0,0", "0,3", "0,7", "3,3", "7,7", "14,14")
 
 # Specify thresholds to include in figure
-thresholds <- summary_thresholds_sim_all %>% pull(Threshold) %>% unique
+thresholds <- thresholds_eur %>% pull(Threshold) %>% unique
 
 # Create combined figures for each country
 figure_sim_results <- foreach(i = countries, .errorhandling = "pass") %do% 
