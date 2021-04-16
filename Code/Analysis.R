@@ -371,17 +371,7 @@ countries <- summary_cases_sim_all %>% filter(History == "Natural history") %>%
 diff_time_to_thresholds <- foreach(i = countries, 
                                    .errorhandling = "pass") %do%
   Calculate_Diff_Time_To_Threshold(country = i) %>%
-  bind_rows
-
-# Calculate summary statistics for difference in time to thresholds
-diff_time_to_thresholds_summary <- diff_time_to_thresholds %>%
-  group_by(Measure, Threshold, Type) %>%
-  summarise(Mean = mean(Value, na.rm = TRUE),
-            SD = sd(Value, na.rm = TRUE),
-            Median = median(Value, na.rm = TRUE),
-            IQR = IQR(Value, na.rm = TRUE),
-            N_countries = sum(!is.na(Value)),
-            .groups = "keep")
+  bind_rows 
 
 ## Difference in total cases ---------------------------------------------------
 
@@ -391,16 +381,6 @@ diff_total_cases <- foreach(i = countries,
   Calculate_Diff_Total_Cases(country = i) %>%
   bind_rows 
 
-# Calculate summary statistics for difference in total cases
-diff_total_cases_summary <- diff_total_cases %>%
-  group_by(Measure, Type) %>%
-  summarise(Mean = mean(Value, na.rm = TRUE),
-            SD = sd(Value, na.rm = TRUE),
-            Median = median(Value, na.rm = TRUE),
-            IQR = IQR(Value, na.rm = TRUE),
-            N_countries = sum(!is.na(Value)),
-            .groups = "keep")
-
 ## Poisson deviance ------------------------------------------------------------
 
 # Calculate Poisson deviance between observed and simulated natural histories
@@ -409,29 +389,38 @@ pois_dev_natural_history <- foreach(i = countries,
   Calculate_Pois_Dev_Natural_History(country = i) %>%
   bind_rows
 
-# Calculate summary statistics for Poisson deviance
-pois_dev_natural_history_summary <- pois_dev_natural_history %>%
-  group_by(Measure, Type) %>%
-  summarise(Mean = mean(Value, na.rm = TRUE),
-            SD = sd(Value, na.rm = TRUE),
-            Median = median(Value, na.rm = TRUE),
-            IQR = IQR(Value, na.rm = TRUE),
-            N_countries = sum(!is.na(Value)),
-            .groups = "keep")
-
 ## Combine and save all model fit data -----------------------------------------
 
-# Combine all model fit statistics into single dataframe
+# Combine all model fit statistics into single dataframe, and 
+# calculate percentage rank for all metrics
 model_fit <- diff_time_to_thresholds %>% 
   full_join(., diff_total_cases) %>%
   full_join(., pois_dev_natural_history) %>%
   arrange(Country) %>%
-  relocate(Threshold, .after = last_col())
+  relocate(Threshold, .after = last_col()) %>%
+  group_by(Measure, Type, Threshold) %>%
+  mutate(Pct_Rank = percent_rank(abs(Value)))
 
-# Combine all model fit summary statistics into single dataframe
-model_fit_summary <- diff_time_to_thresholds_summary %>%
-  full_join(., diff_total_cases_summary) %>%
-  full_join(., pois_dev_natural_history_summary)
+# Calculate outliers for all model fit statistics and label
+outliers <- model_fit %>% 
+  group_split %>%
+  map(., .f = ~boxplot(.x$Value)$out)
+model_fit <- model_fit %>%
+   group_split %>%
+   map2(., .y = outliers,
+        .f = ~mutate(.x, Outlier = ifelse(.x$Value %in% .y, TRUE, FALSE))) %>%
+  bind_rows %>%
+  arrange(Country, Measure, Threshold)
+
+# Calculate summary statistics for all model fit statistics
+model_fit_summary <- model_fit %>% 
+  group_by(Measure, Type, Threshold) %>%
+  summarise(Median = median(Value, na.rm = TRUE),
+            IQR = IQR(Value, na.rm = TRUE),
+            N_countries = sum(!is.na(Value)),
+            .groups = "keep") %>%
+  relocate(Threshold, .after = Measure) %>%
+  arrange(Measure, Threshold)
 
 # Save both model fit dataframes
 write_csv(model_fit, paste0(results_directory, "model_fit.csv"))

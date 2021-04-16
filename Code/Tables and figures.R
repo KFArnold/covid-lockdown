@@ -125,7 +125,7 @@ model_fit_summary <- read_csv(paste0(results_directory, "model_fit_summary.csv")
 
 ## Formatting ------------------------------------------------------------------
 
-# Define ordering of threshold, simulation, history, exposure, and leverage levels
+# Define ordering of threshold, simulation, history, exposure, leverage, and model fit levels
 threshold_levels <- c("0.0010%", "0.0050%", "0.0100%")
 simulation_levels <- c("0,0", "0,1", "0,3", "0,5", "0,7", 
                        "1,1", "3,3", "5,5", "7,7", "14,14")
@@ -133,6 +133,7 @@ history_levels <- c("Natural history", "Counterfactual history")
 exposure_levels <- c("Daily_cases_MA7", "log(Daily_cases_MA7)",
                      "Cumulative_cases_beg", "log(Cumulative_cases_beg)")
 leverage_levels <- c("Included", "Excluded")
+model_fit_levels <- c("Pois_dev_inc", "Pois_dev_cum", "Diff_total_cases", "Diff_time_to_threshold")
 
 # Reorder levels of Threshold, Simulation, History, and Exposure factors in dataframes
 summary_cases_sim_all <- summary_cases_sim_all %>%
@@ -153,11 +154,15 @@ effects_within_countries_summary <- effects_within_countries_summary %>%
   mutate(Threshold = factor(Threshold, levels = threshold_levels),
          Simulation = factor(Simulation, levels = simulation_levels),
          History = factor(History, levels = history_levels))
+model_fit <- model_fit %>%
+  mutate(Measure = factor(Measure, levels = model_fit_levels))
+model_fit_summary <- model_fit_summary %>%
+  mutate(Measure = factor(Measure, levels = model_fit_levels))
 
 # Create key for threshold labels
-threshold_labels <- c("0.0010%" = "0.0010%\nof population",
-                      "0.0050%" = "0.0050%\nof population",
-                      "0.0100%" = "0.0100%\nof population")
+threshold_labels <- c("0.0010%" = "1 case per\n100,000",
+                      "0.0050%" = "1 case per\n20,000",
+                      "0.0100%" = "1 case per\n10,000")
 
 # Create key for simulation labels
 simulation_labels <- c("0,0" = "(a - 0 , b - 0)", 
@@ -482,44 +487,74 @@ Summary_Table_Effects_Within_Countries <- function(outcomes = c("Length_lockdown
   
 }
 
-# Function to create and save formatted table of within-country summary statistics
-# (model_fit_summary.csv)
+# Function to create and save formatted tables of within-country fit statistics
+# (model_fit.csv and model_fit_summary.csv)
 # Arguments:
 # (1) measures = vector of measures to include (from model_fit_summary dataframe)
 # (2) n_decimals = number of decimals to include in effects
 # (3) out = folder to save formatted table
-# Returns: formatted table for specfied measures,
-# with mean (SD), and median (IQR) in single columm
-Summary_Table_Model_Fit <- function(measures = c("Diff_time_to_threshold",
-                                                 "Diff_total_cases",
-                                                 "Pois_dev_inc",
-                                                 "Pois_dev_cum"),
-                                    n_decimals = 2, 
-                                    out = figures_tables_directory) {
+# Returns: 2 formatted tables for specfied measures: 
+# (1) country-specific model fit statistics, raw value (pct difference) in single column, 
+### with outliers starred (model_fit_formatted.csv);
+# (2) summary of model fit statistics, median (IQR) in single columm 
+### (model_fit_summary_formatted.csv)
+Formatted_Tables_Model_Fit <- function(measures = c("Pois_dev_inc",
+                                                    "Pois_dev_cum",
+                                                    "Diff_total_cases",
+                                                    "Diff_time_to_threshold"),
+                                       n_decimals = 2, 
+                                       out = figures_tables_directory) {
   
+  # (1) Country-specific model fit statistics:
+  # Filter table of country-specific model fit statistics by specified measures,
+  # and with specified number of decimals.
+  # Star values which are outliers
+  model_fit_filt <- model_fit %>%
+    filter(Measure %in% measures) %>%
+    mutate(across(Value, 
+                  ~formatC(round(., digits = n_decimals), 
+                           format = "f", big.mark = ",", digits = n_decimals))) %>%
+    mutate(Value = ifelse(Outlier, paste0("*", Value), Value)) %>%
+    arrange(Country, Measure, Type, Threshold) %>%
+    select(-c(Pct_Rank, Outlier)) 
+  # Pivot wider and combine number and percent values into single column (pct in parentheses)
+  model_fit_filt <- model_fit_filt %>%
+    pivot_wider(names_from = Type, values_from = Value) %>%
+    mutate(across(c(Measure, Threshold), as.character),
+           Threshold = str_replace_all(Threshold, "%", "pct")) %>%
+    unite(col = "Measure", c(Measure, Threshold), na.rm = TRUE, sep = "_") %>%
+    pivot_wider(names_from = Measure, names_glue = "{Measure}_{.value}",
+                values_from = c(Number, Pct)) %>%
+    select(Country, contains(measures)) %>%
+    purrr::discard(~all(is.na(.))) %>%
+    arrange(Country)
+
+  # (2) Summary of model fit statistics:
   # Filter summary table of model fit statistics by specified measures,
   # and with specified number of decimals
   model_fit_summary_filt <- model_fit_summary %>%
     filter(Measure %in% measures) %>%
-    mutate(across(c(Mean, SD, Median, IQR), 
+    mutate(across(c(Median, IQR), 
                   ~formatC(round(., digits = n_decimals), 
                            format = "f", big.mark = ",", digits = n_decimals))) %>%
-    arrange(Type, desc(Measure), Threshold) %>%
+    arrange(Type, Measure, Threshold) %>%
     select(where(~sum(!is.na(.x)) > 0))
-  
-  # Combine mean and SD, median and IQR values into single column
+  # Combine median and IQR values into single column and pivot wider
   model_fit_summary_filt <- model_fit_summary_filt %>%
-    mutate(SD = paste0("(", SD, ")"),
-           IQR = paste0("(", IQR, ")")) %>%
-    unite(col = "Mean_SD", c(Mean, SD), sep = " ") %>%
-    unite(col = "Median_IQR", c(Median, IQR), sep = " ")
+    mutate(IQR = paste0("(", IQR, ")")) %>%
+    unite(col = "Median_IQR", c(Median, IQR), sep = " ") %>%
+    pivot_wider(names_from = Type, 
+                values_from = Median_IQR,
+                names_prefix = "Median_IQR_") %>%
+    relocate(N_countries, .after = last_col())
   
-  # Save formatted table to specified folder
-  write_csv(model_fit_summary_filt, 
-            paste0(out, "model_fit_summary_formatted.csv"))
+  # Save formatted tables to specified folder
+  write_csv(model_fit_filt, paste0(out, "model_fit_formatted.csv"))
+  write_csv(model_fit_summary_filt, paste0(out, "model_fit_summary_formatted.csv"))
   
   # Return formatted table
-  return(model_fit_summary_filt)
+  return(list(model_fit_formatted = model_fit_filt,
+              model_fit_summary_formatted = model_fit_summary_filt))
   
 }
 
@@ -543,8 +578,8 @@ Summary_Table_Effects_Between_Countries(outcomes = "Length_lockdown",
 Summary_Table_Effects_Within_Countries(outcomes = c("Length_lockdown",
                                                     "Total_cases"))
 
-# Save formatted summary table of model fit statistics
-Summary_Table_Model_Fit()
+# Save formatted country-specific and summary tables of model fit statistics
+Formatted_Tables_Model_Fit()
 
 # ------------------------------------------------------------------------------
 # Important dates
@@ -1919,9 +1954,9 @@ Plot_Model_Fit <- function(countries,
   n_groups <- model_fit_filt %>% group_by(Measure, Type) %>% n_groups
   
   # Create faceted plot
-  plot <- ggplot(data = model_fit_filt,
-         aes(x = Threshold, y = Value, 
-             color = Measure)) +
+  plot <- ggplot(data = model_fit_filt, 
+                 aes(x = Threshold, y = Value, 
+                     color = Measure)) +
     theme_light() +
     theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
           axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5),
@@ -1932,6 +1967,9 @@ Plot_Model_Fit <- function(countries,
     geom_hline(yintercept = 0, color = "gray20", lty = "dashed") +
     labs(title = "Model fit statistics") +
     geom_point(shape = 16, alpha = 0.6) +
+    geom_text(aes(label = ifelse(Outlier == TRUE, paste(Country), "")),
+              size = 2.5, hjust = 0, vjust = 1, color = "gray40",
+              fontface = "italic") + 
     stat_summary(fun = median, shape = 18, size = 1.5) +
     facet_nested_wrap(. ~ Measure + Type,
                scale = "free", ncol = n_groups,
@@ -1939,7 +1977,8 @@ Plot_Model_Fit <- function(countries,
                                    Type = type_labels)) +
     scale_x_discrete(labels = threshold_labels) +
     scale_y_continuous(name = "",
-                       labels = comma_format())
+                       labels = comma_format()) +
+    coord_cartesian(clip = "off")
   
   # Save combined plot to Results folder
   ggsave(paste0(out, "Figure - Model fit.png"), plot = plot, width = 2*n_groups, height = 7)
