@@ -312,7 +312,8 @@ Calculate_Pop_Threshold_Values <- function(country, year = 2019, thresholds) {
   threshold_values <- worldbank_eur_country %>%
     expand_grid(Threshold = thresholds) %>%
     mutate(Threshold_value = Population * Threshold,
-           Threshold = percent(Threshold)) %>%
+           Threshold = paste("1 case per", 
+                             formatC(1/Threshold, format = "f", big.mark = ",", digits = 0))) %>%
     select(-Population)
   
   # Return table of thresholds and values
