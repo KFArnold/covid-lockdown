@@ -1016,7 +1016,7 @@ Estimate_Growth <- function(date_start, date_end, start_value,
 }
 
 # Function to calculate Poisson deviance between two vectors
-# (from: https://en.wikipedia.org/wiki/Deviance_(statistics))
+# (from: https://data.princeton.edu/wws509/notes/c4.pdf)
 # Arguments: 
 # (1) obs = vector of observed values
 # (2) sim = vector of simulated/predicted values
