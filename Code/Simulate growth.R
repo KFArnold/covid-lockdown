@@ -95,17 +95,7 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
     warning(paste0("Lockdown was not implemented in ", country, 
                    ". Parameter n_days_lockdown will be ignored."))
     n_days_lockdown <- as.numeric(NA)
-  } else {
-    # Print message that n_days_first_restriction parameter will be overriden
-    # if it differs from n_days_lockdown parameter, if country entered lockdown immediately
-    # Set value of n_days_first_restriction to zero
-    if (date_first_restriction == date_lockdown & 
-        n_days_first_restriction != n_days_lockdown) {
-      warning(paste0("First restriction and lockdown were implemented simultaneously in ", country,
-                     ". Parameter n_days_first_restriction will be overriden."))
-      n_days_first_restriction <- n_days_lockdown
-    }
-  }
+  } 
   
   # Combine n_days_first_restriction and n_days_lockdown parameters into dataframe,
   # and check whether the combination of values is amongst the possible counterfactual conditions
