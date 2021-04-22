@@ -35,10 +35,9 @@ summary_eur <- read_csv(paste0(results_directory, "summary_eur.csv"))
 thresholds_eur <- read_csv(paste0(results_directory, "thresholds_eur.csv"))
 
 # Load list of European countries for which we have both cases/deaths data and policy data,
-# those which entered lockdown, and those which can be modelled 
+# and those which entered lockdown
 load(paste0(results_directory, "countries_eur.RData"))
 load(paste0(results_directory, "countries_eur_lockdown.RData"))
-load(paste0(results_directory, "countries_eur_modelled.RData"))
 
 ## Import simulated data -------------------------------------------------------
 

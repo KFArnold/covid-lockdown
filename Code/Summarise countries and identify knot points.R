@@ -1263,9 +1263,3 @@ possible_days_counterfactual <- foreach(i = countries,
 
 # Export dataframe containing possible counterfactual days
 write_csv(possible_days_counterfactual, file = paste0(results_directory, "possible_days_counterfactual.csv"))
-
-# Create list of countries which can be modelled, save
-countries_eur_modelled <- possible_days_counterfactual %>% 
-  pull(Country) %>% unique %>% as.list
-save(countries_eur_modelled, file = paste0(results_directory, "countries_eur_modelled.RData"))
-

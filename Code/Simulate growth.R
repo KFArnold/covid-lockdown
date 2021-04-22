@@ -41,10 +41,9 @@ thresholds_eur <- read_csv(paste0(results_directory, "thresholds_eur.csv"))
 possible_days_counterfactual <- read_csv(paste0(results_directory, "possible_days_counterfactual.csv"))
 
 # Load list of European countries for which we have both cases/deaths data and policy data,
-# those which entered lockdown, and those which can be modelled
+# and those which entered lockdown
 load(paste0(results_directory, "countries_eur.RData"))
 load(paste0(results_directory, "countries_eur_lockdown.RData"))
-load(paste0(results_directory, "countries_eur_modelled.RData"))
 
 # ------------------------------------------------------------------------------
 # Simulation and analysis
@@ -524,7 +523,6 @@ summary_thresholds_sim <- map(.x = sim_data,
 # Get list of countries simulated, export to simulation subfolder
 countries_eur_sim <- summary_daily_cases_sim %>% pull(Country) %>% unique %>% as.list
 save(countries_eur_sim, file = paste0(out_folder, "countries_eur_sim.RData"))
-#setdiff(countries_eur_modelled, countries_eur_sim)  # countries not simulated
 
 # Create list of all summary datasets to export
 summary_sim_all <- list(summary_daily_cases_sim = summary_daily_cases_sim, 
