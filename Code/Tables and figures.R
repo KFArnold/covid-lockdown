@@ -47,6 +47,11 @@ thresholds_eur <- read_csv(paste0(results_directory, "thresholds_eur.csv"))
 load(paste0(results_directory, "countries_eur.RData"))
 load(paste0(results_directory, "countries_eur_lockdown.RData"))
 
+# Load list of countries for which natural history was simulated, rename
+load(paste0(results_directory, "Simulation - Natural history 0 0/", "countries_eur_sim.RData"))
+countries_eur_sim_nh <- countries_eur_sim
+rm(countries_eur_sim)
+
 # Load lists of countries excluded from analyses
 load(paste0(results_directory, "countries_excluded_all.RData"))
 load(paste0(results_directory, "countries_excluded_time_to_threshold.RData"))
@@ -155,9 +160,11 @@ effects_within_countries_summary <- effects_within_countries_summary %>%
          Simulation = factor(Simulation, levels = simulation_levels),
          History = factor(History, levels = history_levels))
 model_fit <- model_fit %>%
-  mutate(Measure = factor(Measure, levels = model_fit_levels))
+  mutate(Measure = factor(Measure, levels = model_fit_levels),
+         Threshold = factor(Threshold, levels = threshold_levels))
 model_fit_summary <- model_fit_summary %>%
-  mutate(Measure = factor(Measure, levels = model_fit_levels))
+  mutate(Measure = factor(Measure, levels = model_fit_levels),
+         Threshold = factor(Threshold, levels = threshold_levels))
 
 # Create key for threshold labels
 threshold_labels <- c("1 case per 100,000" = "1 case per\n100,000",
@@ -874,7 +881,7 @@ if(!dir.exists(out_folder)) {
 }
 
 # Create figures (individual)
-figure_splines <- foreach(i = countries_eur_lockdown, .errorhandling = "pass") %do% 
+figure_splines <- foreach(i = countries_eur_sim_nh, .errorhandling = "pass") %do% 
   Plot_Splines(country = i,
                out = out_folder)
 
@@ -894,7 +901,7 @@ p_annotated <- annotate_figure(p, top = text_grob("Exponential growth of COVID-1
 ggsave(paste0(figures_tables_directory, "Figure - Fitted splines (sample).png"),
        plot = p_annotated, width = 6*length(index), height = 6, limitsize = FALSE)
 
-rm(rows, cols, p, p_annotated)
+rm(countries, rows, cols, p, p_annotated)
 
 # ------------------------------------------------------------------------------
 # Growth factor under lockdown vs cases at lockdown
@@ -1112,7 +1119,7 @@ Plot_Time_To_Threshold <- function(countries, simulations,
   # Order countries by number of days to reaching lowest threshold
   countries_ordered <- summary_thresholds_sim_countries %>% 
     filter(History == "Natural history",
-           Threshold == "0.0010%") %>%
+           Threshold == "1 case per 100,000") %>%
     arrange(Days_since_lockdown) %>% pull(Country) %>% as.character
   
   # Relevel thresholds dataframe using ordered countries
@@ -1720,7 +1727,7 @@ if(!dir.exists(out_folder)) {
 }
 
 # Specify countries to display
-countries <- countries_eur_lockdown
+countries <- countries_eur_sim_nh
 
 # Specify simulations to include in figures 
 #simulations <- c("0,0", "7,7", "14,14")
@@ -1762,7 +1769,7 @@ figure_sim_results <- foreach(i = countries, .errorhandling = "pass") %do%
 
 # Create combined figure of incident and cumulative cases for sample of countries
 countries_sample <- list("Greece", "Switzerland", "Spain")
-index <- match(countries_sample, countries_eur_lockdown)
+index <- match(countries_sample, countries)
 figure_sim_results_sample <- index %>% 
   map(., .f = ~figure_sim_results[[.x]]) %>%
   map(., .f = ~.x$plots_two_annotated) %>%
@@ -1890,7 +1897,7 @@ if(!dir.exists(out_folder)) {
 }
 
 # Create figures
-figure_model_residuals <- foreach(i = countries_eur_lockdown, .errorhandling = "pass") %do% 
+figure_model_residuals <- foreach(i = countries_eur_sim_nh, .errorhandling = "pass") %do% 
   Plot_Model_Residuals_Combined(country = i,
                                 out = out_folder)
 
