@@ -95,6 +95,7 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
                    ". Parameter n_days_lockdown will be ignored."))
     n_days_lockdown <- as.numeric(NA)
   } 
+
   
   # Combine n_days_first_restriction and n_days_lockdown parameters into dataframe,
   # and check whether the combination of values is amongst the possible counterfactual conditions
@@ -279,7 +280,7 @@ Simulate_Growth <- function(date_start, date_end, start_value,
     matrix(nrow = n_runs, ncol = length(dates) + 1,
            dimnames = list(NULL, as.character(seq.Date(from = date_start, to = date_end, by = 1))))
   
-  # Initialise matrix with data at date_start - 1
+  # Initialise matrix with data at date_start
   daily_cases_sim[, 1] <- start_value
   
   # Iterate through dates
