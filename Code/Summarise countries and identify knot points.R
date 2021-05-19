@@ -324,6 +324,7 @@ Calculate_Pop_Threshold_Values <- function(country, year = 2019, thresholds) {
 ## Summaries -------------------------------------------------------------------
 
 # Calculate 0.0001% of population for each country
+# (equivalent to 0.0001 cases per 100, or 1 case per 1 million population)
 pct <- worldbank_eur %>% filter(Year == 2019) %>% 
   mutate(Pop_pct = 0.000001 * Population) %>% select(Country, Pop_pct)
 
@@ -437,6 +438,9 @@ write_csv(summary_eur, file = paste0(results_directory, "summary_eur.csv"))
 ## Threshold values ------------------------------------------------------------
 
 # Define population-based thresholds
+# (0.001 cases per 100 or 1 case per 100,000; 
+# 0.005 cases per 100 or 1 case per 20,000;
+# 0.01 cases per 100 or 1 case per 10,000)
 thresholds <- c(0.00001, 0.00005, 0.0001)
 
 # Calculate population-based threshold values
@@ -1047,7 +1051,7 @@ Estimate_Growth <- function(date_start, date_end, start_value,
 }
 
 # Function to calculate Poisson deviance between two vectors
-# (from: https://en.wikipedia.org/wiki/Deviance_(statistics))
+# (from: https://data.princeton.edu/wws509/notes/c4.pdf)
 # Arguments: 
 # (1) obs = vector of observed values
 # (2) sim = vector of simulated/predicted values
