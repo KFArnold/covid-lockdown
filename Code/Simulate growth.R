@@ -41,10 +41,9 @@ thresholds_eur <- read_csv(paste0(results_directory, "thresholds_eur.csv"))
 possible_days_counterfactual <- read_csv(paste0(results_directory, "possible_days_counterfactual.csv"))
 
 # Load list of European countries for which we have both cases/deaths data and policy data,
-# those which entered lockdown, and those which can be modelled
+# and those which entered lockdown
 load(paste0(results_directory, "countries_eur.RData"))
 load(paste0(results_directory, "countries_eur_lockdown.RData"))
-load(paste0(results_directory, "countries_eur_modelled.RData"))
 
 # ------------------------------------------------------------------------------
 # Simulation and analysis
@@ -95,17 +94,8 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
     warning(paste0("Lockdown was not implemented in ", country, 
                    ". Parameter n_days_lockdown will be ignored."))
     n_days_lockdown <- as.numeric(NA)
-  } else {
-    # Print message that n_days_first_restriction parameter will be overriden
-    # if it differs from n_days_lockdown parameter, if country entered lockdown immediately
-    # Set value of n_days_first_restriction to n_days_lockdown
-    if (date_first_restriction == date_lockdown & 
-        n_days_first_restriction != n_days_lockdown) {
-      warning(paste0("First restriction and lockdown were implemented simultaneously in ", country,
-                     ". Parameter n_days_first_restriction will be overriden."))
-      n_days_first_restriction <- n_days_lockdown
-    }
-  }
+  } 
+
   
   # Combine n_days_first_restriction and n_days_lockdown parameters into dataframe,
   # and check whether the combination of values is amongst the possible counterfactual conditions
@@ -534,7 +524,6 @@ summary_thresholds_sim <- map(.x = sim_data,
 # Get list of countries simulated, export to simulation subfolder
 countries_eur_sim <- summary_daily_cases_sim %>% pull(Country) %>% unique %>% as.list
 save(countries_eur_sim, file = paste0(out_folder, "countries_eur_sim.RData"))
-#setdiff(countries_eur_modelled, countries_eur_sim)  # countries not simulated
 
 # Create list of all summary datasets to export
 summary_sim_all <- list(summary_daily_cases_sim = summary_daily_cases_sim, 

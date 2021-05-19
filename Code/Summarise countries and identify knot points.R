@@ -1068,6 +1068,7 @@ Calc_Pois_Dev <- function(obs, sim) {
 # Specify parameters
 criteria <- "Pois_dev_inc"  # criteria for selecting best knot points
 n_best <- 10  # maximum number of best knot points to select per country
+countries <- countries_eur[countries_eur != "Russia"]  # countries to estimate knot points for
 
 ### Parallelised ---------------------------------------------------------------
 
@@ -1077,14 +1078,14 @@ cluster <- parallel::makeCluster(n_cores[1] - 1, setup_strategy = "sequential")
 registerDoSNOW(cluster)
 
 # Set up progress bar
-iterations <- length(countries_eur)
+iterations <- length(countries)
 progress_bar <- txtProgressBar(min = 1, max = iterations, style = 3)
 progress <- function(n) { setTxtProgressBar(progress_bar, n) }
 options <- list(progress = progress)
 
 # Estimation
 start <- Sys.time()
-knots_best <- foreach(i = countries_eur, 
+knots_best <- foreach(i = countries, 
                       .errorhandling = "pass", 
                       .packages = c("tidyverse", "lspline", "forecast"), 
                       .options.snow = options) %dopar% 
@@ -1254,8 +1255,11 @@ Calculate_Possible_Counterfactual_Days <- function(country, knots) {
 
 ## Calculation -----------------------------------------------------------------
 
+# Define countries
+countries <- countries_eur[countries_eur != "Russia"] 
+
 # Calculate possible counterfactuals
-possible_days_counterfactual <- foreach(i = countries_eur,
+possible_days_counterfactual <- foreach(i = countries,
                                         .errorhandling = "pass") %do%
   Calculate_Possible_Counterfactual_Days(country = i,
                                          knots = knots_best) %>%
@@ -1263,9 +1267,3 @@ possible_days_counterfactual <- foreach(i = countries_eur,
 
 # Export dataframe containing possible counterfactual days
 write_csv(possible_days_counterfactual, file = paste0(results_directory, "possible_days_counterfactual.csv"))
-
-# Create list of countries which can be modelled, save
-countries_eur_modelled <- possible_days_counterfactual %>% 
-  pull(Country) %>% unique %>% as.list
-save(countries_eur_modelled, file = paste0(results_directory, "countries_eur_modelled.RData"))
-
