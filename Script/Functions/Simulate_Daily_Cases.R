@@ -5,8 +5,9 @@
 #' on \code{date_start} with \code{start_value} daily cases. On each day
 #' subsequently (up to \code{date_end}), a random growth factor is applied to the
 #' previous value of daily cases to estimate the current value of daily cases.
-#' Growth factors are drawn from log-normal distributions with user-specified
-#' parameters, according to the period of growth in which each day falls.
+#' Growth factors are drawn from log-normal distributions by default with 
+#' user-specified parameters (on the normal scale), according to the period of 
+#' growth in which each day falls.
 #'
 #' @param date_start Start date of simulation
 #' @param date_end End date of simulation
@@ -15,9 +16,14 @@
 #' @param n_knots Total number of knot dates (i.e. number of interventions implemented)
 #' @param knot_date_1 Date of first knot
 #' @param knot_date_2 Date of second knot
-#' @param parameters List containing growth parameters
+#' @param parameters List containing growth parameters on normal scale
 #' (i.e. "growth_factor_1", "growth_factor_1_sd", "growth_factor_2", "growth_factor_2_sd",
 #' growth_factor_3", "growth_factor_3_sd"). Note that parameters may be NA.
+#' @param variation Whether to simulate variation in the growth factor (T/F);
+#' default is TRUE; if FALSE, all growth factors are equal to the mean of their
+#' respective distributions
+#' @param log Whether to draw growth factors from a lognormal distribution (T/F);
+#' default is TRUE; if FALSE, normal distribution is used
 #'
 #' @return Matrix of simulated incident cases, with 1 row per simulation run
 #' and 1 column per date (i.e. \code{n_runs} rows and \code{date_end - date_start} columns)
@@ -32,13 +38,17 @@
 #' knot_date_2 = as.Date("2020-04-07"),
 #' parameters = list(growth_factor_1 = 1.25, growth_factor_1_sd = 0.96,
 #' growth_factor_2 = 1.06, growth_factor_2_sd = 0.01,
-#' growth_factor_3 = 0.98, growth_factor_3_sd = 0.005))
+#' growth_factor_3 = 0.98, growth_factor_3_sd = 0.005),
+#' variation = TRUE,
+#' log = TRUE)
 Simulate_Daily_Cases <- function(date_start, date_end, 
                                  start_value,
                                  n_runs,
-                                 n_knots = c(1, 2),
+                                 n_knots,
                                  knot_date_1, knot_date_2,
-                                 parameters) {
+                                 parameters,
+                                 variation = TRUE,
+                                 log = TRUE) {
   
   # Set dates over which to simulate growth
   dates <- seq.Date(from = date_start + 1, to = date_end, by = 1)
@@ -52,15 +62,6 @@ Simulate_Daily_Cases <- function(date_start, date_end,
   # Initialise matrix with data at date_start
   daily_cases_sim[, 1] <- start_value
   
-  # Calculate parameter distributions on log scale
-  # (growth periods 1, 2, and 3)
-  log_parameters_1 <- Calculate_Parameters_Log(mean = parameters$growth_factor_1,
-                                               sd = parameters$growth_factor_1_sd) 
-  log_parameters_2 <- Calculate_Parameters_Log(mean = parameters$growth_factor_2,
-                                               sd = parameters$growth_factor_2_sd) 
-  log_parameters_3 <- Calculate_Parameters_Log(mean = parameters$growth_factor_3,
-                                               sd = parameters$growth_factor_3_sd) 
-  
   # Iterate through dates
   for (t in as.list(dates)) {
     
@@ -70,32 +71,42 @@ Simulate_Daily_Cases <- function(date_start, date_end,
     # Define growth parameters
     if (n_knots == 1) {  # one knot (i.e. first restriction only); 2 periods of growth
       
-      # Define growth factor
+      # Define growth factor(s)
       if (t <= knot_date_1) {
-        growth <- rlnorm(n = n_runs,
-                         meanlog = log_parameters_1$mean,
-                         sdlog = log_parameters_1$sd)
+        growth <- Draw_Random_Growth_Factors(n = n_runs, 
+                                             mean = parameters$growth_factor_1,
+                                             sd = parameters$growth_factor_1_sd, 
+                                             variation = variation,
+                                             log = log)
       } else {
-        growth <- rlnorm(n = n_runs,
-                         meanlog = log_parameters_2$mean,
-                         sdlog = log_parameters_2$sd)
+        growth <- Draw_Random_Growth_Factors(n = n_runs, 
+                                             mean = parameters$growth_factor_2,
+                                             sd = parameters$growth_factor_2_sd, 
+                                             variation = variation,
+                                             log = log)
       }
       
     } else {  # two knots (i.e. both first restriction and lockdown); 3 periods of growth
       
       # Define growth factor
       if (t <= knot_date_1) {
-        growth <- rlnorm(n = n_runs,
-                         meanlog = log_parameters_1$mean,
-                         sdlog = log_parameters_1$sd)
+        growth <- Draw_Random_Growth_Factors(n = n_runs, 
+                                             mean = parameters$growth_factor_1,
+                                             sd = parameters$growth_factor_1_sd, 
+                                             variation = variation,
+                                             log = log)
       } else if (t <= knot_date_2) {
-        growth <- rlnorm(n = n_runs,
-                         meanlog = log_parameters_2$mean,
-                         sdlog = log_parameters_2$sd)
+        growth <- Draw_Random_Growth_Factors(n = n_runs, 
+                                             mean = parameters$growth_factor_2,
+                                             sd = parameters$growth_factor_2_sd, 
+                                             variation = variation,
+                                             log = log)
       } else {
-        growth <- rlnorm(n = n_runs,
-                         meanlog = log_parameters_3$mean,
-                         sdlog = log_parameters_3$sd)
+        growth <- Draw_Random_Growth_Factors(n = n_runs, 
+                                             mean = parameters$growth_factor_3,
+                                             sd = parameters$growth_factor_3_sd, 
+                                             variation = variation,
+                                             log = log)
       }
       
     }
