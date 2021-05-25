@@ -31,7 +31,7 @@
 #' n_days_first_restriction = 0, n_days_lockdown = 3, max_t = 548,
 #' n_runs = 100000, prob_equal = FALSE)
 Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lockdown,
-                                    max_t, n_runs, prob_equal = c(TRUE, FALSE)) {
+                                    max_t, n_runs, prob_equal) {
   
   # Print warning and stop if n_days_first_restriction or n_days_lockdown are less than zero
   if (n_days_first_restriction < 0 | n_days_lockdown < 0) {
