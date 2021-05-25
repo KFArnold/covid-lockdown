@@ -17,8 +17,6 @@
 #' @param n_runs Number of simulation runs
 #' @param prob_equal Whether knot dates should be used with equal probabilities (T/F)
 #' @param parallel Whether the simulations should be run in parallel (T/F)
-#' @param source_functions Vector of all source functions required for parallel 
-#' processing 
 #'
 #' @return List ('summary_sim_all') containing two dataframes:
 #' (1) 'summary_daily_cases_sim_all', which contains mean and 95% centile values
@@ -35,14 +33,14 @@
 #' parallel = TRUE, source_functions = as.vector(lsf.str()))
 Execute_Counterfactual_Simulations_All_Countries <- function(countries, n_days_counterfactual,
                                                              seed, max_t, n_runs, prob_equal,
-                                                             parallel, source_functions) {
+                                                             parallel) {
   
   # Set up parallelisation, if specified
   if (parallel == TRUE) {
     n_cores <- parallel::detectCores()
     cluster <- parallel::makeCluster(n_cores[1] - 1, setup_strategy = "sequential")
     registerDoSNOW(cluster)
-    parallel::clusterExport(cl = cluster, varlist = source_functions, envir = .GlobalEnv)
+    parallel::clusterExport(cl = cluster, varlist = ls(.GlobalEnv), envir = .GlobalEnv)
   }
   
   # Set seed
