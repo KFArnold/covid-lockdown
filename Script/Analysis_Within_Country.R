@@ -14,32 +14,24 @@
 packrat::restore()
 
 # Load required packages
-library(tidyverse); library(foreach); library(doSNOW)
+library(tidyverse)
+library(lspline); library(forecast)
+library(foreach); library(doSNOW)
 
 ## Load source functions -------------------------------------------------------
 
-source("./Script/Functions/Calculate_Cumulative_Cases.R")
-source("./Script/Functions/Calculate_Parameters_Log.R")
-source("./Script/Functions/Check_If_Counterfactual_Possible.R")
-source("./Script/Functions/Create_Folder_If_None_Exists.R")
-source("./Script/Functions/Execute_Counterfactual_Simulations_All_Countries.R")
-source("./Script/Functions/Get_Cases_On_Date.R")
-source("./Script/Functions/Get_Dates.R")
-source("./Script/Functions/Modify_Knot_Dates.R")
-source("./Script/Functions/Simulate_Counterfactual.R")
-source("./Script/Functions/Simulate_Daily_Cases.R")
-source("./Script/Functions/Summarise_Centiles.R")
-
-# Create vector of all source functions
-source_functions <- as.vector(lsf.str())
+# Load all source functions from "./Script/Functions/" folder
+list.files("./Script/Functions", full.names = TRUE) %>% walk(~source(.))
 
 ## Load data -------------------------------------------------------------------
 
-# Define filenames which contain data required for simulation
+## Define filenames which contain data required for simulation
+#filenames <- list("Cases_deaths_data_europe", 
+#                  "knots_best",
+#                  "summary_eur",
+#                  "possible_days_counterfactual")
 filenames <- list("Cases_deaths_data_europe", 
-                  "knots_best",
-                  "summary_eur",
-                  "possible_days_counterfactual")
+                  "summary_eur")
 
 # Import all dataframes; save all to global environment
 dataframes <- filenames %>%
@@ -58,11 +50,25 @@ load("./Output/countries_eur_lockdown.RData")
 
 # IDENTIFICATION OF SIMULATION PARAMETERS --------------------------------------
 
+# Specify parameters
+countries <- countries_eur[countries_eur != "Russia"] 
+criteria <- "Pois_dev_inc"  # criteria for selecting best knot points
+n_best <- 10  # maximum number of best knot points to select per country
+
+# Identify best knot dates and simulation parameters for all countries
+start <- Sys.time()
+knots_best <- 
+  Execute_Parameter_Estimation_All_Countries(countries = countries,
+                                             criteria = criteria,
+                                             n_best = n_best,
+                                             parallel = TRUE)
+end <- Sys.time(); end - start  # ~2.3 mins
+
+
+
+
 # Insert code to calculate best knot date pairs and associated growth parameters,
 # and calculate possible counterfactual conditions
-
-# (will need to remove import of knots_best.csv and possible_days_counterfactual.csv
-# files in previous section)
 
 
 # SIMULATION -------------------------------------------------------------------
