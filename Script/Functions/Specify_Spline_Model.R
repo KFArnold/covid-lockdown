@@ -58,7 +58,7 @@ Specify_Spline_Model <- function(country, n_knots, date_min, date_max,
       # (second spline segment is observed, i.e. growth following first restriction)
       data_spline <- data_in_range %>% select(Daily_cases, Cumulative_cases_beg) %>%
         rename("Cumulative_cases_beg_2" = Cumulative_cases_beg)
-      covariates <- data_in_range %>% select(contains("Cumulative")) %>% names
+      covariates <- data_spline %>% select(contains("Cumulative")) %>% names
       
       # Specify that spline model should estimate an intercept
       # (because spline segment in range is not the first)
