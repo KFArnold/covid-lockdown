@@ -1,4 +1,7 @@
-#' Create folder in specified location if none exists
+#' Create folder in specified location if none exists.
+#'
+#' If \code{path} is not specified, the function assumes the path is included
+#' in \code{folder} and creates a folder at this location.
 #'
 #' @param folder Name of folder
 #' @param path Path name (ends in "/")
@@ -8,10 +11,15 @@
 #'
 #' @examples
 #' Create_Folder_If_None_Exists(folder = "Simulations", path = "./Output/")
+#' Create_Folder_If_None_Exists(folder = "./Output/Simulations")
 Create_Folder_If_None_Exists <- function(folder, path) {
   
-  # Combine path and folder names into full path 
-  full_path <- paste0(path, folder)
+  # Specify full path name
+  if (missing(path)) {
+    full_path <- folder
+  } else {
+    full_path <- paste0(path, folder)
+  }
   
   # If folder doesn't exist, create it in the specified location 
   # Return message
