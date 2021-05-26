@@ -2,7 +2,7 @@
 #
 # Script name:        Analysis within-country.R
 # Script description: This script ....
-# Author:             KFArnold
+# Author:             @KFArnold
 #
 ################################################################################
 
@@ -31,20 +31,10 @@ folder_output <- "./Output/"
 
 ## Load data -------------------------------------------------------------------
 
-# Define filenames which contain data required for identification 
-# of simulation parameters
-filenames <- list("Cases_deaths_data_europe", 
-                  "summary_eur")
-
-# Import all dataframes; save all to global environment
-dataframes <- filenames %>%
-  map(., .f = ~list.files(path = ".",
-                          recursive = TRUE, 
-                          pattern = paste0(., ".csv"),
-                          full.names = TRUE)) %>%
-  map(., .f = ~read_csv(.)) %>%
-  set_names(filenames)
-list2env(dataframes, globalenv()); rm(filenames, dataframes)
+# Import files which contain data required for identification of simulation 
+# parameters into the global environment, if they are not already loaded
+Import_Unloaded_CSV_Files(filenames = list("Cases_deaths_data_europe", 
+                                           "summary_eur"))
 
 ## Identify parameters ---------------------------------------------------------
 
@@ -78,22 +68,12 @@ write_csv(possible_days_counterfactual,
 
 ## Load data -------------------------------------------------------------------
 
-# Define filenames which contain data required for simulation 
-# of natural/counterfactual histories
-filenames <- list("Cases_deaths_data_europe", 
-                  "knots_best",
-                  "summary_eur",
-                  "possible_days_counterfactual")
-
-# Import all dataframes; save all to global environment
-dataframes <- filenames %>%
-  map(., .f = ~list.files(path = ".",
-                          recursive = TRUE, 
-                          pattern = paste0(., ".csv"),
-                          full.names = TRUE)) %>%
-  map(., .f = ~read_csv(.)) %>%
-  set_names(filenames)
-list2env(dataframes, globalenv()); rm(filenames, dataframes)
+# Import files which contain data required for simulation into the global
+# environment, if they are not already loaded
+Import_Unloaded_CSV_Files(filenames = list("Cases_deaths_data_europe", 
+                                           "summary_eur",
+                                           "knots_best",
+                                           "possible_days_counterfactual"))
 
 ## Simulate --------------------------------------------------------------------
 
@@ -120,6 +100,19 @@ summary_sim_all <-
                                                    parallel = TRUE,
                                                    out_folder = paste0(folder_output, "Simulations/"))
 end <- Sys.time(); end - start  # ~27 mins
+
+## Figures ---------------------------------------------------------------------
+
+# import all simulated data (if not already loaded)
+# produce figures of natural/counterfactual history simulations, save to subfolder
+
+
+# ANALYSIS ---------------------------------------------------------------------
+
+# model fit
+# reduction
+
+
 
 
 
