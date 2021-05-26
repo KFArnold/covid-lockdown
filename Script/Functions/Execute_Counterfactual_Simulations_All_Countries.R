@@ -17,6 +17,7 @@
 #' @param n_runs Number of simulation runs
 #' @param prob_equal Whether knot dates should be used with equal probabilities (T/F)
 #' @param parallel Whether the simulations should be run in parallel (T/F)
+#' @param out_folder Where to save simulation results
 #'
 #' @return List ('summary_sim_all') containing two dataframes:
 #' (1) 'summary_daily_cases_sim_all', which contains mean and 95% centile values
@@ -30,10 +31,10 @@
 #' Execute_Simulation_All_Countries(countries = list("Germany", "United Kingdom"),
 #' n_days_counterfactual = tibble(N_days_first_restriction = c(0, 0), N_days_lockdown = c(0, 2)),
 #' seed = 13, max_t = 100, n_runs = 100000, prob_equal = FALSE,
-#' parallel = TRUE, source_functions = as.vector(lsf.str()))
+#' parallel = TRUE, out_folder = "./Output/Simulations/)
 Execute_Counterfactual_Simulations_All_Countries <- function(countries, n_days_counterfactual,
                                                              seed, max_t, n_runs, prob_equal,
-                                                             parallel) {
+                                                             parallel, out_folder) {
   
   # Set up parallelisation, if specified
   if (parallel == TRUE) {
@@ -69,7 +70,7 @@ Execute_Counterfactual_Simulations_All_Countries <- function(countries, n_days_c
     # and create folder if none exists
     folder <- paste0("Simulation - ", history, " ", 
                      n_days_first_restriction, " ", n_days_lockdown, "/")
-    path <- "./Output/Simulations/"
+    path <- out_folder
     Create_Folder_If_None_Exists(folder, path)
     
     # Set up progress bar
