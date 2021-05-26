@@ -7,7 +7,7 @@
 #' threshold dates for all European countries.
 #'
 #' @param country Country
-#' @param criteria Criteria by which to select best knot dates; one of
+#' @param criteria_selection Criteria by which to select best knot dates; one of
 #' c("Pois_dev_inc", "Pois_dev_cum")
 #' @param n_best Number of best knots to select 
 #'
@@ -16,10 +16,10 @@
 #' to be most likely.
 #'
 #' @examples
-#' Determing_Best_Knots(country = "United Kingdom", criteria = "Pois_dev_inc",
-#' n_best = 10)
+#' Determing_Best_Knots(country = "United Kingdom", 
+#' criteria_selection = "Pois_dev_inc", n_best = 10)
 Determine_Best_Knots <- function(country, 
-                                 criteria,
+                                 criteria_selection,
                                  n_best) {
   
   # Initialise progress bar
@@ -171,7 +171,7 @@ Determine_Best_Knots <- function(country,
   # Find best knot points (by lowest value of specified criteria),
   # and label with country and dates of first restriction and lockdown
   knots_best <- knot_summaries %>% 
-    arrange(eval(parse(text = criteria))) %>% 
+    arrange(eval(parse(text = criteria_selection))) %>% 
     head(n_best) %>% 
     select(-Error_occurred) %>%
     mutate(Country = country, 
