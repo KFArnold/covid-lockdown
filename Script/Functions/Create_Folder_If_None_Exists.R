@@ -5,14 +5,16 @@
 #'
 #' @param folder Name of folder
 #' @param path Path name (ends in "/")
+#' #' @param silent Whether to return message describing files loaded into
+#' global environment (T/F, default is FALSE)
 #'
 #' @return If folder doesn't exist, folder is created and message "Folder
 #' created" is returned; else, message "Folder already exists" is returned
 #'
 #' @examples
 #' Create_Folder_If_None_Exists(folder = "Simulations", path = "./Output/")
-#' Create_Folder_If_None_Exists(folder = "./Output/Simulations")
-Create_Folder_If_None_Exists <- function(folder, path) {
+#' Create_Folder_If_None_Exists(folder = "./Output/Simulations", silent = TRUE)
+Create_Folder_If_None_Exists <- function(folder, path, silent = FALSE) {
   
   # Specify full path name
   if (missing(path)) {
@@ -22,16 +24,20 @@ Create_Folder_If_None_Exists <- function(folder, path) {
   }
   
   # If folder doesn't exist, create it in the specified location 
-  # Return message
+  # Return message if silent = FALSE
   if(!dir.exists(full_path)) {
     
     dir.create(full_path)
-    return("Folder created")
+    if (silent == FALSE) {
+      cat("Folder created")
+    }
     
   } else {
     
-    return("Folder already exists")
-    
+    if (silent == FALSE) {
+      cat("Folder already exists")
+    }
+
   }
   
 }
