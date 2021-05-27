@@ -13,11 +13,12 @@ Plot_Splines <- function(country, out_folder) {
   
   # Create specified folder to save figures in, if it doesn't already exist
   Create_Folder_If_None_Exists(folder = out_folder,
-                               silent = FALSE)
+                               silent = TRUE)
   
   # Import required files
   Import_Unloaded_CSV_Files(filenames = c("Cases_deaths_data_europe",
-                                          "knots_best"))
+                                          "knots_best"), 
+                            silent = TRUE)
   
   # Import aesthetic specifications
   source("./Script/figure_aesthetics.R")
