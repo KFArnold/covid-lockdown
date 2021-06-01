@@ -23,8 +23,9 @@ Calculate_Threshold_Values <- function(country,
                                        pop_thresholds, 
                                        cases_lockdown_easing = "Daily_cases_MA7") {
   
-  # Import file containing summary statistics for all countries
-  Import_Unloaded_CSV_Files(filenames = "summary_eur",
+  # Import files containing observed data and summary statistics for all countries
+  Import_Unloaded_CSV_Files(filenames = c("Cases_deaths_data_europe",
+                                          "summary_eur"),
                             silent = TRUE)
   
   # Get date of lockdown easing
