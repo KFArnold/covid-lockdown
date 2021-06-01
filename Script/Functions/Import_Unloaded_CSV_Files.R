@@ -19,6 +19,13 @@ Import_Unloaded_CSV_Files <- function(filenames, silent = FALSE) {
   # Determine which files are not already loaded in global environment
   filenames_missing <- setdiff(filenames, ls(.GlobalEnv)) 
   
+  # If no missing files, stop and print message (if specified)
+  if (length(filenames_missing) == 0) {
+    ifelse(silent == FALSE, 
+           return(cat("All files already exist in the global environment.")), 
+           return(invisible(NULL)))
+  }
+  
   # Import missing flies into the global environment
   dataframes <- filenames_missing %>%
     map(., .f = ~list.files(path = ".",
@@ -30,13 +37,9 @@ Import_Unloaded_CSV_Files <- function(filenames, silent = FALSE) {
   list2env(dataframes, .GlobalEnv)
   
   # If specified, print names of files imported into global environment
-  if (silent == FALSE) {
-    if (length(filenames_missing) == 0) {
-      cat("All files already exist in the global environment.")
-    } else {
-      cat("Files imported to global environment:", 
-          paste(filenames_missing, collapse = ", "), sep = "\n")
-    }
-  }
+  ifelse(silent == FALSE,
+         return(cat("Files imported to global environment:", 
+                    paste(filenames_missing, collapse = ", "), sep = "\n")),
+         return(invisible(NULL)))
   
 }
