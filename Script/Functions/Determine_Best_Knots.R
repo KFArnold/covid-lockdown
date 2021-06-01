@@ -64,7 +64,7 @@ Determine_Best_Knots <- function(country,
     
     # Refilter knots dataframe by row i and convert to list
     knot_dates_i <- knot_dates %>%
-      filter(row_number() == i) %>%
+      slice(i) %>%
       as.list %>%
       setNames(., tolower(names(.)))
     

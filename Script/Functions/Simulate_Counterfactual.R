@@ -105,7 +105,7 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
     
     # Refilter best knots dataframe by row i and convert to list
     knots_best_country_counterfactual_i <- knots_best_country_counterfactual %>% 
-      filter(row_number() == i) %>%
+      slice(i) %>%
       as.list %>%
       setNames(., tolower(names(.)))
     
