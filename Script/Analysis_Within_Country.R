@@ -1,6 +1,6 @@
 ################################################################################
 #
-# Script name:        Analysis within-country.R
+# Script name:        Analysis_Within_Country.R
 # Script description: This script ....
 # Author:             @KFArnold
 #
@@ -15,7 +15,7 @@ packrat::restore()
 library(tidyverse)
 library(lspline); library(forecast)
 library(foreach); library(doSNOW)
-library(RColorBrewer); library(scales); library(ggpubr); library(ggrepel)
+library(RColorBrewer); library(scales); library(ggpubr); library(ggrepel); library(ggh4x)
 
 # Load all source functions from "./Script/Functions/" folder
 list.files("./Script/Functions", full.names = TRUE) %>% walk(~source(.))
@@ -135,7 +135,7 @@ summary_sim_all <-
 end <- Sys.time(); end - start  # ~27 mins
 list2env(summary_sim_all, .GlobalEnv)
 
-## Figures ---------------------------------------------------------------------
+## Plot simulation results -----------------------------------------------------
 
 # Specify countries and simulations to plot
 countries <- countries_eur_lockdown[countries_eur_lockdown != "Russia"]
@@ -165,10 +165,38 @@ index %>%
 
 # ANALYSIS ---------------------------------------------------------------------
 
-# model fit
+## Load data -------------------------------------------------------------------
+
+# Import files which contain data required for analysis into the global
+# environment, if they are not already loaded
+Import_Unloaded_CSV_Files(filenames = list("Cases_deaths_data_europe", 
+                                           "summary_eur",
+                                           "thresholds_eur"))
+Import_All_Simulated_Data()
+
+## Assess model fit ------------------------------------------------------------
+
+# Define countries for which natural history was simulated
+countries <- summary_daily_cases_sim_all %>% 
+  filter(History == "Natural history") %>% 
+  pull(Country) %>% unique %>% as.character %>% as.list
+
+# Calculate model fit statistics for all simulated countries
+model_fit_all <- Execute_Model_Fit_Assessment_All_Countries(countries = countries,
+                                                            out_folder = folder_output)
+list2env(model_fit_all, envir = .GlobalEnv); rm(model_fit_all)
+
+## Plot model fit --------------------------------------------------------------
+
+# Create figure of all model fit statistics, with outliers labelled
+figure_model_fit <- Plot_Model_Fit(countries = countries, 
+                                   out_folder = folder_figures)
+
+
+
+
+
+
+# model fit - add difference in incident cases on date_lockdown_eased
 # reduction
-
-
-
-
-
+# plots
