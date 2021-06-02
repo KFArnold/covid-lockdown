@@ -26,10 +26,8 @@ Assess_Model_Fit_All <- function(country) {
   
   # Combine all model fit statistics into single dataframe
   model_fit <- diff_time_to_thresholds %>% 
-    full_join(., diff_total_cases,
-              by = c("Country", "Measure", "Type", "Value")) %>%
-    full_join(., pois_dev_natural_history,
-              by = c("Country", "Measure", "Type", "Value")) %>%
+    bind_rows(., diff_total_cases) %>%
+    bind_rows(., pois_dev_natural_history) %>%
     relocate(Threshold, .after = last_col())
   
   # Return dataframe containing all model fit criteria
