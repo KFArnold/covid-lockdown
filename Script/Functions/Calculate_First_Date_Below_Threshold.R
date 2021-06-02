@@ -29,7 +29,7 @@ Calculate_First_Date_Below_Threshold <- function(data, cases, threshold_value, d
   # Calculate date when peak value reached
   peak_date <- data %>% 
     filter(eval(parse(text = cases)) == peak_value) %>%
-    pull(Date)
+    pull(Date) %>% head(1)
   
   # Create T/F indicator for whether threshold value was ever exceeded
   threshold_exceeded <- peak_value > threshold_value
