@@ -1,9 +1,9 @@
-#' Calculate model fit assessement for all specified countries.
+#' Assess model fit for all specified countries.
 #' 
 #' This code is largely a wrapper for the function 'Assess_Model_Fit', which 
 #' calculates the values of various model fit statistics for a single country. 
-#' It also calculates countries that are outliers with respect to individual model
-#' fit metrics.
+#' This function also calculates countries that are outliers with respect to 
+#' individual model fit metrics.
 #'
 #' @param countries List of countries
 #' @param out_folder Where to save model fit statistics
