@@ -26,7 +26,7 @@ Execute_Model_Fit_Assessment_All_Countries <- function(countries, out_folder) {
   # and combine into single dataframe
   model_fit <- foreach(j = countries,
                            .errorhandling = "pass") %do%
-    Assess_Model_Fit(country = j) %>%
+    Assess_Model_Fit_All(country = j) %>%
     bind_rows %>%
     arrange(Country)
   

@@ -6,8 +6,8 @@
 #' @return Dataframe with \code{country}, description, type (i.e. number), and value
 #'
 #' @examples 
-#' Calculate_Pois_Dev_Natural_History(country = "United Kingdom")
-Calculate_Pois_Dev_Natural_History <- function(country) {
+#' Assess_Model_Fit_Pois_Dev_Natural_History(country = "United Kingdom")
+Assess_Model_Fit_Pois_Dev_Natural_History <- function(country) {
   
   # Import files containing observed and simulated case data 
   Import_Unloaded_CSV_Files(filenames = c("Cases_deaths_data_europe"),

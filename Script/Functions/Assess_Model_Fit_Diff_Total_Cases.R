@@ -13,8 +13,8 @@
 #' vs percentage), and value
 #'
 #' @examples
-#' Calculate_Diff_Total_Cases(country = "United Kingdom")
-Calculate_Diff_Total_Cases <- function(country) {
+#' Assess_Model_Fit_Diff_Total_Cases(country = "United Kingdom")
+Assess_Model_Fit_Diff_Total_Cases <- function(country) {
   
   # Import files containing observed and simulated case data 
   Import_Unloaded_CSV_Files(filenames = c("Cases_deaths_data_europe"),

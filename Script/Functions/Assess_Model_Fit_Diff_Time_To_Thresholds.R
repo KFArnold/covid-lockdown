@@ -15,7 +15,7 @@
 #'
 #' @examples
 #' Calculate(Diff_Time_To_Threshold(country = "United Kingdom"))
-Calculate_Diff_Time_To_Thresholds <- function(country) {
+Assess_Model_Fit_Diff_Time_To_Thresholds <- function(country) {
   
   # Import files containing observed case data and important thresholds,
   # and simulated case data
