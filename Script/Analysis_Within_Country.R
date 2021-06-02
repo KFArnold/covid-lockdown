@@ -192,11 +192,18 @@ list2env(model_fit_all, envir = .GlobalEnv); rm(model_fit_all)
 figure_model_fit <- Plot_Model_Fit(countries = countries, 
                                    out_folder = folder_figures)
 
+## Estimate within-country effects ---------------------------------------------
+
+# Calculate within-country effects for all simulated countries
+effects_within_country_all <- Execute_Within_Country_Analysis(countries = countries,
+                                                              out_folder = folder_output)
+list2env(effects_within_country_all, envir = .GlobalEnv); rm(effects_within_country_all)
+
+## Plot within-country effects -------------------------------------------------
 
 
 
 
 
 # model fit - add difference in incident cases on date_lockdown_eased
-# reduction
-# plots
+
