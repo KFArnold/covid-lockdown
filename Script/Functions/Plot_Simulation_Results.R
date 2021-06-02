@@ -1,14 +1,3 @@
-# Function to create three-panel figure of simulation results for a specified country
-# (from functions Plot_Daily_Cases_Sim, Plot_Cumulative_Cases_Sim, Plot_Exponential_Growth_Sim)
-# with common legend and title; and individual component figures
-# Arguments:
-# (1) country = country to plot
-# (2) simulations = vector of simulations to include
-# (3) thresholds = vector of thresholds to display in figures
-# (4) out = folder to save combined figure
-# Returns: list of 5 objects: combined 3-panel figure, 2-panel figure (incident and cumulative),
-# and each individual panel, with country as title
-
 #' Create figures of simulation results for a specified country.
 #' 
 #' This function overlays observed data with specified simulation summaries.
@@ -34,7 +23,9 @@ Plot_Simulation_Results <- function(country, simulations, out_folder) {
                                silent = TRUE)
   
   # Import formatted data
-  data_formatted <- Format_Data_For_Plotting()
+  data_formatted <- Format_Data_For_Plotting(filenames = c("thresholds_eur",
+                                                           "summary_daily_cases_sim_all",
+                                                           "summary_cumulative_cases_end_sim_all"))
   if (is.list(data_formatted)) {
     list2env(data_formatted, envir = environment())
   }
