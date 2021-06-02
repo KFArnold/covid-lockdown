@@ -10,7 +10,8 @@
 #' Format_Data_For_Plottint(silent = TRUE)
 Format_Data_For_Plotting <- function(filenames = c("thresholds_eur",
                                                    "summary_daily_cases_sim_all",
-                                                   "summary_cumulative_cases_end_sim_all"),
+                                                   "summary_cumulative_cases_end_sim_all",
+                                                   "model_fit"),
                                      silent = FALSE) {
   
   # Determine which of specified filenames do not have formatted versions in
@@ -42,31 +43,45 @@ Format_Data_For_Plotting <- function(filenames = c("thresholds_eur",
     
   }
   
+  # Create empty list for storing formatted dataframes
+  list_formatted <- list()
+  
   # Import aesthetic specifications
   source("./Script/figure_aesthetics.R")
   
-  # Format all specified filenames which are not already formatted 
-  # (order factors)
+  # Format all specified filenames which are not already formatted (order factors),
+  # and add these to list of formatted files
   if ("thresholds_eur_formatted" %in% filenames_formatted_missing) {
     thresholds_eur_formatted <- thresholds_eur %>%
       mutate(Threshold = factor(Threshold, threshold_levels))
+    list_formatted[["thresholds_eur_formatted"]] <- thresholds_eur_formatted
   }
   if ("summary_daily_cases_sim_all_formatted" %in% filenames_formatted_missing) {
     summary_daily_cases_sim_all_formatted <- summary_daily_cases_sim_all %>%
       mutate(Simulation = factor(Simulation, levels = simulation_levels),
              History = factor(History, levels = history_levels))
+    list_formatted[["summary_daily_cases_sim_all_formatted"]] <- 
+      summary_daily_cases_sim_all_formatted
+    
   }
   if ("summary_cumulative_cases_end_sim_all_formatted" %in% filenames_formatted_missing) {
     summary_cumulative_cases_end_sim_all_formatted <- summary_cumulative_cases_end_sim_all %>%
       mutate(Simulation = factor(Simulation, levels = simulation_levels),
              History = factor(History, levels = history_levels))
+    list_formatted[["summary_cumulative_cases_end_sim_all_formatted"]] <- 
+      summary_cumulative_cases_end_sim_all_formatted
+    
+  }
+  if("model_fit_formatted" %in% filenames_formatted_missing) {
+    model_fit_formatted <- model_fit %>%
+      mutate(Measure = factor(Measure, levels = model_fit_levels),
+             Threshold = factor(Threshold, levels = threshold_levels))
+    list_formatted[["model_fit_formatted"]] <- model_fit_formatted
   }
   
   # no formatting required for knots_best, Cases_deaths_data_europe 
   
   # Return list of formatted files
-  return(list(thresholds_eur_formatted = thresholds_eur,
-              summary_daily_cases_sim_all_formatted = summary_daily_cases_sim_all,
-              summary_cumulative_cases_end_sim_all_formatted = summary_cumulative_cases_end_sim_all))
+  return(list_formatted)
   
 }
