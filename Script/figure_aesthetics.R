@@ -1,14 +1,15 @@
-library(RColorBrewer); library(scales); library(ggpubr)
-
-# Import all files
-
-# Import required files
-Import_Unloaded_CSV_Files(filenames = c("Cases_deaths_data_europe",
-                                        "knots_best",
-                                        "thresholds_eur"), 
-                          silent = TRUE)
-Import_All_Simulated_Data(location = out_folder,
-                          silent = TRUE)
+#library(RColorBrewer); library(scales); library(ggpubr)
+#
+## Import all files
+#
+## Import required files
+#Import_Unloaded_CSV_Files(filenames = c("Cases_deaths_data_europe",
+#                                        "knots_best",
+#                                        "thresholds_eur",
+#                                        "model_fit"), 
+#                          silent = TRUE)
+#Import_All_Simulated_Data(location = out_folder,
+#                          silent = TRUE)
 
 # DEFINE AESTHETICS ------------------------------------------------------------
 
@@ -54,22 +55,37 @@ history_levels <- c("Natural history", "Counterfactual history")
 ## Threshold aesthetics --------------------------------------------------------
 
 # Threshold levels (defines ordering)
-threshold_levels <- c("1 case per 100,000", "1 case per 20,000", "1 case per 10,000")
+threshold_levels <- c("1 case per 100,000", "1 case per 20,000", "1 case per 10,000",
+                      "Lockdown eased")
 
 # Create function which labels threshold levels
 # (e.g. if level is "1 case per 100,000", label is "1 case per\n100,000")
 Threshold_Labeller <- function(threshold_level) {
   threshold_level %>%
-    gsub(pattern = "per ", replacement = "per\n")
+    gsub(pattern = "per ", replacement = "per\n") %>%
+    gsub(pattern = "Lockdown ", replacement = "Lockdown\n")
 }
 
 # Create label, shape, and transparency key for threshold levels
 threshold_aes <- tibble(Threshold = threshold_levels,
                         Label = Threshold_Labeller(Threshold),
-                        Shape = c(15, 16, 17),
-                        Alpha = c(0.4, 0.7, 1))
+                        Shape = c(15, 16, 17, 18),
+                        Alpha = c(0.4, 0.7, 1, 0.5))
 
+## Model fit criteria aesthetics -----------------------------------------------
 
+# Model fit criteria levels (defines ordering)
+model_fit_levels <- c("Pois_dev_inc", "Pois_dev_cum", "Diff_total_cases", "Diff_time_to_threshold")
+
+# Create key for model fit labels
+model_fit_labels <- c("Diff_time_to_threshold" = "Difference in days\nto reach thresholds",
+                      "Diff_total_cases" = "Difference in\ntotal cases",
+                      "Pois_dev_inc" = "Poisson deviance\n(incident cases)",
+                      "Pois_dev_cum" = "Poisson deviance\n(cumulative cases)")
+
+# Create labels for model fit data type
+model_fit_type_labels <- c("Number" = "Raw value",
+                           "Pct" = "Percentage difference\ncompared to\nobserved data")
 
 
 ### Example function for creating labels
