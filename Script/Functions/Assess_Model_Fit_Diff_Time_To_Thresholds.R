@@ -46,7 +46,8 @@ Assess_Model_Fit_Diff_Time_To_Thresholds <- function(country) {
   
   # Calculate number of days since lockdown until 7-day MA of observed daily cases 
   # went below thresholds
-  # (remove )
+  # (remove rows where incidence never went as high as given threshold -
+  # coded as Days_since_lockdown = 0)
   dates_below_thresholds_obs <- foreach(k = threshold_values,
                                              .errorhandling = "pass") %do%
     Calculate_First_Date_Below_Threshold(data = data_country_obs,
@@ -59,6 +60,8 @@ Assess_Model_Fit_Diff_Time_To_Thresholds <- function(country) {
 
   # Calculate number of days since lockdown until mean simulated daily cases 
   # under the natural history went below thresholds
+  # (remove rows where incidence never went as high as given threshold -
+  # coded as Days_since_lockdown = 0)
   dates_below_thresholds_sim <- foreach(k = threshold_values,
                                        .errorhandling = "pass") %do%
     Calculate_First_Date_Below_Threshold(data = data_country_sim,
