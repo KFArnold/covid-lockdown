@@ -4,7 +4,7 @@
 #' exist in the global environment, and imports these. Note that files may 
 #' be located anywhere within the project directory.
 #'
-#' @param filenames List of filenames (without ".csv")
+#' @param filenames Vector or list of filenames (without ".csv")
 #' @param silent Whether to return message describing files loaded into
 #' global environment (T/F, default is FALSE)
 #'
