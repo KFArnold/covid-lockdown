@@ -37,7 +37,7 @@ Execute_Within_Country_Analysis <- function(countries, out_folder) {
     summarise(Median_pct_change = median(Pct_change, na.rm = TRUE),
               QR1_pct_change = quantile(Pct_change, 0.25, na.rm = TRUE),
               QR3_pct_change = quantile(Pct_change, 0.75, na.rm = TRUE),
-              N_countries = n(),
+              N_countries = sum(!is.na(Pct_change)),
               .groups = "keep") %>% 
     ungroup
   
