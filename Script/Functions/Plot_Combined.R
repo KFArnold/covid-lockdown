@@ -25,9 +25,6 @@
 Plot_Combined <- function(plotlist, height = 6, width = 6, rows, cols, labels,
                           title, title_size, out_folder, out_name, return = TRUE) {
   
-  # Create folder for saving combined figure, if it doesn't exist
-  Create_Folder_If_None_Exists(folder = out_folder, silent = TRUE)
-  
   # Assign number of rows and columns if not specified
   if (missing(rows) | missing(cols)) {
     if (missing(rows) & missing(cols)) {
@@ -42,19 +39,32 @@ Plot_Combined <- function(plotlist, height = 6, width = 6, rows, cols, labels,
   
   # Create combined figure, with or without specified labels
   if (missing(labels)) {
-    plot <- ggarrange(plotlist = plotlist, nrow = rows, ncol = cols)
+    plot <- ggarrange(plotlist = plotlist, align = "hv", nrow = rows, ncol = cols)
   } else {
-    plot <- ggarrange(plotlist = plotlist, nrow = rows, ncol = cols,
+    plot <- ggarrange(plotlist = plotlist, align = "hv", nrow = rows, ncol = cols,
                       labels = labels)
   }
   
   # Annotate combined figure
   plot_annotated <- annotate_figure(plot, top = text_grob(title, size = title_size))
   
-  # Save combined figure to specified outfolder
-  ggsave(paste0(out_folder, out_name),
-         plot = plot_annotated, 
-         width = width*cols, height = height*rows, 
-         limitsize = FALSE)
+  # Save combined figure to out folder, if specified
+  if (!missing(out_folder)) {
+    
+    # Create folder for saving combined figure, if it doesn't exist
+    Create_Folder_If_None_Exists(folder = out_folder, silent = TRUE)
+    
+    # Save
+    ggsave(paste0(out_folder, out_name),
+           plot = plot_annotated, 
+           width = width*cols, height = height*rows, 
+           limitsize = FALSE)
+    
+  }
   
+  # Return figure
+  if (return == TRUE) {
+    return(plot_annotated)
+  }
+
 }
