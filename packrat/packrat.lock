@@ -13,6 +13,12 @@ Source: CRAN
 Version: 1.1.0
 Hash: d1075050684753e939c45775617c8f38
 
+Package: EnvStats
+Source: CRAN
+Version: 2.4.0
+Hash: fdfbdc646924777be84bda738cc255b9
+Requires: MASS, ggplot2, nortest
+
 Package: GFE
 Source: CRAN
 Version: 0.1.0
@@ -531,6 +537,11 @@ Package: nnet
 Source: CRAN
 Version: 7.3-13
 Hash: 63ec5b715312f850b370f0d1cf85be7c
+
+Package: nortest
+Source: CRAN
+Version: 1.0-4
+Hash: 24c16983d921b24f40b4c347302ca8e7
 
 Package: openssl
 Source: CRAN
