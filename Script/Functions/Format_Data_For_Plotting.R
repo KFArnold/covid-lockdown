@@ -11,7 +11,8 @@
 Format_Data_For_Plotting <- function(filenames = c("thresholds_eur",
                                                    "summary_daily_cases_sim_all",
                                                    "summary_cumulative_cases_end_sim_all",
-                                                   "model_fit"),
+                                                   "model_fit",
+                                                   "effects_within_countries"),
                                      silent = FALSE) {
   
   # Determine which of specified filenames do not have formatted versions in
@@ -72,11 +73,19 @@ Format_Data_For_Plotting <- function(filenames = c("thresholds_eur",
       summary_cumulative_cases_end_sim_all_formatted
     
   }
-  if("model_fit_formatted" %in% filenames_formatted_missing) {
+  if ("model_fit_formatted" %in% filenames_formatted_missing) {
     model_fit_formatted <- model_fit %>%
       mutate(Measure = factor(Measure, levels = model_fit_levels),
              Threshold = factor(Threshold, levels = threshold_levels))
     list_formatted[["model_fit_formatted"]] <- model_fit_formatted
+  }
+  if ("effects_within_countries_formatted" %in% filenames_formatted_missing) {
+    effects_within_countries_formatted <- effects_within_countries %>% 
+      mutate(Threshold = factor(Threshold, levels = threshold_levels),
+             Simulation = factor(Simulation, levels = simulation_levels),
+             History = factor(History, levels = history_levels))
+    list_formatted[["effects_within_countries_formatted"]] <- 
+      effects_within_countries_formatted
   }
   
   # no formatting required for knots_best, Cases_deaths_data_europe 
