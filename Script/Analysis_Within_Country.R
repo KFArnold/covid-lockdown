@@ -142,7 +142,8 @@ countries <- countries_eur_lockdown[countries_eur_lockdown != "Russia"]
 simulations <- c("0,0", "0,3", "0,7", "3,3", "7,7")
 
 # Create figures of simulation results and save to subfolder
-figure_sim_results <- foreach(j = countries, .errorhandling = "pass") %do% 
+figure_sim_results <- foreach(j = countries, 
+                              .errorhandling = "pass") %do% 
   Plot_Simulation_Results(country = j, 
                           simulations = simulations,
                           out = paste0(folder_figures, "Simulation results by country"))
@@ -201,9 +202,20 @@ list2env(effects_within_country_all, envir = .GlobalEnv); rm(effects_within_coun
 
 ## Plot within-country effects -------------------------------------------------
 
+# Specify simulations and descriptions to plot
+simulations <- list(c("0,1", "0,3", "0,5", "0,7"),
+                    c("1,1", "3,3", "5,5", "7,7", "14,14"),
+                    c("0,1", "0,3", "0,5", "0,7", "1,1", "3,3", "5,5", "7,7", "14,14"))
+description <- list("earlier lockdown",
+                    "earlier sequence",
+                    "all")
 
-
-
-
-# model fit - add difference in incident cases on date_lockdown_eased
-
+# Create figure of within-country effects
+figure_within_country_effects <- foreach(i = simulations, 
+                                         j = description) %do%
+  Plot_Effects_Within_Country_All(simulations = i,
+                              plots = c("plot_time_to_thresholds",
+                                        "plot_length_lockdown",
+                                        "plot_total_cases"),
+                              description = j, 
+                              out_folder = folder_figures)
