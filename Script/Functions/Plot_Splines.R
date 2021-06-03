@@ -26,8 +26,7 @@ Plot_Splines <- function(country, out_folder) {
   # Get first/last dates of observed data included in spline estimation,
   # and save to environment
   important_dates <- Get_Dates(country = country,
-                               dates = c("Date_start", "Date_T")) %>%
-    setNames(., tolower(names(.)))
+                               dates = c("Date_start", "Date_T")) 
   list2env(important_dates, envir = environment())
   
   # Filter dataframe of best knots by specified country
@@ -35,16 +34,16 @@ Plot_Splines <- function(country, out_folder) {
   
   # Filter dataframe of observed cases by country, and create In_range variable
   # to indicate whether date is within range of observed data to include
-  # (i.e. date_start <= Date <= date_t)
+  # (i.e. date_start <= Date <= date_T)
   data_country <- Cases_deaths_data_europe %>% 
     filter(Country == country) %>%
-    mutate(In_range = ifelse(Date >= date_start & Date <= date_t, TRUE, FALSE))
+    mutate(In_range = ifelse(Date >= date_start & Date <= date_T, TRUE, FALSE))
   
   # Define total number of knot points
   n_knots <- knots_best_country %>% pull(N_knots) %>% unique
   
   # Calculate max_date (max date to display on plots)
-  max_date <- date_t + 7
+  max_date <- date_T + 7
   
   # Define x-axis range (cumulative cases)
   x_min <- 0
@@ -69,7 +68,7 @@ Plot_Splines <- function(country, out_folder) {
               aes(x = Cumulative_cases_beg, y = Daily_cases), alpha = 0.5) +
     geom_path(data = filter(data_country, In_range == TRUE),
               aes(x = Cumulative_cases_beg, y = Daily_cases), alpha = 1) +
-    geom_path(data = filter(data_country, Date >= date_t),
+    geom_path(data = filter(data_country, Date >= date_T),
               aes(x = Cumulative_cases_beg, y = Daily_cases), alpha = 0.5) +
     geom_point(data = filter(data_country, In_range == TRUE),
                alpha = 1, size = 1) +

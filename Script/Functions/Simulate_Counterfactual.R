@@ -44,8 +44,7 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
   # Get important dates in designated country (date of lockdown and simulation start date),
   # and save to environment
   important_dates <- Get_Dates(country = country,
-                               dates = c("Date_lockdown", "Date_start")) %>%
-    setNames(., tolower(names(.)))
+                               dates = c("Date_lockdown", "Date_start")) 
   list2env(important_dates, envir = environment())
   
   # Calculate simulation end date
@@ -107,7 +106,7 @@ Simulate_Counterfactual <- function(country, n_days_first_restriction, n_days_lo
     knots_best_country_counterfactual_i <- knots_best_country_counterfactual %>% 
       slice(i) %>%
       as.list %>%
-      setNames(., tolower(names(.)))
+      setNames(., First_Character_To_Lower(names(.)))
     
     # Save growth parameters (means and SDs) in separate list
     parameters_i <- names(knots_best_country_counterfactual_i) %>%

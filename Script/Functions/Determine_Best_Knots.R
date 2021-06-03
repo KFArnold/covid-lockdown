@@ -31,8 +31,7 @@ Determine_Best_Knots <- function(country,
   important_dates <- Get_Dates(country = country,
                                dates = c("Date_start", "Date_T",
                                          "Date_first_restriction", 
-                                         "Date_lockdown")) %>%
-    setNames(., tolower(names(.)))
+                                         "Date_lockdown"))
   list2env(important_dates, envir = environment())
   
   # Calculate total number of knots for the given country:
@@ -66,7 +65,7 @@ Determine_Best_Knots <- function(country,
     knot_dates_i <- knot_dates %>%
       slice(i) %>%
       as.list %>%
-      setNames(., tolower(names(.)))
+      setNames(., First_Character_To_Lower(names(.)))
     
     # Specify spline model:
     # number of knots that fall within the modelling range, values of knot points,
@@ -75,7 +74,7 @@ Determine_Best_Knots <- function(country,
     spline_specification_i <- Specify_Spline_Model(country = country,
                                                    n_knots = n_knots,
                                                    date_min = date_start,
-                                                   date_max = date_t, 
+                                                   date_max = date_T, 
                                                    knot_date_1 = knot_dates_i$knot_date_1,
                                                    knot_date_2 = knot_dates_i$knot_date_2)
     
@@ -88,7 +87,7 @@ Determine_Best_Knots <- function(country,
                                                intercept = spline_specification_i$intercept,
                                                covariates = spline_specification_i$covariates,
                                                data = spline_specification_i$data_spline) %>%
-      setNames(., tolower(names(.)))
+      setNames(., First_Character_To_Lower(names(.)))
     
     # Skip to next iteration if error occurred in parameter estimation
     if (parameters_i$error_occurred == TRUE) { next }
@@ -102,7 +101,7 @@ Determine_Best_Knots <- function(country,
     # Estimate incident cases over modelling period 
     # (no variation - mean growth only)
     daily_cases_sim <- Simulate_Daily_Cases(date_start = date_start,
-                                            date_end = date_t,
+                                            date_end = date_T,
                                             start_value = cases_start$inc,
                                             n_runs = 1,
                                             n_knots = n_knots,
@@ -118,13 +117,13 @@ Determine_Best_Knots <- function(country,
     # Calculate and record Poisson deviance
     ## (1) For predicted vs true (7-day moving average) incident cases
     true_inc <- Cases_deaths_data_europe %>% 
-      filter(Country == country, Date >= date_start & Date <= date_t) %>%
+      filter(Country == country, Date >= date_start & Date <= date_T) %>%
       pull(Daily_cases_MA7)
     pred_inc <- daily_cases_sim[1, ]
     pois_dev_inc <- Calculate_Poisson_Deviance(obs = true_inc, pred = pred_inc)
     ## (2) For predicted vs true (7-day moving average) cumulative cases
     true_cum <- Cases_deaths_data_europe %>% 
-      filter(Country == country, Date >= date_start & Date <= date_t) %>%
+      filter(Country == country, Date >= date_start & Date <= date_T) %>%
       pull(Cumulative_cases_end_MA7)
     pred_cum <- cumulative_cases_end_sim[1, ]
     pois_dev_cum <- Calculate_Poisson_Deviance(obs = true_cum, pred = pred_cum)

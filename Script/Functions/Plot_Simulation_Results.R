@@ -42,8 +42,7 @@ Plot_Simulation_Results <- function(country, simulations, out_folder) {
   important_dates <- Get_Dates(country = country,
                                dates = c("Date_start", "Date_T",
                                          "Date_1", "Date_first_restriction",
-                                         "Date_lockdown")) %>%
-    setNames(., tolower(names(.)))
+                                         "Date_lockdown")) 
   list2env(important_dates, envir = environment())
   
   # If country did not enter lockdown or entered lockdown immediately, retain only unique simulations
@@ -59,10 +58,10 @@ Plot_Simulation_Results <- function(country, simulations, out_folder) {
   
   # Filter dataframe of observed cases by country, and create In_range variable
   # to indicate whether date is within range of observed data to include
-  # (i.e. date_start <= Date <= date_t)
+  # (i.e. date_start <= Date <= date_T)
   data_country <- Cases_deaths_data_europe %>% 
     filter(Country == country) %>%
-    mutate(In_range = ifelse(Date >= date_start & Date <= date_t, TRUE, FALSE))
+    mutate(In_range = ifelse(Date >= date_start & Date <= date_T, TRUE, FALSE))
   
   # Filter aesthetic specifications by specified simulations
   simulation_aes_filt <- simulation_aes %>% filter(Simulation %in% simulations)
@@ -106,7 +105,7 @@ Plot_Simulation_Results <- function(country, simulations, out_folder) {
   
   # Calculate min and max dates to display on plots
   min_date <- date_1 - 14
-  max_date <- date_t + 21
+  max_date <- date_T + 21
   
   # Create plots for triple panel figure
   plot_inc <- Plot_Daily_Cases_Sim(country = country,
@@ -126,7 +125,7 @@ Plot_Simulation_Results <- function(country, simulations, out_folder) {
                                         sim_data = cum_cases_sim_country,
                                         simulations = simulations_actual,
                                         aesthetics = simulation_aes_actual,
-                                        date_T = date_t, 
+                                        date_T = date_T, 
                                         print_cases = TRUE)
   plot_exp <- Plot_Exponential_Growth_Sim(country = country,
                                           title = "Cumulative vs incident cases of COVID-19",
@@ -139,7 +138,7 @@ Plot_Simulation_Results <- function(country, simulations, out_folder) {
                                           aesthetics = simulation_aes_actual,
                                           knots = knots_country, 
                                           date_start = date_start, 
-                                          date_T = date_t)
+                                          date_T = date_T)
   
   # Combine in triple panel with common legend and country as title
   plots_all <- ggarrange(plotlist = list(plot_inc, plot_cum, plot_exp), align = "h",
@@ -178,7 +177,7 @@ Plot_Simulation_Results <- function(country, simulations, out_folder) {
                                         sim_data = cum_cases_sim_country,
                                         simulations = simulations_actual,
                                         aesthetics = simulation_aes_actual,
-                                        date_T = date_t, 
+                                        date_T = date_T, 
                                         print_cases = FALSE)
   plot_exp <- Plot_Exponential_Growth_Sim(country = country,
                                           title = country,
@@ -191,7 +190,7 @@ Plot_Simulation_Results <- function(country, simulations, out_folder) {
                                           aesthetics = simulation_aes_actual,
                                           knots = knots_country, 
                                           date_start = date_start, 
-                                          date_T = date_t)
+                                          date_T = date_T)
   
   # Return list combined plots
   return(list(plots_all_annotated = plots_all_annotated,
