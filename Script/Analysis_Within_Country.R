@@ -39,8 +39,8 @@ Create_Folder_If_None_Exists(folder = folder_figures)
 
 # Import files which contain data required for identification of simulation 
 # parameters into the global environment, if they are not already loaded
-Import_Unloaded_CSV_Files(filenames = list("Cases_deaths_data_europe", 
-                                           "summary_eur"))
+Import_Unloaded_CSV_Files(filenames = c("Cases_deaths_data_europe", 
+                                        "summary_eur"))
 
 ## Identify parameters ---------------------------------------------------------
 
@@ -103,10 +103,10 @@ Plot_Combined(plotlist = figure_splines[index],
 
 # Import files which contain data required for simulation into the global
 # environment, if they are not already loaded
-Import_Unloaded_CSV_Files(filenames = list("Cases_deaths_data_europe", 
-                                           "summary_eur",
-                                           "knots_best",
-                                           "possible_days_counterfactual"))
+Import_Unloaded_CSV_Files(filenames = c("Cases_deaths_data_europe", 
+                                        "summary_eur",
+                                        "knots_best",
+                                        "possible_days_counterfactual"))
 
 ## Simulate --------------------------------------------------------------------
 
@@ -164,15 +164,15 @@ index %>%
                 out_name = "Figure - Simulation results (sample).png",
                 return = FALSE)
 
-# ANALYSIS ---------------------------------------------------------------------
+# MODEL FIT --------------------------------------------------------------------
 
 ## Load data -------------------------------------------------------------------
 
-# Import files which contain data required for analysis into the global
+# Import files which contain data required for model fit assessment into the global
 # environment, if they are not already loaded
-Import_Unloaded_CSV_Files(filenames = list("Cases_deaths_data_europe", 
-                                           "summary_eur",
-                                           "thresholds_eur"))
+Import_Unloaded_CSV_Files(filenames = c("Cases_deaths_data_europe", 
+                                        "summary_eur",
+                                        "thresholds_eur"))
 Import_All_Simulated_Data()
 
 ## Assess model fit ------------------------------------------------------------
@@ -192,6 +192,17 @@ list2env(model_fit_all, envir = .GlobalEnv); rm(model_fit_all)
 # Create figure of all model fit statistics, with outliers labelled
 figure_model_fit <- Plot_Model_Fit(countries = countries, 
                                    out_folder = folder_figures)
+
+# ANALYSIS ---------------------------------------------------------------------
+
+## Load data -------------------------------------------------------------------
+
+# Import files which contain data required for analysis into the global
+# environment, if they are not already loaded
+Import_Unloaded_CSV_Files(filenames = c("summary_eur",
+                                        "thresholds_eur"))
+Import_All_Simulated_Data(filenames = c("summary_daily_cases_sim",
+                                        "summary_cumulative_cases_end_sim"))
 
 ## Estimate within-country effects ---------------------------------------------
 
@@ -214,8 +225,8 @@ description <- list("earlier lockdown",
 figure_within_country_effects <- foreach(i = simulations, 
                                          j = description) %do%
   Plot_Effects_Within_Country_All(simulations = i,
-                              plots = c("plot_time_to_thresholds",
-                                        "plot_length_lockdown",
-                                        "plot_total_cases"),
-                              description = j, 
-                              out_folder = folder_figures)
+                                  plots = c("plot_time_to_thresholds",
+                                            "plot_length_lockdown",
+                                            "plot_total_cases"),
+                                  description = j, 
+                                  out_folder = folder_figures)
