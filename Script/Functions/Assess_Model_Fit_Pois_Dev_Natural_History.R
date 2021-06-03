@@ -10,7 +10,7 @@
 Assess_Model_Fit_Pois_Dev_Natural_History <- function(country) {
   
   # Import files containing observed and simulated case data 
-  Import_Unloaded_CSV_Files(filenames = c("Cases_deaths_data_europe"),
+  Import_Unloaded_CSV_Files(filenames = "Cases_deaths_data_europe",
                             silent = TRUE)
   Import_All_Simulated_Data(silent = TRUE)
   

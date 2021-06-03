@@ -17,7 +17,7 @@
 Assess_Model_Fit_Diff_Total_Cases <- function(country) {
   
   # Import files containing observed and simulated case data 
-  Import_Unloaded_CSV_Files(filenames = c("Cases_deaths_data_europe"),
+  Import_Unloaded_CSV_Files(filenames = "Cases_deaths_data_europe",
                             silent = TRUE)
   Import_All_Simulated_Data(filenames = "summary_cumulative_cases_end_sim",
                             silent = TRUE)

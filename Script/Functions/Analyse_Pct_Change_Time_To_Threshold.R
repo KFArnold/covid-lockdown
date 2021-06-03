@@ -18,7 +18,7 @@
 Analyse_Pct_Change_Time_To_Threshold <- function(country, thresholds) {
   
   # Import files containing important case thresholds and simulated case data
-  Import_Unloaded_CSV_Files(filenames = c("thresholds_eur"),
+  Import_Unloaded_CSV_Files(filenames = "thresholds_eur",
                             silent = TRUE)
   Import_All_Simulated_Data(filenames = "summary_daily_cases_sim",
                             silent = TRUE)
