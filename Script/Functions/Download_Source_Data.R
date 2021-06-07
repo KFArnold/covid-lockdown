@@ -9,9 +9,9 @@
 #' in variable names being replaced by underscores.
 #'
 #' @examples
-#' Download_Data(source = "https://raw.githubusercontent.com/OxCGRT/covid-policy-tracker/master/data/",
+#' Download_Source_Data(source = "https://raw.githubusercontent.com/OxCGRT/covid-policy-tracker/master/data/",
 #' filenames = "OxCGRT_latest.csv", out_folder = ".Data/Unformatted/")
-Download_Data <- function(source, filenames, out_folder) {
+Download_Source_Data <- function(source, filenames, out_folder) {
   
   # Create specified folder for saving data if it doesn't already exist
   Create_Folder_If_None_Exists(folder = out_folder,
