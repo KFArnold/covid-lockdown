@@ -70,6 +70,7 @@ Format_Source_Data <- function(countries, source_folder, out_folder) {
     mutate_if(is.character, as.factor) %>%
     group_by(Province_State, Country) %>% arrange(Country, Date)
   worldbank <- worldbank %>% 
+    rename(Year = Date) %>%
     select(-contains("Iso")) %>%
     mutate_if(is.character, as.factor) %>% 
     group_by(Country) %>% arrange(Country)
