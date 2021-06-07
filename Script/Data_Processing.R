@@ -12,7 +12,8 @@
 packrat::restore()
 
 # Load required packages
-library(tidyverse); library(wbstats); library(sjlabelled)
+library(tidyverse); library(wbstats); library(sjlabelled); library(caTools)
+library(foreach)
 
 # Load all source functions from "./Script/Functions/" folder
 list.files("./Script/Functions", full.names = TRUE) %>% walk(~source(.))
@@ -44,9 +45,9 @@ Create_Folder_If_None_Exists(folder = folder_figures)
 #out_folder <- paste0(folder_data_unformatted, "CSSE data/")
 #
 ## Download data
-#Download_Data(source = source,
-#              filenames = filenames,
-#              out_folder = out_folder)
+#Download_Source_Data(source = source,
+#                     filenames = filenames,
+#                     out_folder = out_folder)
 
 ## OxCGRT data (policies) ------------------------------------------------------
 
@@ -56,9 +57,9 @@ Create_Folder_If_None_Exists(folder = folder_figures)
 #out_folder <- paste0(folder_data_unformatted, "OxCGRT data/")
 #
 ## Download data
-#Download_Data(source = source,
-#              filenames = filenames,
-#              out_folder = out_folder)
+#Download_Source_Data(source = source,
+#                     filenames = filenames,
+#                     out_folder = out_folder)
 
 ## World Bank data (demographics) ----------------------------------------------
 
@@ -82,15 +83,141 @@ Create_Folder_If_None_Exists(folder = folder_figures)
 
 # DATA FORMATTING --------------------------------------------------------------
 
+# Define all European countries
+# (from https://www.worldometers.info/geography/how-many-countries-in-europe/)
+countries <- list("Albania", "Andorra", "Austria", "Belarus", "Belgium", 
+                  "Bosnia and Herzegovina", "Bulgaria", "Croatia", "Czech Republic",
+                  "Denmark", "Estonia", "Finland", "France", "Germany", 
+                  "Greece", "Holy See", "Hungary", "Iceland", "Ireland", 
+                  "Italy", "Latvia", "Liechtenstein", "Lithuania", 
+                  "Luxembourg", "Malta", "Moldova", "Monaco", "Montenegro",
+                  "Netherlands", "North Macedonia", "Norway", "Poland",
+                  "Portugal", "Romania", "Russia", "San Marino",
+                  "Serbia", "Slovak Republic", "Slovenia", "Spain", "Sweden", 
+                  "Switzerland", "Ukraine", "United Kingdom")
 
-
+# Format all source data for European countries
+source_data <- Format_Source_Data(countries = countries, 
+                                  source_folder = folder_data_unformatted,
+                                  out_folder = folder_data_formatted)
+list2env(source_data, envir = .GlobalEnv); rm(source_data)
 
 # DATA PROCESSING  -------------------------------------------------------------
 
-## Calculate important dates ---------------------------------------------------
+## Load data -------------------------------------------------------------------
 
+# Import formatted data files into the global environment, 
+# if they are not already loaded
+Import_Unloaded_CSV_Files(filenames = c("Cases_deaths_data_europe",
+                                        "Policy_data_europe",
+                                        "Worldbank_data_europe"))
 
+# Load list of European countries for which we have both cases/deaths data 
+# and policy data
+load(paste0(folder_output, "countries_eur.RData"))
 
+## Summarise countries ---------------------------------------------------------
+
+### Calculate most recent demographic statistics -------------------------------
+
+# Calculate most recent demographic statistics from World Bank data for all countries
+demographics <- Worldbank_data_europe %>%
+  group_by(Country) %>% 
+  arrange(Country, desc(Year)) %>%
+  summarise(across(c(Area_sq_km, Population), ~first(na.omit(.))), .groups = "keep") %>%
+  ungroup
+
+### Calculate date of first case -----------------------------------------------
+
+# Calculate date of first case for all countries
+date_first_case <- Cases_deaths_data_europe %>% 
+  group_by(Country) %>%
+  filter(Daily_cases >= 1) %>%
+  slice(1) %>%
+  select(Country, Date_1 = Date) %>%
+  ungroup
+
+### Calculate important policy dates -------------------------------------------
+
+# Define the following:
+# (a) policy measures of interest
+# (b) cutoff points for whether measures have been implemented
+### (1 corresponds to measure recommended, 2-3 corresponds to measure required),
+# (c) geographic scope(s) for measures of interest
+### (0 corresponds to targeted, 1 corresponds to general)
+# (d) threshold values (i.e. how many measures together constitute a given restriction)
+
+# Any restrictions (recommended or required, targeted or general)
+measures_any_restriction <- list("measures" = c("C1_School_closing", 
+                                                "C2_Workplace_closing", 
+                                                "C3_Cancel_public_events",
+                                                "C5_Close_public_transport", 
+                                                "C6_Stay_at_home_requirements",
+                                                "C7_Restrictions_on_internal_movement"),
+                                 "cutoffs" = c(1, 1, 1, 1, 1, 1),
+                                 "scope" = c(0, 1), 
+                                 "threshold" = 1)
+# Lockdown measure (required, general)
+measures_lockdown <- list("measures" = "C6_Stay_at_home_requirements",
+                          "cutoffs" = 2,
+                          "scope" = 1,
+                          "threshold" = 1)
+# Alternate group of measures which together are broadly equivalent to lockdown 
+# (required, general)
+measures_lockdown_alt <- list("measures" = c("C1_School_closing", 
+                                             "C2_Workplace_closing", 
+                                             "C3_Cancel_public_events",
+                                             "C5_Close_public_transport", 
+                                             "C7_Restrictions_on_internal_movement"),
+                              "cutoffs" = c(2, 2, 2, 2, 2),
+                              "scope" = 1,
+                              "threshold" = 3)
+
+# Calculate important policy dates for all countries
+policy_dates <- foreach(j = countries_eur, 
+                        .errorhandling = "pass") %do%
+  Calculate_Policy_Dates(country = j,
+                         measures_any_restriction = measures_any_restriction,
+                         measures_lockdown = measures_lockdown,
+                         measures_lockdown_alt = measures_lockdown_alt) %>% 
+  reduce(bind_rows)
+
+# Calculate length of full lockdown for all countries
+policy_dates <- policy_dates %>%
+  mutate(Length_lockdown = as.numeric(Date_lockdown_eased - Date_lockdown))
+
+### Calculate date range to include in simulation and analysis -----------------
+
+# Calculate range of dates to be included in analysis (Date_start to Date_T)
+# for all countries:
+# Date_start represents the first full day for which total cases exceeded the 
+# defined population-based threshold or 5 cases, which ever is greater; and
+# Date_T represents 28 days after the date of lockdown easing
+date_range <- foreach (j = countries_eur,
+                       .errorhandling = "pass") %do%
+  Calculate_Date_Range_For_Analysis(country = j,
+                                    policy_dates = policy_dates) %>%
+  bind_rows
+
+# Manually replace start date for Denmark, Estonia, Finland, Norway, Slovenia, and Sweden
+date_range <- date_range %>% 
+  mutate(Date_start = if_else(Country == "Denmark", as.Date("2020-03-14") + 3, Date_start),
+         Date_start = if_else(Country == "Estonia", as.Date("2020-03-16") + 3, Date_start),
+         Date_start = if_else(Country == "Finland", as.Date("2020-03-15") + 3, Date_start),
+         Date_start = if_else(Country == "Norway", as.Date("2020-03-14") + 3, Date_start),
+         Date_start = if_else(Country == "Slovenia", as.Date("2020-03-18") + 3, Date_start),
+         Date_start = if_else(Country == "Sweden", as.Date("2020-03-14") + 3, Date_start))
+
+### Combine all summary data ---------------------------------------------------
+
+# Combine summary data from all countries 
+summary_eur <- demographics %>%
+  full_join(., date_first_case, by = "Country") %>%
+  full_join(., policy_dates, by = "Country") %>%
+  full_join(., date_range, by = "Country")
+
+# Save summary table to output folder
+write_csv(summary_eur, file = paste0(folder_output, "summary_eur.csv"))
 
 ## Caculate important threshold values -----------------------------------------
 
@@ -108,7 +235,5 @@ thresholds_eur <- foreach(j = countries_eur,
                              pop_thresholds = pop_thresholds) %>%
   reduce(bind_rows)
 
-
-write_csv(thresholds_eur,
-          file = paste0(folder_output, "thresholds_eur.csv"))
-
+# Save table containing threshold values to output folder
+write_csv(thresholds_eur, file = paste0(folder_output, "thresholds_eur.csv"))
