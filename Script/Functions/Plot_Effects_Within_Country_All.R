@@ -77,14 +77,14 @@ Plot_Effects_Within_Country_All <- function(simulations,
   
   # Combine all plots into single figure and save to specified folder
   plot_combined <- Plot_Combined(plotlist = plot_list, 
-                             height = 7, 
-                             width = 1.4*n_sim,
-                             cols = n_plots, 
-                             title = "Estimated within-country effects of lockdown timing",
-                             title_size = 20, 
-                             out_folder = out_folder,
-                             out_name = name,
-                             return = TRUE)
+                                 height = 7, 
+                                 width = 1.4*n_sim,
+                                 cols = n_plots, 
+                                 title = "Estimated within-country effects of lockdown timing",
+                                 title_size = 20, 
+                                 out_folder = out_folder,
+                                 out_name = name,
+                                 return = TRUE)
   
   # Return list of individual and combined plots
   return(list(plot_time_to_thresholds = plot_time_to_thresholds,
