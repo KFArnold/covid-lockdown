@@ -39,9 +39,13 @@ Plot_Combined <- function(plotlist, height = 6, width = 6, rows, cols, labels,
   
   # Create combined figure, with or without specified labels
   if (missing(labels)) {
-    plot <- ggarrange(plotlist = plotlist, align = "hv", nrow = rows, ncol = cols)
+    plot <- ggarrange(plotlist = plotlist, align = "hv", 
+                      common.legend = TRUE, legend = "bottom",
+                      nrow = rows, ncol = cols)
   } else {
-    plot <- ggarrange(plotlist = plotlist, align = "hv", nrow = rows, ncol = cols,
+    plot <- ggarrange(plotlist = plotlist, align = "hv", 
+                      common.legend = TRUE, legend = "bottom",
+                      nrow = rows, ncol = cols,
                       labels = labels)
   }
   
