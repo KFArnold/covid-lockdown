@@ -12,7 +12,7 @@
 packrat::restore()
 
 # Load required packages
-library(tidyverse)
+library(tidyverse); library(magrittr)
 library(lspline); library(forecast)
 library(foreach); library(doSNOW)
 library(RColorBrewer); library(scales); library(ggpubr); library(ggrepel); library(ggh4x)
@@ -42,7 +42,7 @@ Create_Folder_If_None_Exists(folder = folder_figures)
 Import_Unloaded_CSV_Files(filenames = c("Cases_deaths_data_europe", 
                                         "summary_eur"))
 
-## Identify parameters ---------------------------------------------------------
+## Identify simulation parameters ----------------------------------------------
 
 # Specify countries to identify parameters for
 countries <- countries_eur[countries_eur != "Russia"]
@@ -69,6 +69,26 @@ possible_days_counterfactual <- foreach(j = countries,
   arrange(Country)
 write_csv(possible_days_counterfactual, 
           file = paste0(folder_output, "possible_days_counterfactual.csv"))
+
+## Summarise simulation parameters ---------------------------------------------
+
+# Specify countries to summarise parameters for
+countries <- countries_eur_lockdown[countries_eur_lockdown != "Russia"]
+
+# Calculate and save simulation parameter summaries
+simulation_parameter_summary <- 
+  Calculate_Simulation_Parameter_Summary(countries = countries,
+                                         out_folder = folder_output)
+
+# Calculate median growth factors for each country among best knots, and save
+median_growth_factors <- knots_best %>% 
+  group_by(Country) %>%
+  summarise(Median_growth_factor_1 = median(Growth_factor_1, na.rm = TRUE),
+            Median_growth_factor_2 = median(Growth_factor_2, na.rm = TRUE),
+            Median_growth_factor_3 = median(Growth_factor_3, na.rm = TRUE),
+            .groups = "keep") %>%
+  ungroup %T>%
+  write_csv(., file = paste0(folder_output, "median_growth_factors.csv"))
 
 ## Plot fitted splines ---------------------------------------------------------
 
@@ -206,6 +226,9 @@ Import_All_Simulated_Data(filenames = c("summary_daily_cases_sim",
 
 ## Estimate within-country effects ---------------------------------------------
 
+# Specify countries to include in analysis
+countries <- countries_eur_lockdown[countries_eur_lockdown != "Russia"]
+
 # Calculate within-country effects for all simulated countries
 effects_within_country_all <- Execute_Within_Country_Analysis(countries = countries,
                                                               out_folder = folder_output)
@@ -230,3 +253,7 @@ figure_within_country_effects <- foreach(i = simulations,
                                             "plot_total_cases"),
                                   description = j, 
                                   out_folder = folder_figures)
+
+
+
+
