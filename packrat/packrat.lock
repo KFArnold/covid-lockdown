@@ -477,8 +477,8 @@ Requires: Rcpp, generics
 
 Package: magrittr
 Source: CRAN
-Version: 1.5
-Hash: bdc4d48c3135e8f3b399536ddf160df4
+Version: 2.0.1
+Hash: d3c166b0573ae8c918edf7221dfe7380
 
 Package: maptools
 Source: CRAN
