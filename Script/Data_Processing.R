@@ -182,6 +182,21 @@ policy_dates <- foreach(j = countries_eur,
                          measures_lockdown_alt = measures_lockdown_alt) %>% 
   reduce(bind_rows)
 
+# Make list of all countries which entered lockdown, and save to output folder
+countries_eur_lockdown <- policy_dates %>% 
+  filter(!is.na(Date_lockdown)) %>% 
+  pull(Country) %>% 
+  as.character %>% as.list
+save(countries_eur_lockdown, file = paste0(folder_output, "countries_eur_lockdown.RData"))
+## print note about any countries which did not enter lockdown:
+if (length(countries_eur_lockdown) != length(countries_eur)) {
+  unavail <- setdiff(unlist(countries_eur), unlist(countries_eur_lockdown))
+  cat("Note that the following countries did not enter lockdown:",
+      paste0(unavail, collapse = ", "), 
+      sep = "\n")
+  rm(unavail)
+} 
+
 # Calculate length of full lockdown for all countries
 policy_dates <- policy_dates %>%
   mutate(Length_lockdown = as.numeric(Date_lockdown_eased - Date_lockdown))
