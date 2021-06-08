@@ -92,6 +92,9 @@ median_growth_factors <- knots_best %>%
 
 ## Plot fitted splines ---------------------------------------------------------
 
+# Specify countries 
+countries <- countries_eur[countries_eur != "Russia"]
+
 # Create figures of fitted splines and save to subfolder
 figure_splines <- foreach(j = countries, 
                           .errorhandling = "pass") %do% 
@@ -103,7 +106,8 @@ Plot_Combined(plotlist = figure_splines,
               title = "Exponential growth of COVID-19 cases: Fitted splines",
               title_size = 30,
               out_folder = folder_figures,
-              out_name = "Figure - Fitted splines.png")
+              out_name = "Figure - Fitted splines.png", 
+              return = FALSE)
 
 # Create combined figure of fitted splines for sample of countries
 countries_sample <- list("Greece", "Switzerland", "Spain")
@@ -245,7 +249,7 @@ description <- list("earlier lockdown",
                     "all")
 
 # Create figure of within-country effects
-figure_within_country_effects <- foreach(i = simulations, 
+figure_effects_within_country <- foreach(i = simulations, 
                                          j = description) %do%
   Plot_Effects_Within_Country_All(simulations = i,
                                   plots = c("plot_time_to_thresholds",
@@ -253,7 +257,3 @@ figure_within_country_effects <- foreach(i = simulations,
                                             "plot_total_cases"),
                                   description = j, 
                                   out_folder = folder_figures)
-
-
-
-
