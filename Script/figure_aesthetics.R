@@ -87,6 +87,37 @@ model_fit_labels <- c("Diff_time_to_threshold" = "Difference in days\nto reach t
 model_fit_type_labels <- c("Number" = "Raw value",
                            "Pct" = "Percentage difference\ncompared to\nobserved data")
 
+## Exposure aesthetics ---------------------------------------------------------
+
+# Exposure levels (defines ordering)
+exposure_levels <- c("Daily_cases_MA7", "log(Daily_cases_MA7)",
+                     "Cumulative_cases_beg", "log(Cumulative_cases_beg)")
+
+# Create key for exposure labels
+exposure_labels <- c("Daily_cases_MA7" = "Daily cases\n(7-day moving average)",
+                     "log(Daily_cases_MA7)" = "Daily cases\n(7-day moving average),\nlogged",
+                     "Cumulative_cases_beg" = "Cumulative cases", 
+                     "log(Cumulative_cases_beg)" = "Cumulative cases,\nlogged")
+
+## Leverage aesthetics ---------------------------------------------------------
+
+# Leverage levels (defines ordering)
+leverage_levels <- c("Included", "Excluded")
+
+# Create key for leverage lables
+leverage_labels <- c("Included" = "All data points\nincluded",
+                     "Excluded" = "Points of high\nleverage excluded")
+
+## Adjustment aesthetics -------------------------------------------------------
+
+# Adjustment levels (defines ordering)
+adjustment_levels <- c("Adjusted", "Unadjusted")
+
+# Create colour and shape key for effects
+adjustment_aes <- tibble(Effect = c("Unadjusted", "Adjusted"),
+                         Color = c("violetred", "forestgreen"),
+                         Shape = c(15, 16))
+
 
 ### Example function for creating labels
 #

@@ -12,7 +12,8 @@ Format_Data_For_Plotting <- function(filenames = c("thresholds_eur",
                                                    "summary_daily_cases_sim_all",
                                                    "summary_cumulative_cases_end_sim_all",
                                                    "model_fit",
-                                                   "effects_within_countries"),
+                                                   "effects_within_countries",
+                                                   "effects_between_countries"),
                                      silent = FALSE) {
   
   # Determine which of specified filenames do not have formatted versions in
@@ -86,6 +87,15 @@ Format_Data_For_Plotting <- function(filenames = c("thresholds_eur",
              History = factor(History, levels = history_levels))
     list_formatted[["effects_within_countries_formatted"]] <- 
       effects_within_countries_formatted
+  }
+  if ("effects_between_countries_formatted" %in% filenames_formatted_missing) {
+    effects_between_countries_formatted <- effects_between_countries %>%
+      mutate(Adjusted = ifelse(is.na(Covariates), "Unadjusted", "Adjusted"),
+             Adjusted = factor(Adjusted, levels = adjustment_levels),
+             Exposure = factor(Exposure, levels = exposure_levels),
+             Leverage_points = factor(Leverage_points, levels = leverage_levels))
+    list_formatted[["effects_between_countries_formatted"]] <- 
+      effects_between_countries_formatted
   }
   
   # no formatting required for knots_best, Cases_deaths_data_europe 
