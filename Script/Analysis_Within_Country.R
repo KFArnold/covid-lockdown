@@ -167,15 +167,17 @@ list2env(summary_sim_all, .GlobalEnv)
 
 ## Plot simulation results -----------------------------------------------------
 
-# Specify countries and simulations to plot
+# Specify countries, simulations, and thresholds to plot
 countries <- countries_eur_lockdown[countries_eur_lockdown != "Russia"]
 simulations <- c("0,0", "0,3", "0,7", "3,3", "7,7")
+thresholds <- c("1 case per 100,000", "1 case per 20,000", "1 case per 10,000")
 
 # Create figures of simulation results and save to subfolder
 figure_sim_results <- foreach(j = countries, 
                               .errorhandling = "pass") %do% 
   Plot_Simulation_Results(country = j, 
                           simulations = simulations,
+                          thresholds = thresholds,
                           out = paste0(folder_figures, "Simulation results by country"))
 
 # Create combined figure of incident and cumulative cases for sample of countries

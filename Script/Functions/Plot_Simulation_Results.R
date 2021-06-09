@@ -4,6 +4,7 @@
 #'
 #' @param country Country
 #' @param simulations Vector containing simulations to include
+#' @param thresholds Vector of thresholds to display on incident case figure
 #' @param out_folder Folder to save figure in
 #'
 #' @return Named list of 5 objects: 
@@ -16,7 +17,8 @@
 #' (5) "plot_exp": cumulative vs incident cases, with \code{country} as title.
 #'
 #' @examples
-Plot_Simulation_Results <- function(country, simulations, out_folder) {
+Plot_Simulation_Results <- function(country, simulations, thresholds,
+                                    out_folder) {
 
   # Create specified folder to save figures in, if it doesn't already exist
   Create_Folder_If_None_Exists(folder = out_folder,
@@ -35,7 +37,8 @@ Plot_Simulation_Results <- function(country, simulations, out_folder) {
 
   # Filter dataframes of best knots and thresholds by specified country
   knots_country <- knots_best %>% filter(Country == country)
-  thresholds_country <- thresholds_eur_formatted %>% filter(Country == country)
+  thresholds_country <- thresholds_eur_formatted %>% 
+    filter(Country == country, Threshold %in% thresholds) %>% droplevels
   
   # Get first/last dates of observed data included in spline estimation
   # and other important dates, and save to environment
