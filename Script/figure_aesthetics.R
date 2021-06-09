@@ -1,16 +1,3 @@
-#library(RColorBrewer); library(scales); library(ggpubr)
-#
-## Import all files
-#
-## Import required files
-#Import_Unloaded_CSV_Files(filenames = c("Cases_deaths_data_europe",
-#                                        "knots_best",
-#                                        "thresholds_eur",
-#                                        "model_fit"), 
-#                          silent = TRUE)
-#Import_All_Simulated_Data(location = out_folder,
-#                          silent = TRUE)
-
 # DEFINE AESTHETICS ------------------------------------------------------------
 
 ## Date aesthetics -------------------------------------------------------------
@@ -124,19 +111,3 @@ adjustment_levels <- c("Adjusted", "Unadjusted")
 adjustment_aes <- tibble(Effect = c("Unadjusted", "Adjusted"),
                          Color = c("violetred", "forestgreen"),
                          Shape = c(15, 16))
-
-
-### Example function for creating labels
-#
-#appender <- function(string, suffix = "-foo") paste0(string, suffix)
-#p + facet_wrap(~am, labeller = as_labeller(appender))
-#
-#
-#Simulation_Labeller <- function(simulation_level) {
-#  simulation_level %>% 
-#    gsub(pattern = ",", replacement = " , b - ", .) %>% 
-#    paste0("(a - ", ., ")")
-#}
-#p + facet_wrap(~x, labeller = as_labeller(Simulation_Labeller))
-
-

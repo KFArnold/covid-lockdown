@@ -1,7 +1,12 @@
 ################################################################################
 #
 # Script name:        Data_Processing.R
-# Script description: This script ....
+# Script description: This script downloads and formats all source data, and
+#                     then processes it for use in subsequent analyses.
+#                     Important dates relating to European government responses 
+#                     to the COVID-19 pandemic (e.g. date of lockdown) are 
+#                     identified, and important population-based threshold 
+#                     values are calculated.
 # Author:             @KFArnold
 #
 ################################################################################

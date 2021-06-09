@@ -1,7 +1,13 @@
 ################################################################################
 #
 # Script name:        Analysis_Within_Country.R
-# Script description: This script ....
+# Script description: This script estimates the within-country effects of 
+#                     lockdown timing on on length of lockdown and total cases
+#                     among countries in Europe via simulation. Simulation
+#                     parameters are estimated first, and then various
+#                     'natural' and 'counterfactual' histories are simulated for
+#                     each country individually. Model fit is assessed, and 
+#                     median effects are calculated across all countries.
 # Author:             @KFArnold
 #
 ################################################################################

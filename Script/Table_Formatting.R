@@ -1,7 +1,9 @@
 ################################################################################
 #
 # Script name:        Table_Formatting.R
-# Script description: This script ....
+# Script description: This script formats various .csv files related to data
+#                     processing and within- and between-country analyses, so
+#                     that they may be easily inserted into the manuscript.
 # Author:             @KFArnold
 #
 ################################################################################
@@ -20,9 +22,8 @@ library(lubridate)
 list.files("./Script/Functions", full.names = TRUE) %>% walk(~source(.))
 
 # Load list of European countries for which we have both cases/deaths data 
-# and policy data,and those which entered lockdown
+# and policy data
 load("./Output/countries_eur.RData")
-#load("./Output/countries_eur_lockdown.RData")
 
 # Define folder for outputs and subfolders for formatted tables
 folder_output <- "./Output/"

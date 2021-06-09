@@ -1,7 +1,8 @@
 ################################################################################
 #
 # Script name:        Analysis_Between_Country.R
-# Script description: This script ....
+# Script description: This script estimates the between-country effects of 
+#                     lockdown timing on length of lockdown in Europe.
 # Author:             @KFArnold
 #
 ################################################################################
