@@ -73,7 +73,7 @@ Plot_Effects_Within_Country_All <- function(simulations,
   } 
   
   # Define name of figure to be saved
-  name <- paste0("Figure - Effects within countries - ", description, ".png")
+  name <- paste0("Effects within countries - ", description, ".png")
   
   # Combine all plots into single figure and save to specified folder
   plot_combined <- Plot_Combined(plotlist = plot_list, 

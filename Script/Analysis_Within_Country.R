@@ -106,7 +106,7 @@ Plot_Combined(plotlist = figure_splines,
               title = "Exponential growth of COVID-19 cases: Fitted splines",
               title_size = 30,
               out_folder = folder_figures,
-              out_name = "Figure - Fitted splines.png", 
+              out_name = "Fitted splines.png", 
               return = FALSE)
 
 # Create combined figure of fitted splines for sample of countries
@@ -118,7 +118,7 @@ Plot_Combined(plotlist = figure_splines[index],
               title = "Exponential growth of COVID-19 cases: Fitted splines",
               title_size = 20,
               out_folder = folder_figures,
-              out_name = "Figure - Fitted splines (sample).png", 
+              out_name = "Fitted splines (sample).png", 
               return = FALSE)
 
 # SIMULATION -------------------------------------------------------------------
@@ -185,7 +185,7 @@ index %>%
                 title = " ",
                 title_size = 30,
                 out_folder = folder_figures,
-                out_name = "Figure - Simulation results (sample).png",
+                out_name = "Simulation results (sample).png",
                 return = FALSE)
 
 # MODEL FIT --------------------------------------------------------------------

@@ -66,7 +66,7 @@ Plot_Model_Fit <- function(countries,
     coord_cartesian(clip = "off")
   
   # Save combined plot to Results folder
-  ggsave(paste0(out_folder, "Figure - Model fit.png"), plot = plot, width = 2*n_groups, height = 7)
+  ggsave(paste0(out_folder, "Model fit.png"), plot = plot, width = 2*n_groups, height = 7)
   
   # Return plot
   return(plot)

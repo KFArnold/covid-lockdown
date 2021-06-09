@@ -55,9 +55,6 @@ Plot_Effects_Between_Country_All <- function(exposures = c("Daily_cases_MA7",
     
   }
   
-  # Define name of figure to be saved
-  name <- "Figure - Effects between countries.png"
-  
   # Combine all plots into single figure and save to specified folder,
   # and add to plot list
   plot_combined <- Plot_Combined(plotlist = plot_list, 
@@ -67,7 +64,7 @@ Plot_Effects_Between_Country_All <- function(exposures = c("Daily_cases_MA7",
                                  title = "Estimated between-country effects of lockdown timing",
                                  title_size = 20, 
                                  out_folder = out_folder,
-                                 out_name = name,
+                                 out_name = "Effects between countries.png",
                                  return = TRUE)
   plot_list[["plot_combined"]] <- plot_combined
   
