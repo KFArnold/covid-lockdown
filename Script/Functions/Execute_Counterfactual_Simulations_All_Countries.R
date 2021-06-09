@@ -71,7 +71,7 @@ Execute_Counterfactual_Simulations_All_Countries <- function(countries, n_days_c
     folder <- paste0("Simulation - ", history, " ", 
                      n_days_first_restriction, " ", n_days_lockdown, "/")
     path <- out_folder
-    Create_Folder_If_None_Exists(folder, path)
+    Create_Folder_If_None_Exists(folder, path, silent = TRUE)
     
     # Set up progress bar
     iterations <- length(countries)
