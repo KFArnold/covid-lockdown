@@ -8,7 +8,8 @@
 #'
 #' @examples
 #' Format_Data_For_Plottint(silent = TRUE)
-Format_Data_For_Plotting <- function(filenames = c("thresholds_eur",
+Format_Data_For_Plotting <- function(filenames = c("summary_eur",
+                                                   "thresholds_eur",
                                                    "summary_daily_cases_sim_all",
                                                    "summary_cumulative_cases_end_sim_all",
                                                    "model_fit",
@@ -53,6 +54,13 @@ Format_Data_For_Plotting <- function(filenames = c("thresholds_eur",
   
   # Format all specified filenames which are not already formatted (order factors),
   # and add these to list of formatted files
+  if ("summary_eur_formatted" %in% filenames_formatted_missing) {
+    summary_eur_formatted <- summary_eur %>%
+      select(Country, contains("Date")) %>%
+      pivot_longer(contains("Date"), names_to = "Date", values_to = "Value") %>%
+      mutate(Date = factor(Date, levels = date_levels))
+    list_formatted[["summary_eur_formatted"]] <- summary_eur_formatted
+  }
   if ("thresholds_eur_formatted" %in% filenames_formatted_missing) {
     thresholds_eur_formatted <- thresholds_eur %>%
       mutate(Threshold = factor(Threshold, threshold_levels))
