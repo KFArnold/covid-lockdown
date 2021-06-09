@@ -76,5 +76,3 @@ summary_effects_within_countries <-
 
 # Save formatted country-specific and summary tables of model fit statistics
 summary_model_fit <- Summary_Tables_Model_Fit(out_folder = folder_tables)
-
-
