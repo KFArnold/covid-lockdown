@@ -217,6 +217,28 @@ list2env(model_fit_all, envir = .GlobalEnv); rm(model_fit_all)
 figure_model_fit <- Plot_Model_Fit(countries = countries, 
                                    out_folder = folder_figures)
 
+## Plot model residuals --------------------------------------------------------
+
+# Create figure of model residuals
+figure_model_residuals <- foreach(j = countries, 
+                                  .errorhandling = "pass") %do% 
+  Plot_Model_Residuals_All(country = j,
+                           out_folder = paste0(folder_figures, "Model residuals by country/"))
+
+# Create combined figures (all countries) for residuals of incident and cumulative cases
+Plot_Combined(plotlist = map(.x = figure_model_residuals, .f = ~.x$plot_inc),
+              title = "Model residuals: incident cases",
+              title_size = 30,
+              out_folder = folder_figures,
+              out_name = "Model residuals (incident cases).png",
+              return = FALSE)
+Plot_Combined(plotlist = map(.x = figure_model_residuals, .f = ~.x$plot_cum),
+              title = "Model residuals: cumulative cases",
+              title_size = 30,
+              out_folder = folder_figures,
+              out_name = "Model residuals (cumulative cases).png",
+              return = FALSE)
+
 # ANALYSIS ---------------------------------------------------------------------
 
 ## Load data -------------------------------------------------------------------
