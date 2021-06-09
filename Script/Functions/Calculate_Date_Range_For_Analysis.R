@@ -52,7 +52,8 @@ Calculate_Date_Range_For_Analysis <- function(country, policy_dates,
   # Calculate first date for which total cases goes above threshold
   date_start <- Cases_deaths_data_europe %>%
     filter(Country == country) %>%
-    summarise(Date_start = Date[which(Cumulative_cases_beg >= threshold)[1]]) %>%
+    summarise(Date_start = Date[which(Cumulative_cases_beg >= threshold)[1]],
+              .groups = "drop") %>%
     pull(Date_start)
   
   # Calculate maximum date for analysis ----------------------------------------
@@ -62,7 +63,8 @@ Calculate_Date_Range_For_Analysis <- function(country, policy_dates,
   date_T <- policy_dates %>%
     filter(Country == country) %>%
     summarise(Date_eased = if_else(is.na(Date_lockdown), 
-                                Date_restrictions_eased, Date_lockdown_eased)) %>%
+                                Date_restrictions_eased, Date_lockdown_eased),
+              .groups = "drop") %>%
     pull(Date_eased) + 28
   
   # Return list of start and end of date range
