@@ -22,23 +22,23 @@
 #' if \code{return = TRUE}, the figure is also returned
 #'
 #' @examples
-Plot_Combined <- function(plotlist, height = 6, width = 6, rows, cols, labels,
+Plot_Combined <- function(plotlist, height = 6, width = 6, rows, cols, labels = FALSE,
                           title, title_size, out_folder, out_name, return = TRUE) {
   
   # Assign number of rows and columns if not specified
   if (missing(rows) | missing(cols)) {
     if (missing(rows) & missing(cols)) {
       rows <- length(plotlist) %>% sqrt %>% ceiling
-      cols <- length(plotlist) %>% sqrt %>% floor
+      cols <- (length(plotlist)/rows) %>% ceiling
     } else if (missing(rows)) {
-      rows <- length(plotlist)/cols %>% ceiling
+      rows <- (length(plotlist)/cols) %>% ceiling
     } else {
-      cols <- length(plotlist)/rows %>% ceiling
+      cols <- (length(plotlist)/rows) %>% ceiling
     }
   }
   
   # Create combined figure, with or without specified labels
-  if (missing(labels)) {
+  if (labels == FALSE) {
     plot <- ggarrange(plotlist = plotlist, align = "hv", 
                       common.legend = TRUE, legend = "bottom",
                       nrow = rows, ncol = cols)
