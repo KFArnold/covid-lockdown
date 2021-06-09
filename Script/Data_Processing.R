@@ -247,7 +247,7 @@ figure_important_dates <- Plot_Important_Dates(countries = countries_eur,
                                                order = order,
                                                out_folder = folder_figures)
 
-## Caculate important threshold values -----------------------------------------
+## Calculate important threshold values -----------------------------------------
 
 # Define population-based thresholds
 # (0.001 cases per 100 or 1 case per 100,000; 
