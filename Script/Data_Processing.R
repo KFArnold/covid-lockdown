@@ -14,6 +14,7 @@ packrat::restore()
 # Load required packages
 library(tidyverse); library(wbstats); library(sjlabelled); library(caTools)
 library(foreach)
+library(RColorBrewer)
 
 # Load all source functions from "./Script/Functions/" folder
 list.files("./Script/Functions", full.names = TRUE) %>% walk(~source(.))
@@ -233,6 +234,18 @@ summary_eur <- demographics %>%
 
 # Save summary table to output folder
 write_csv(summary_eur, file = paste0(folder_output, "summary_eur.csv"))
+
+### Plot important dates -------------------------------------------------------
+
+# Specify dates to include in figure, and ordering variable
+dates <- c("Date_1", "Date_first_restriction", "Date_lockdown", "Date_lockdown_eased")
+order <- "Date_lockdown"
+
+# Create figure of important dates
+figure_important_dates <- Plot_Important_Dates(countries = countries_eur, 
+                                               dates = dates,
+                                               order = order,
+                                               out_folder = folder_figures)
 
 ## Caculate important threshold values -----------------------------------------
 
