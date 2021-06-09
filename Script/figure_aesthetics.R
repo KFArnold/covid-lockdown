@@ -13,23 +13,30 @@
 
 # DEFINE AESTHETICS ------------------------------------------------------------
 
+## Date aesthetics -------------------------------------------------------------
+
+# Date levels (defines ordering)
+date_levels <- c("Date_1", "Date_first_restriction", "Date_restrictions_eased", 
+                 "Date_lockdown", "Date_lockdown_eased", "Date_lockdown_end",
+                 "Date_start", "Date_T")
+
+# Create color, shape, size, and label key for dates
+color_brewer <- colorRampPalette(brewer.pal(n = 10, name = "Paired"))
+date_aes <- tibble(Date = date_levels,
+                   Label = c("first confirmed case", "first restriction",
+                             "restriction easing", "lockdown", "lockdown easing",
+                             "end of lockdown", "beginning of included data",
+                             "end of first wave"),
+                   Color = c("grey50", color_brewer(length(date_levels) - 1)),
+                   Shape = c("\u25CB", "\u25CF", "\u25AC", "\u25A0", "\u25BC",
+                             "\u25BD", "\u25D6", "\u25D7"),
+                   Size = c(4, 4, 4, 4, 3, 3, 4, 4))
+
 ## Simulation aesthetics -------------------------------------------------------
 
 # Simulation levels (defines ordering)
 simulation_levels <- c("0,0", "0,1", "0,3", "0,5", "0,7", 
                        "1,1", "3,3", "5,5", "7,7")  
-
-# Key for simulation labels
-#simulation_labels <- c("0,0" = "(a - 0 , b - 0)", 
-#                       "0,1" = "(a - 0 , b - 1)", 
-#                       "0,3" = "(a - 0 , b - 3)", 
-#                       "0,5" = "(a - 0 , b - 5)", 
-#                       "0,7" = "(a - 0 , b - 7)", 
-#                       "1,1" = "(a - 1 , b - 1)", 
-#                       "3,3" = "(a - 3 , b - 3)", 
-#                       "5,5" = "(a - 5 , b - 5)", 
-#                       "7,7" = "(a - 7 , b - 7)")
-#
 
 # Create function which labels simulation levels
 # (e.g. if level is "0,0", label is "(a - 0 , b - 0)")
