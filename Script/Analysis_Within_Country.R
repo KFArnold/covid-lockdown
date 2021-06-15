@@ -18,7 +18,7 @@
 packrat::restore()
 
 # Load required packages
-library(tidyverse); library(magrittr)
+library(tidyverse); library(magrittr); library(rlang)
 library(lspline); library(forecast)
 library(foreach); library(doSNOW)
 library(RColorBrewer); library(scales); library(ggpubr); library(ggrepel); library(ggh4x)
@@ -141,35 +141,49 @@ Import_Unloaded_CSV_Files(filenames = c("Cases_deaths_data_europe",
 ## Simulate --------------------------------------------------------------------
 
 # Specify countries to simulate
-countries <- countries_eur_lockdown[countries_eur_lockdown != "Russia"]
+countries <- countries_eur[!countries_eur %in% c("Monaco", "Russia")]
 
 # Specify combinations of counterfactual conditions to simulate
 # (including natural history)
-n_days_counterfactual <- tibble(N_days_first_restriction = 
-                                  c(0, 0, 0, 0, 0, 1, 3, 5, 7),
-                                N_days_lockdown =
-                                  c(0, 1, 3, 5, 7, 1, 3, 5, 7))
+simulations <- list(list(Simulation_type = "shift_intervention_sequence",
+                         N_days_first_restriction = 0,
+                         N_days_lockdown = 0,
+                         Description = "Natural history"),
+                    list(Simulation_type = "shift_intervention_sequence",
+                         N_days_first_restriction = 7,
+                         N_days_lockdown = 7,
+                         Description = "Earlier intervention sequence (7,7)"),
+                    list(Simulation_type = "time_between_interventions",
+                         N_days_first_restriction = 0,
+                         Days_between_interventions = "min",
+                         Description = "Earliest possible lockdown"),
+                    list(Simulation_type = "time_between_interventions",
+                         N_days_first_restriction = 7,
+                         Days_between_interventions = "min",
+                         Description = "Earlier first restriction (7) and earliest possible lockdown"))
 
 # Run all counterfactual simulations for all countries 
 # and save to sub-folder in output folder
 start <- Sys.time()
 summary_sim_all <- 
   Execute_Counterfactual_Simulations_All_Countries(countries = countries,
-                                                   n_days_counterfactual = n_days_counterfactual,
+                                                   simulations = simulations,
                                                    seed = 13,
                                                    max_t = 548,
                                                    n_runs = 100000,
                                                    prob_equal = FALSE,
-                                                   parallel = TRUE,
                                                    out_folder = paste0(folder_output, "Simulations/"))
-end <- Sys.time(); end - start  # ~27 mins
+end <- Sys.time(); end - start  # ~36 mins (not parallelised)
 list2env(summary_sim_all, .GlobalEnv)
 
 ## Plot simulation results -----------------------------------------------------
 
 # Specify countries, simulations, and thresholds to plot
-countries <- countries_eur_lockdown[countries_eur_lockdown != "Russia"]
-simulations <- c("0,0", "0,3", "0,7", "3,3", "7,7")
+countries <- countries_eur[!countries_eur %in% c("Monaco", "Russia")]
+simulations <- c("Natural history",
+                 "Earlier intervention sequence (7,7)",
+                 "Earliest possible lockdown",
+                 "Earlier first restriction (7) and earliest possible lockdown")
 thresholds <- c("1 case per 100,000", "1 case per 20,000", "1 case per 10,000")
 
 # Create figures of simulation results and save to subfolder
@@ -261,7 +275,7 @@ Import_All_Simulated_Data(filenames = c("summary_daily_cases_sim",
 ## Estimate within-country effects ---------------------------------------------
 
 # Specify countries to include in analysis
-countries <- countries_eur_lockdown[countries_eur_lockdown != "Russia"]
+countries <- countries_eur[!countries_eur %in% c("Monaco", "Russia")]
 
 # Calculate within-country effects for all simulated countries
 effects_within_country_all <- Execute_Within_Country_Analysis(countries = countries,
@@ -271,19 +285,16 @@ list2env(effects_within_country_all, envir = .GlobalEnv); rm(effects_within_coun
 ## Plot within-country effects -------------------------------------------------
 
 # Specify simulations and descriptions to plot
-simulations <- list(c("0,1", "0,3", "0,5", "0,7"),
-                    c("1,1", "3,3", "5,5", "7,7", "14,14"),
-                    c("0,1", "0,3", "0,5", "0,7", "1,1", "3,3", "5,5", "7,7", "14,14"))
-description <- list("earlier lockdown",
-                    "earlier sequence",
-                    "all")
+simulations <- c("Earlier intervention sequence (7,7)",
+                 "Earliest possible lockdown",
+                 "Earlier first restriction (7) and earliest possible lockdown")
+description <- "all simulations"
 
 # Create figure of within-country effects
-figure_effects_within_country <- foreach(i = simulations, 
-                                         j = description) %do%
-  Plot_Effects_Within_Country_All(simulations = i,
+figure_effects_within_country <- 
+  Plot_Effects_Within_Country_All(simulations = simulations, 
                                   plots = c("plot_time_to_thresholds",
                                             "plot_length_lockdown",
                                             "plot_total_cases"),
-                                  description = j, 
+                                  description = description, 
                                   out_folder = folder_figures)
