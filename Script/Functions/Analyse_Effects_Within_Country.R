@@ -61,7 +61,7 @@ Analyse_Effects_Within_Country <- function(country) {
   effects_within_country <- pct_change_time_to_threshold %>%
     bind_rows(., pct_change_length_lockdown) %>%
     bind_rows(., pct_change_total_cases) %>%
-    relocate(Outcome, .after = History) %>%
+    relocate(Outcome, .after = Simulation) %>%
     arrange(Simulation)
   
   # Return dataframe

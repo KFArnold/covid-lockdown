@@ -90,7 +90,7 @@ Analyse_Pct_Change_Time_To_Threshold <- function(country, thresholds) {
     mutate(History = ifelse(Simulation == "Natural history", 
                             "Natural history",
                             "Counterfactual history")) %>%
-    relocate(Country, Simulation, History, Pct_change) %>%
+    relocate(Country, History, Simulation, Pct_change) %>%
     arrange(Simulation)
   
   # Return dataframe
