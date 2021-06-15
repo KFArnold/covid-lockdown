@@ -30,11 +30,11 @@ Analyse_Pct_Change_Total_Cases <- function(country) {
   # Calculate total cases on date_T for all simulations
   total_cases_all <- data_country %>% 
     filter(Date == date_T) %>%
-    select(Country, Simulation, History, Mean)
+    select(Country, History, Simulation, Mean)
   
   # Calculate total cases on date_T for natural history simulation only
   total_cases_nh <- total_cases_all %>%
-    filter(Simulation == "0,0") %>%
+    filter(Simulation == "Natural history") %>%
     pull(Mean)
   
   # Calculate percent change in total cases compared to natural history
