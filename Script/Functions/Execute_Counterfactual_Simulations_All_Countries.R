@@ -9,16 +9,9 @@
 #' returned in a list.
 #'
 #' @param countries List of countries
-#' @param simulations Multilevel list specifying the following simulation 
-#' parameters: 'Simulation_type', 'N_days_first_restriction', 'N_days_lockdown',
+#' @param simulations List specifying the following simulation parameters: 
+#' 'Simulation_type', 'N_days_first_restriction', 'N_days_lockdown',
 #' 'Days_between_interventions', 'Description'
-#' 
-#' UPDATE!!!
-#' 
-#' 
-#' Dataframe with 2 columns ('N_days_first_restriction'
-#' and 'N_days_lockdown'), specifying the number of days to bring forward the
-#' first restriction and lockdown, respectively
 #' @param seed Simulation seed
 #' @param max_t Maximum number of days to simulate
 #' @param n_runs Number of simulation runs
@@ -35,9 +28,10 @@
 #'
 #' @examples
 #' Execute_Simulation_All_Countries(countries = list("Germany", "United Kingdom"),
-#' n_days_counterfactual = tibble(N_days_first_restriction = c(0, 0), N_days_lockdown = c(0, 2)),
+#' simulations = list(Simulation_type = "shift_intervention_sequence",
+#' N_days_first_restriction = 0, N_days_lockdown = 0, Description = "Natural history")
 #' seed = 13, max_t = 100, n_runs = 100000, prob_equal = FALSE,
-#' parallel = TRUE, out_folder = "./Output/Simulations/)
+#' out_folder = "./Output/Simulations/)
 Execute_Counterfactual_Simulations_All_Countries <- function(countries, simulations,
                                                              seed, max_t, n_runs, prob_equal,
                                                              out_folder) {
