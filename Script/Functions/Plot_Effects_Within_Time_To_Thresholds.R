@@ -36,7 +36,9 @@ Plot_Effects_Within_Time_To_Thresholds <- function(effects, max_y) {
     EnvStats::stat_n_text(y.pos = 10, size = 3, color = "gray50") +
     facet_nested(. ~ History + Simulation,
                  nest_line = TRUE,
-                 labeller = labeller(Simulation = as_labeller(Simulation_Labeller))) +
+                 labeller = labeller(Simulation = 
+                                       as_labeller(Simulation_Labeller,
+                                                   default = label_wrap_gen(width = 20)))) +
     scale_color_manual(values = simulation_aes$Color, 
                        breaks = simulation_aes$Simulation,
                        labels = simulation_aes$Label) +
