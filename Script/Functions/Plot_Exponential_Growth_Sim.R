@@ -51,7 +51,7 @@ Plot_Exponential_Growth_Sim <- function(country, title, labs = TRUE,
   n_knots <- knots %>% pull(N_knots) %>% unique
   
   # Define color, size, and transparency for fitted lines
-  color <- simulation_aes %>% filter(Simulation == "0,0") %>% pull(Color)
+  color <- simulation_aes %>% filter(Simulation == "Natural history") %>% pull(Color)
   size <- 0.1
   alpha <- 0.05
   
@@ -59,7 +59,8 @@ Plot_Exponential_Growth_Sim <- function(country, title, labs = TRUE,
   plot <- ggplot(data = obs_data,
                  aes(x = Cumulative_cases_beg, y = Daily_cases)) +
     theme_minimal() +
-    theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +
+    theme(plot.margin = unit(c(1, 1, 1, 1), "cm"),
+          legend.position = "bottom") +
     labs(title = title) +
     geom_path(data = filter(obs_data, Date <= date_start),
               aes(x = Cumulative_cases_beg, y = Daily_cases), alpha = 0.2) +
@@ -172,7 +173,7 @@ Plot_Exponential_Growth_Sim <- function(country, title, labs = TRUE,
                        values = aesthetics$Color, 
                        limits = aesthetics$Simulation,
                        breaks = aesthetics$Simulation,
-                       labels = aesthetics$Label)
+                       labels = str_wrap(aesthetics$Label, width = 25))
   
   # Return plot
   return(plot)

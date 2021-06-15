@@ -28,9 +28,7 @@ Plot_Simulation_Results <- function(country, simulations, thresholds,
   data_formatted <- Format_Data_For_Plotting(filenames = c("thresholds_eur",
                                                            "summary_daily_cases_sim_all",
                                                            "summary_cumulative_cases_end_sim_all"))
-  if (is.list(data_formatted)) {
-    list2env(data_formatted, envir = environment())
-  }
+  if (is.list(data_formatted)) { list2env(data_formatted, envir = environment()) }
   
   # Import aesthetic specifications
   source("./Script/figure_aesthetics.R")
@@ -47,17 +45,6 @@ Plot_Simulation_Results <- function(country, simulations, thresholds,
                                          "Date_1", "Date_first_restriction",
                                          "Date_lockdown")) 
   list2env(important_dates, envir = environment())
-  
-  # If country did not enter lockdown or entered lockdown immediately, retain only unique simulations
-  # (i.e. where date of first restriction is different)
-  if (is.na(date_lockdown) | date_first_restriction == date_lockdown) {
-    df <- data.frame(Simulations = simulations)
-    df <- df %>% separate(Simulations, c("N_days_first_restriction", "N_days_lockdown"), sep = ",") %>%
-      arrange(N_days_first_restriction, N_days_lockdown) %>%
-      group_by(N_days_first_restriction) %>% slice(1) %>%
-      mutate(Simulations = paste(N_days_first_restriction, N_days_lockdown, sep = ",")) 
-    simulations <- df %>% pull(Simulations)
-  }
   
   # Filter dataframe of observed cases by country, and create In_range variable
   # to indicate whether date is within range of observed data to include
@@ -80,32 +67,6 @@ Plot_Simulation_Results <- function(country, simulations, thresholds,
     stop(paste0("No simulated data for ", country, "."))
   }
   
-  # Create key to map generic simulation description onto simulation actually implemented
-  # and define actual simulations implemented
-  simulations_actual_key <- inc_cases_sim_country %>% 
-    select(History, Simulation, History, N_days_first_restriction, N_days_lockdown) %>% 
-    unique %>% 
-    mutate(Simulation_actual = paste(N_days_first_restriction, N_days_lockdown, sep = ","),
-           Simulation_actual = factor(Simulation_actual, levels = unique(Simulation_actual))) %>%
-    select(-contains("N_days")) 
-  simulations_actual <- simulations_actual_key %>% pull(Simulation_actual)
-  
-  # Edit simulation descriptions in summary dataframes to reflect intervention actually implemented
-  inc_cases_sim_country <- inc_cases_sim_country %>%
-    full_join(., simulations_actual_key, by = c("History", "Simulation")) %>%
-    mutate(Simulation = Simulation_actual) %>%
-    select(-Simulation_actual) 
-  cum_cases_sim_country <- cum_cases_sim_country %>%
-    full_join(., simulations_actual_key, by = c("History", "Simulation")) %>%
-    mutate(Simulation = Simulation_actual) %>%
-    select(-Simulation_actual)
-  
-  # Modify simulation aesthetics to reflect actual interventions implemented in country
-  simulation_aes_actual <- simulations_actual_key %>% 
-    left_join(., simulation_aes_filt, by = "Simulation") %>%
-    select(-Simulation) %>%
-    rename(Simulation = Simulation_actual)
-  
   # Calculate min and max dates to display on plots
   min_date <- date_1 - 14
   max_date <- date_T + 21
@@ -118,16 +79,16 @@ Plot_Simulation_Results <- function(country, simulations, thresholds,
                                    obs_data = data_country,
                                    sim_data = inc_cases_sim_country,
                                    threshold_data = thresholds_country,
-                                   simulations = simulations_actual,
-                                   aesthetics = simulation_aes_actual)
+                                   simulations = simulations,
+                                   aesthetics = simulation_aes_filt)
   plot_cum <- Plot_Cumulative_Cases_Sim(country = country, 
                                         title = "Cumulative cases of COVID-19",
                                         min_date = min_date, 
                                         max_date = max_date,
                                         obs_data = data_country,
                                         sim_data = cum_cases_sim_country,
-                                        simulations = simulations_actual,
-                                        aesthetics = simulation_aes_actual,
+                                        simulations = simulations,
+                                        aesthetics = simulation_aes_filt,
                                         date_T = date_T, 
                                         print_cases = TRUE)
   plot_exp <- Plot_Exponential_Growth_Sim(country = country,
@@ -137,8 +98,8 @@ Plot_Simulation_Results <- function(country, simulations, thresholds,
                                           obs_data = data_country,
                                           sim_data_inc = inc_cases_sim_country,
                                           sim_data_cum = cum_cases_sim_country,
-                                          simulations = simulations_actual,
-                                          aesthetics = simulation_aes_actual,
+                                          simulations = simulations,
+                                          aesthetics = simulation_aes_filt,
                                           knots = knots_country, 
                                           date_start = date_start, 
                                           date_T = date_T)
@@ -169,8 +130,8 @@ Plot_Simulation_Results <- function(country, simulations, thresholds,
                                    obs_data = data_country,
                                    sim_data = inc_cases_sim_country,
                                    threshold_data = thresholds_country,
-                                   simulations = simulations_actual,
-                                   aesthetics = simulation_aes_actual)
+                                   simulations = simulations,
+                                   aesthetics = simulation_aes_filt)
   plot_cum <- Plot_Cumulative_Cases_Sim(country = country, 
                                         title = country,
                                         labs = FALSE,
@@ -178,8 +139,8 @@ Plot_Simulation_Results <- function(country, simulations, thresholds,
                                         max_date = max_date,
                                         obs_data = data_country,
                                         sim_data = cum_cases_sim_country,
-                                        simulations = simulations_actual,
-                                        aesthetics = simulation_aes_actual,
+                                        simulations = simulations,
+                                        aesthetics = simulation_aes_filt,
                                         date_T = date_T, 
                                         print_cases = FALSE)
   plot_exp <- Plot_Exponential_Growth_Sim(country = country,
@@ -189,8 +150,8 @@ Plot_Simulation_Results <- function(country, simulations, thresholds,
                                           obs_data = data_country,
                                           sim_data_inc = inc_cases_sim_country,
                                           sim_data_cum = cum_cases_sim_country,
-                                          simulations = simulations_actual,
-                                          aesthetics = simulation_aes_actual,
+                                          simulations = simulations,
+                                          aesthetics = simulation_aes_filt,
                                           knots = knots_country, 
                                           date_start = date_start, 
                                           date_T = date_T)

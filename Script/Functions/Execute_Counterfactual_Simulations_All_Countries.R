@@ -9,14 +9,20 @@
 #' returned in a list.
 #'
 #' @param countries List of countries
-#' @param n_days_counterfactual Dataframe with 2 columns ('N_days_first_restriction'
+#' @param simulations Multilevel list specifying the following simulation 
+#' parameters: 'Simulation_type', 'N_days_first_restriction', 'N_days_lockdown',
+#' 'Days_between_interventions', 'Description'
+#' 
+#' UPDATE!!!
+#' 
+#' 
+#' Dataframe with 2 columns ('N_days_first_restriction'
 #' and 'N_days_lockdown'), specifying the number of days to bring forward the
 #' first restriction and lockdown, respectively
 #' @param seed Simulation seed
 #' @param max_t Maximum number of days to simulate
 #' @param n_runs Number of simulation runs
 #' @param prob_equal Whether knot dates should be used with equal probabilities (T/F)
-#' @param parallel Whether the simulations should be run in parallel (T/F)
 #' @param out_folder Where to save simulation results
 #'
 #' @return List ('summary_sim_all') containing two dataframes:
@@ -32,17 +38,17 @@
 #' n_days_counterfactual = tibble(N_days_first_restriction = c(0, 0), N_days_lockdown = c(0, 2)),
 #' seed = 13, max_t = 100, n_runs = 100000, prob_equal = FALSE,
 #' parallel = TRUE, out_folder = "./Output/Simulations/)
-Execute_Counterfactual_Simulations_All_Countries <- function(countries, n_days_counterfactual,
+Execute_Counterfactual_Simulations_All_Countries <- function(countries, simulations,
                                                              seed, max_t, n_runs, prob_equal,
-                                                             parallel, out_folder) {
+                                                             out_folder) {
   
-  # Set up parallelisation, if specified
-  if (parallel == TRUE) {
-    n_cores <- parallel::detectCores()
-    cluster <- parallel::makeCluster(n_cores[1] - 1, setup_strategy = "sequential")
-    registerDoSNOW(cluster)
-    parallel::clusterExport(cl = cluster, varlist = ls(.GlobalEnv), envir = .GlobalEnv)
-  }
+  ## Set up parallelisation, if specified
+  #if (parallel == TRUE) {
+  #  n_cores <- parallel::detectCores()
+  #  cluster <- parallel::makeCluster(n_cores[1] - 1, setup_strategy = "sequential")
+  #  registerDoSNOW(cluster)
+  #  parallel::clusterExport(cl = cluster, varlist = ls(.GlobalEnv), envir = .GlobalEnv)
+  #}
   
   # Set seed
   set.seed(seed)
@@ -52,24 +58,46 @@ Execute_Counterfactual_Simulations_All_Countries <- function(countries, n_days_c
   summary_sim_all <- list(summary_daily_cases_sim_all = NULL,
                           summary_cumulative_cases_end_sim_all = NULL)
   
-  # Iterate through specified counterfactuals
-  for (i in 1:nrow(n_days_counterfactual)) {
+  # Iterate through specified simulations
+  foreach(i = 1:length(simulations)) %do% {
     
     # Print simulation number
-    print(paste("Simulation", i, "of", nrow(n_days_counterfactual)))
+    print(paste("Simulation", i, "of", length(simulations)))
+    
+    # Filter specified simulations by i
+    simulations_i <- simulations[[i]]
+    
+    # Set simulation type
+    simulation_type <- simulations_i$Simulation_type
     
     # Set counterfactual shift
-    n_days_first_restriction <- n_days_counterfactual[[i, "N_days_first_restriction"]]
-    n_days_lockdown <- n_days_counterfactual[[i, "N_days_lockdown"]]
+    # (generate missing arguments where not specified)
+    n_days_first_restriction <- ifelse(is.null(simulations_i$N_days_first_restriction),
+                                       rlang::missing_arg(),
+                                       simulations_i$N_days_first_restriction)
+    n_days_lockdown <- ifelse(is.null(simulations_i$N_days_lockdown),
+                              rlang::missing_arg(),
+                              simulations_i$N_days_lockdown)
+    days_between_interventions <- ifelse(is.null(simulations_i$Days_between_interventions),
+                                         rlang::missing_arg(),
+                                         simulations_i$Days_between_interventions)
     
-    # Label simulation as natural or counterfactual history, and specified number of days
-    history <- ifelse(n_days_first_restriction == 0 & n_days_lockdown == 0, 
-                      "Natural history", "Counterfactual history")
+    # Set simulation description
+    description <- simulations_i$Description
+    
+    # Label simulation as natural or counterfactual history
+    if (!is_missing(maybe_missing(n_days_lockdown)) && 
+        !is_missing(maybe_missing(n_days_first_restriction))) {
+      history <- ifelse(n_days_first_restriction == 0 & n_days_lockdown == 0, 
+                        "Natural history", 
+                        "Counterfactual history")
+    } else {
+      history <- "Counterfactual history"
+    }
     
     # Specify folder and path to save simulation results, 
     # and create folder if none exists
-    folder <- paste0("Simulation - ", history, " ", 
-                     n_days_first_restriction, " ", n_days_lockdown, "/")
+    folder <- paste0("Simulation - ", description, "/")
     path <- out_folder
     Create_Folder_If_None_Exists(folder, path, silent = TRUE)
     
@@ -81,10 +109,12 @@ Execute_Counterfactual_Simulations_All_Countries <- function(countries, n_days_c
     
     # Simulation
     sim_data <- foreach(j = countries, .errorhandling = "pass", 
-                        .packages = c("tidyverse"), .options.snow = options) %dopar% 
+                        .packages = c("tidyverse", "rlang"), .options.snow = options) %do% 
       Simulate_Counterfactual(country = j, 
+                              simulation_type = simulation_type,
                               n_days_first_restriction = n_days_first_restriction, 
                               n_days_lockdown = n_days_lockdown, 
+                              days_between_interventions = days_between_interventions,
                               max_t = max_t, 
                               n_runs = n_runs, 
                               prob_equal = prob_equal)
@@ -96,12 +126,12 @@ Execute_Counterfactual_Simulations_All_Countries <- function(countries, n_days_c
     # create Simulation variable (text description of the simulation parameters)
     # and History variable (label as natural/counterfactual history)
     summary_sim_all_i <- list(summary_daily_cases_sim = 
-                              bind_rows(map(.x = sim_data, .f = ~.x$summary_daily_cases_sim)),
-                            summary_cumulative_cases_end_sim = 
-                              bind_rows(map(.x = sim_data, .f = ~.x$summary_cumulative_cases_end_sim))) %>%
-      map(., .f = ~.x %>% mutate(Simulation = paste(n_days_first_restriction, n_days_lockdown, sep = ","),
-                                 History = history) %>%
-            relocate(c(Simulation, History), .after = Country))
+                                bind_rows(map(.x = sim_data, .f = ~.x$summary_daily_cases_sim)),
+                              summary_cumulative_cases_end_sim = 
+                                bind_rows(map(.x = sim_data, .f = ~.x$summary_cumulative_cases_end_sim))) %>%
+      map(., .f = ~.x %>% mutate(History = history,
+                                 Simulation = description) %>%
+            relocate(c(History, Simulation), .after = Country))
     
     # Save all summary tables to simulation-specific folder
     summary_sim_all_i %>% names(.) %>% 
@@ -113,10 +143,8 @@ Execute_Counterfactual_Simulations_All_Countries <- function(countries, n_days_c
     
   }
   
-  # Stop parallel processing
-  if (parallel == TRUE) {
-    stopCluster(cluster) 
-  }
+  ## Stop parallel processing
+  #if (parallel == TRUE) { stopCluster(cluster) }
   
   # Combine summaries of all daily cases, cumulative cases
   summary_sim_all <- as.list(names(summary_sim_all)) %>%

@@ -71,7 +71,7 @@ Simulate_Daily_Cases <- function(date_start, date_end,
     # Define growth parameters
     if (n_knots == 1) {  # one knot (i.e. first restriction only); 2 periods of growth
       
-      # Define growth factor(s)
+      # Define growth factor
       if (t <= knot_date_1) {
         growth <- Draw_Random_Growth_Factors(n = n_runs, 
                                              mean = parameters$growth_factor_1,
@@ -86,27 +86,55 @@ Simulate_Daily_Cases <- function(date_start, date_end,
                                              log = log)
       }
       
-    } else {  # two knots (i.e. both first restriction and lockdown); 3 periods of growth
+    } else {  # two knots (i.e. both first restriction and lockdown); 2/3 periods of growth
       
-      # Define growth factor
-      if (t <= knot_date_1) {
-        growth <- Draw_Random_Growth_Factors(n = n_runs, 
-                                             mean = parameters$growth_factor_1,
-                                             sd = parameters$growth_factor_1_sd, 
-                                             variation = variation,
-                                             log = log)
-      } else if (t <= knot_date_2) {
-        growth <- Draw_Random_Growth_Factors(n = n_runs, 
-                                             mean = parameters$growth_factor_2,
-                                             sd = parameters$growth_factor_2_sd, 
-                                             variation = variation,
-                                             log = log)
-      } else {
-        growth <- Draw_Random_Growth_Factors(n = n_runs, 
-                                             mean = parameters$growth_factor_3,
-                                             sd = parameters$growth_factor_3_sd, 
-                                             variation = variation,
-                                             log = log)
+      # If the first knot date occurs before second knot date, there are
+      # 3 distinct periods of growth (i.e. initial uncontrolled growth, 
+      # growth under first restrictions, and growth under lockdown measures).
+      # Else, if the second knot date occurs before first knot date, there are
+      # only 2 distinct periods of growth (i.e. initial uncontrolled growth and
+      # growth under lockdown measures), since the effects of the first 
+      # restrictions haven't been realised by the time the effects of the lockdown are.
+      if (knot_date_1 <= knot_date_2) {  # (3 periods of growth)
+        
+        # Define growth factor
+        if (t <= knot_date_1) {
+          growth <- Draw_Random_Growth_Factors(n = n_runs, 
+                                               mean = parameters$growth_factor_1,
+                                               sd = parameters$growth_factor_1_sd, 
+                                               variation = variation,
+                                               log = log)
+        } else if (t <= knot_date_2) {
+          growth <- Draw_Random_Growth_Factors(n = n_runs, 
+                                               mean = parameters$growth_factor_2,
+                                               sd = parameters$growth_factor_2_sd, 
+                                               variation = variation,
+                                               log = log)
+        } else {
+          growth <- Draw_Random_Growth_Factors(n = n_runs, 
+                                               mean = parameters$growth_factor_3,
+                                               sd = parameters$growth_factor_3_sd, 
+                                               variation = variation,
+                                               log = log)
+        }
+        
+      } else {  # (2 periods of growth)
+        
+        # Define growth factor
+        if (t <= knot_date_2) {
+          growth <- Draw_Random_Growth_Factors(n = n_runs, 
+                                               mean = parameters$growth_factor_1,
+                                               sd = parameters$growth_factor_1_sd, 
+                                               variation = variation,
+                                               log = log)
+        } else {
+          growth <- Draw_Random_Growth_Factors(n = n_runs, 
+                                               mean = parameters$growth_factor_3,
+                                               sd = parameters$growth_factor_3_sd, 
+                                               variation = variation,
+                                               log = log)
+        }
+        
       }
       
     }

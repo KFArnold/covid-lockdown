@@ -12,9 +12,19 @@
 #' Assess_Model_Fit_All(country = "United Kingdom")
 Assess_Model_Fit_All <- function(country) {
   
+  # Get lockdown date in specified country
+  important_dates <- Get_Dates(country = country,
+                               dates = "Date_lockdown")
+  list2env(important_dates, envir = environment())
+  
   # Calculate the difference in time taken for cases to go below important
-  #' case thresholds in the observed data vs the simuated natural history
-  diff_time_to_thresholds <- Assess_Model_Fit_Diff_Time_To_Thresholds(country = country) 
+  # case thresholds in the observed data vs the simuated natural history
+  if (!is.na(date_lockdown)) {
+    diff_time_to_thresholds <- Assess_Model_Fit_Diff_Time_To_Thresholds(country = country) 
+    
+  } else {
+    diff_time_to_thresholds <- tibble(Threshold = as.character())
+  }
   
   # Calculate the difference in total cases at the end of the simulation period
   # in the observed data vs the simuated natural history

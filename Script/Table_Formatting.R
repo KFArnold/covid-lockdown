@@ -67,7 +67,6 @@ summary_effects_between_countries <-
                                         leverage_points = "Included",
                                         out_folder = folder_tables)
 
-
 # Save formatted summary table of within-country effects
 summary_effects_within_countries <- 
   Summary_Table_Effects_Within_Country(outcomes = c("Length_lockdown",

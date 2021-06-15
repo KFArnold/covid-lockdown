@@ -22,15 +22,24 @@ date_aes <- tibble(Date = date_levels,
 ## Simulation aesthetics -------------------------------------------------------
 
 # Simulation levels (defines ordering)
-simulation_levels <- c("0,0", "0,1", "0,3", "0,5", "0,7", 
-                       "1,1", "3,3", "5,5", "7,7")  
+simulation_levels <- c("Natural history",
+                       "Earliest possible lockdown",
+                       "Earlier intervention sequence (7,7)",
+                       "Earlier first restriction (7) and earliest possible lockdown")
+#simulation_levels <- c("0,0", "0,1", "0,3", "0,5", "0,7", 
+#                       "1,1", "3,3", "5,5", "7,7")  
 
-# Create function which labels simulation levels
-# (e.g. if level is "0,0", label is "(a - 0 , b - 0)")
+# Simulation labels
+simulation_levels <- c("Natural history",
+                       "Earliest possible lockdown",
+                       "Earlier intervention sequence (7,7)",
+                       "Earlier first restriction (7) and earliest possible lockdown")
+
+# Create function which labels simulation levels: 
+# removes text in parentheses for clarity
 Simulation_Labeller <- function(simulation_level) {
-  simulation_level %>% 
-    gsub(pattern = ",", replacement = " , b - ", .) %>% 
-    paste0("(a - ", ., ")")
+  simulation_level %>%
+    gsub(pattern = "\\s*\\([^\\)]+\\)", replacement = "", .)
 }
 
 # Create color and label key for simulations

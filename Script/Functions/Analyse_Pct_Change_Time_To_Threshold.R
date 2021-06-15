@@ -48,8 +48,8 @@ Analyse_Pct_Change_Time_To_Threshold <- function(country, thresholds) {
     data_country_i <- data_country %>%
       filter(Simulation == i)
     
-    # Record (counterfactual) data of lockdown in specified simulation
-    data_lockdown_i <- data_country_i %>% pull(Date_lockdown) %>% unique
+    # Record (counterfactual) date of lockdown in specified simulation
+    date_lockdown_i <- data_country_i %>% pull(Date_lockdown) %>% unique
     
     # Calculate number of days since lockdown until mean value of simulated 
     # daily cases went below thresholds
@@ -58,7 +58,7 @@ Analyse_Pct_Change_Time_To_Threshold <- function(country, thresholds) {
       Calculate_First_Date_Below_Threshold(data = data_country_i,
                                            cases = "Mean",
                                            threshold_value = k,
-                                           date_lockdown = data_lockdown_i) %>%
+                                           date_lockdown = date_lockdown_i) %>%
       bind_rows %>%
       select(Threshold_value, Days_since_lockdown)
 
@@ -73,7 +73,7 @@ Analyse_Pct_Change_Time_To_Threshold <- function(country, thresholds) {
   
   # Calculate number of days taken to go below thresholds in simulated natural history
   dates_below_thresholds_nh <- dates_below_thresholds %>%
-    filter(Simulation == "0,0") %>%
+    filter(Simulation == "Natural history") %>%
     select(Threshold_value, Days_since_lockdown_nh = Days_since_lockdown)
   
   # Calculate percent change in days to reach thresholds compared to natural history
@@ -87,10 +87,10 @@ Analyse_Pct_Change_Time_To_Threshold <- function(country, thresholds) {
   
   # Label dataframe with history and arrange by simulation
   pct_change_time_to_threshold <- pct_change_time_to_threshold %>%
-    mutate(History = ifelse(Simulation == "0,0", 
+    mutate(History = ifelse(Simulation == "Natural history", 
                             "Natural history",
                             "Counterfactual history")) %>%
-    relocate(Country, Simulation, History, Pct_change) %>%
+    relocate(Country, History, Simulation, Pct_change) %>%
     arrange(Simulation)
   
   # Return dataframe
