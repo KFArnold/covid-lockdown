@@ -42,7 +42,7 @@ Import_All_Simulated_Data <- function(location = "./Output/Simulations/",
                                                                            Date_lockdown = col_date())) %>% 
         reduce(bind_rows) %>% 
         mutate(across(where(is.character), as.factor)) %>%
-        arrange(N_days_first_restriction, N_days_lockdown)
+        arrange(Simulation, Country)
       
     }
     
