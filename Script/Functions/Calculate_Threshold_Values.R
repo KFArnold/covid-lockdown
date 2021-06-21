@@ -54,7 +54,7 @@ Calculate_Threshold_Values <- function(country,
       mutate(Threshold = "Lockdown eased")
   } else {
     easing_threshold_values <- tibble(Country = country,
-                                      Threshold = "Lockdown_eased",
+                                      Threshold = "Lockdown eased",
                                       Threshold_value = NA)
   }
   
