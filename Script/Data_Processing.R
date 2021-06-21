@@ -132,12 +132,26 @@ load(paste0(folder_output, "countries_eur.RData"))
 
 ### Calculate most recent demographic statistics -------------------------------
 
-# Calculate most recent demographic statistics from World Bank data for all countries
+# Calculate most recent total healthcare expenditure from per-capita figure
+health_expend_usd <- Worldbank_data_europe %>%
+  group_by(Country) %>% 
+  arrange(Country, desc(Year)) %>%
+  select(Country, Year, Health_expend_pc_usd, Population) %>%
+  filter(!is.na(Health_expend_pc_usd)) %>%
+  slice(1) %>%
+  mutate(Health_expend_usd = Health_expend_pc_usd * Population) %>%
+  select(Country, Health_expend_usd) %>%
+  ungroup
+
+# Calculate most recent demographic statistics from World Bank data for all countries,
+# and join with total healthcare expenditure
 demographics <- Worldbank_data_europe %>%
   group_by(Country) %>% 
   arrange(Country, desc(Year)) %>%
-  summarise(across(c(Area_sq_km, Population), ~first(na.omit(.))), .groups = "keep") %>%
-  ungroup
+  summarise(across(-c(Year, Health_expend_pc_usd), ~first(na.omit(.))), .groups = "keep") %>%
+  ungroup %>%
+  full_join(., health_expend_usd, by = "Country") %>%
+  select(Country, order(colnames(.)))
 
 ### Calculate date of first case -----------------------------------------------
 
