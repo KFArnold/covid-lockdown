@@ -1,4 +1,4 @@
-Iso2c,Iso3c,Country,Date,Area_sq_km,Gdp_usd,Heath_expend_pc_usd,Population_0_14,Population_15_64,Population_65_up,Population,Population_urb
+Iso2c,Iso3c,Country,Date,Area_sq_km,Gdp_usd,Health_expend_pc_usd,Population_0_14,Population_15_64,Population_65_up,Population,Population_urb
 AW,ABW,Aruba,2015,180,2919553072.6257,NA,19515,72162,12664,104341,44979
 AW,ABW,Aruba,2016,180,2965921787.7095,NA,19147,72506,13219,104872,45296
 AW,ABW,Aruba,2017,180,3056424581.00559,NA,18945,72646,13775,105366,45616

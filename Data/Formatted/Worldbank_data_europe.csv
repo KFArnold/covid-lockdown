@@ -1,4 +1,4 @@
-Country,Year,Area_sq_km,Gdp_usd,Heath_expend_pc_usd,Population_0_14,Population_15_64,Population_65_up,Population,Population_urb
+Country,Year,Area_sq_km,Gdp_usd,Health_expend_pc_usd,Population_0_14,Population_15_64,Population_65_up,Population,Population_urb
 Albania,2015,27400,11386846319.1589,192.88513184,537791,1979179,363733,2880703,1654503
 Albania,2016,27400,11861200797.4706,202.01332092,528734,1974734,372634,2876101,1680247
 Albania,2017,27400,13019693450.8816,226.28067017,518036,1972416,383005,2873457,1706345

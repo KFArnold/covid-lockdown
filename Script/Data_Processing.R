@@ -77,7 +77,7 @@ Create_Folder_If_None_Exists(folder = folder_figures)
 #indicators_names <- c("Population", "Population_0_14",
 #                      "Population_15_64", "Population_65_up",
 #                      "Population_urb", "Area_sq_km",
-#                      "Gdp_usd", "Heath_expend_pc_usd")
+#                      "Gdp_usd", "Health_expend_pc_usd")
 #out_folder <- paste0(folder_data_unformatted, "World Bank data/")
 #
 ## Create folder for saving data if it doesn't already exist
