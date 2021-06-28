@@ -106,35 +106,51 @@ Analyse_Effects_Between_Country <-
     effects_all_analyses <- list()
     
     # Estimate effects from best-fitting models in both primary and secondary analyses
-    foreach(analysis = c("Primary", "Secondary")) %do% {
+    foreach(analysis = c("Unadjusted", "Primary", "Secondary")) %do% {
       
-      # Specify covariates to use in analysis
-      if (analysis == "Primary") {
-        analysis_covariates <- primary_covariates
+      # Specify covariates to use in analysis, 
+      # and determine all possible combinations of covariate transformations
+      if (analysis == "Unadjusted") {
+        
+        # Covariates and covariate combinations
+        analysis_covariates <- NA
+        covariate_combinations <- NA
+        
       } else {
-        analysis_covariates <- c(primary_covariates, secondary_covariates)
-        # (if both total population and population subset by age are specified, 
-        # remove total population from list of all covariates)
-        if ("Population" %in% primary_covariates &
-            length(setdiff(c("Population_0_14", "Population_15_64", "Population_65_up"), 
-                           secondary_covariates)) == 0) {
-          analysis_covariates <- analysis_covariates[analysis_covariates != "Population"]
-        } 
+        
+        # Covariates
+        if (analysis == "Primary") {
+          
+          analysis_covariates <- primary_covariates
+          
+        } else {  # (analysis == "Secondary")
+          
+          analysis_covariates <- c(primary_covariates, secondary_covariates)
+          # (if both total population and population subset by age are specified, 
+          # remove total population from list of all covariates)
+          if ("Population" %in% primary_covariates &
+              length(setdiff(c("Population_0_14", "Population_15_64", "Population_65_up"), 
+                             secondary_covariates)) == 0) {
+            analysis_covariates <- analysis_covariates[analysis_covariates != "Population"]
+          } 
+          
+        }
+        
+        # Covariate combinations
+        covariate_combinations <- covariates_trans %>%
+          keep(., .p = ~all(.x$Covariate %in% analysis_covariates)) %>%
+          map(., .f = ~.x$Transformation) %>%
+          expand.grid %>%
+          unite(., col = "Combination", sep = ", ", remove = TRUE) %>%
+          pull(Combination)
+        
       }
-      
-      # Determine all possible combinations of covariate transformations
-      covariate_combinations <- covariates_trans %>%
-        keep(., .p = ~all(.x$Covariate %in% analysis_covariates)) %>%
-        map(., .f = ~.x$Transformation) %>%
-        expand.grid %>%
-        unite(., col = "Combination", sep = ", ", remove = TRUE) %>%
-        pull(Combination)
       
       # Create grid with all combinations of exposure, outcome, and covariates,
       # and define formula
       grid <- expand_grid(Outcome = outcomes, 
                           Exposure = map(.x = exposures_trans, .f = ~.x$Transformation) %>% unlist, 
-                          Covariates = c(NA, covariate_combinations)) %>%
+                          Covariates = covariate_combinations) %>%
         mutate(Independent_vars = ifelse(!is.na(Covariates), 
                                          paste0(Exposure, ", ", Covariates),
                                          Exposure),
@@ -190,18 +206,14 @@ Analyse_Effects_Between_Country <-
       all_effects <- bind_rows(effects, effects_no_leverage) %>%
         arrange(Outcome, Exposure, Covariates)
       
-      # Find best-fitting (adjusted) models for each combination of exposure and outcome,
-      # and bind with corresponding unadjusted models and models without leverage points
+      # Find best-fitting models for each combination of exposure and outcome,
+      # and bind with corresponding models without leverage points
       best_effects <- map(.x = as.list(exposures),
                           .f = ~filter(effects, str_detect(Exposure, .x))) %>%
-        map(., .f = ~filter(., !is.na(Covariates))) %>%
         map(., .f = ~group_by(., Outcome)) %>%
         map_dfr(., .f = ~filter(., BIC == min(BIC))) %>%
         split(., seq(nrow(.))) %>%
         map(., .f = ~select(., c(Outcome, Exposure, Covariates))) %>%
-        map(., .f = ~bind_rows(., tibble(Outcome = .x$Outcome,
-                                         Exposure = .x$Exposure,
-                                         Covariates = NA))) %>%
         map_dfr(., .f = ~left_join(., all_effects,
                                    by = c("Outcome", "Exposure", "Covariates"))) %>%
         ungroup %>%
@@ -213,7 +225,8 @@ Analyse_Effects_Between_Country <-
     }
     
     # Bind effects from all analyses into single dataframe and label
-    effects_all_analyses <- bind_rows(effects_all_analyses, .id = "Analysis")
+    effects_all_analyses <- bind_rows(effects_all_analyses, .id = "Analysis") %>%
+      arrange(Outcome)
      
     # Save table of all estimated effects to designated folder
     write_csv(effects_all_analyses, 
