@@ -13,7 +13,7 @@
 packrat::restore()
 
 # Load required packages
-library(tidyverse)
+library(tidyverse); library(foreach)
 library(RColorBrewer); library(scales); library(ggpubr); library(ggh4x)
 
 # Load all source functions from "./Script/Functions/" folder
@@ -56,5 +56,5 @@ effects_between_countries <-
 
 # Create figure of between-country effects
 figure_effects_between_country <- 
-  Plot_Effects_Between_Country_All(plots = "plot_length_lockdown",
+  Plot_Effects_Between_Country_All(outcomes = "Length_lockdown",
                                    out_folder = folder_figures)
