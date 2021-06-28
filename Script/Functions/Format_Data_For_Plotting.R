@@ -98,8 +98,7 @@ Format_Data_For_Plotting <- function(filenames = c("summary_eur",
   }
   if ("effects_between_countries_formatted" %in% filenames_formatted_missing) {
     effects_between_countries_formatted <- effects_between_countries %>%
-      mutate(Adjusted = ifelse(is.na(Covariates), "Unadjusted", "Adjusted"),
-             Adjusted = factor(Adjusted, levels = adjustment_levels),
+      mutate(Analysis = factor(Analysis, levels = analysis_levels),
              Exposure = factor(Exposure, levels = exposure_levels),
              Leverage_points = factor(Leverage_points, levels = leverage_levels))
     list_formatted[["effects_between_countries_formatted"]] <- 
