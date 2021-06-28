@@ -15,12 +15,12 @@ Plot_Effects_Between_Growth_Factor <- function(effects) {
     filter(Outcome == "Median_growth_factor_lockdown")
   
   # Calculate maximum deviation from zero across all confidence intervals
-  max_y <- effects_growth_factor %>% pull(CI_lower, CI_upper) %>% abs %>% max 
+  max_y <- effects_growth_factor %>% select(CI_lower, CI_upper) %>% abs %>% max 
   
   # Create plot
   plot <- ggplot(data = effects_growth_factor,
-                 aes(x = Exposure, y = Effect, 
-                     color = Adjusted, shape = Adjusted)) +
+                 aes(x = Analysis, y = Effect, 
+                     color = Analysis, shape = Analysis)) +
     theme_light() +
     theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
           plot.title = element_text(size = 10),
@@ -28,7 +28,7 @@ Plot_Effects_Between_Growth_Factor <- function(effects) {
           axis.text.x = element_blank(),
           axis.ticks.x = element_blank(),
           legend.position = "bottom", 
-          panel.background = element_rect(fill = "gray90"),
+          panel.background = element_rect(fill = "gray95"),
           panel.grid.major = element_line(color = "white"),
           strip.text = element_text(color = "gray20"),
           ggh4x.facet.nestline = element_line(color = "gray20", size = 0.2)) +
@@ -44,10 +44,10 @@ Plot_Effects_Between_Growth_Factor <- function(effects) {
     scale_x_discrete(labels = exposure_labels) +
     scale_y_continuous(limits = 1.05*c(-max_y, max_y),
                        labels = comma) +
-    scale_color_manual(values = adjustment_aes$Color,
-                       breaks = adjustment_aes$Effect) +
-    scale_shape_manual(values = adjustment_aes$Shape,
-                       breaks = adjustment_aes$Effect)
+    scale_color_manual(values = analysis_aes$Color,
+                       breaks = analysis_aes$Analysis) +
+    scale_shape_manual(values = analysis_aes$Shape,
+                       breaks = analysis_aes$Analysis)
   
   # Return plot
   return(plot)
