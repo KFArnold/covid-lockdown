@@ -115,8 +115,6 @@ Summary_Table_Descriptive_Statistics <- function(countries,
     group_by(Variable) %>% 
     summarise(across(Value, list(Min = ~min(., na.rm = TRUE),
                                  Max = ~max(., na.rm = TRUE),
-                                 Mean = ~mean(., na.rm = TRUE),
-                                 SD = ~sd(., na.rm = TRUE),
                                  Median = ~median(., na.rm = TRUE),
                                  IQR = ~IQR(., na.rm = TRUE),
                                  N = ~sum(!is.na(Value))),
