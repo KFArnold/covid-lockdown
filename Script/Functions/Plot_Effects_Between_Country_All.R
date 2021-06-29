@@ -61,10 +61,10 @@ Plot_Effects_Between_Country_All <- function(exposures = c("Daily_cases_MA7",
   # and add to plot list
   plot_combined <- Plot_Combined(plotlist = plot_list, 
                                  height = 7, 
-                                 width = 4*n_exp,
+                                 width = 2.8*n_exp,
                                  cols = n_out, 
                                  title = "Estimated between-country effects of lockdown timing",
-                                 title_size = 20, 
+                                 title_size = 15, 
                                  out_folder = out_folder,
                                  out_name = "Effects between countries.png",
                                  return = TRUE)
