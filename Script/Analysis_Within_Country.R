@@ -116,7 +116,7 @@ Plot_Combined(plotlist = figure_splines,
               return = FALSE)
 
 # Create combined figure of fitted splines for sample of countries
-countries_sample <- list("Greece", "Switzerland", "Spain")
+countries_sample <- list("Greece", "Netherlands", "Spain")
 index <- match(countries_sample, countries)
 Plot_Combined(plotlist = figure_splines[index],
               cols = length(index), 
@@ -195,7 +195,7 @@ figure_sim_results <- foreach(j = countries,
                           out = paste0(folder_figures, "Simulation results by country"))
 
 # Create combined figure of incident and cumulative cases for sample of countries
-countries_sample <- list("Greece", "Switzerland", "Spain")
+countries_sample <- list("Greece", "Netherlands", "Spain")
 index <- match(countries_sample, countries)
 index %>%
   map(., .f = ~figure_sim_results[[.x]]) %>%
