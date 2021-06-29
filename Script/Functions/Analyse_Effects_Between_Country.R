@@ -15,6 +15,9 @@
 #' all potential transformations of each exposure
 #' @param covariates_trans Miltilevel list containing covariates to consider, and
 #' all potential transformations of each covariate
+#' @param primary_covariates Vector containing covariates to use in primary analysis
+#' @param secondary_covariates Vector containing additional covariates to use
+#' in secondary analysis
 #' @param out_folder Where to save between-country effects
 #'
 #' @return Table containing estimated effects and model fit statistics 
@@ -34,18 +37,41 @@ Analyse_Effects_Between_Country <-
            covariates_trans = list(list("Covariate" = "Area_sq_km",
                                         "Transformation" = c("Area_sq_km", "log(Area_sq_km)", "I(1/Area_sq_km)")),
                                    list("Covariate"= "Population",
-                                        "Transformation" = c("Population", "log(Population)"))),
+                                        "Transformation" = c("Population", "log(Population)", "I(1/Population)")),
+                                   list("Covariate" = "Gdp_usd",
+                                        "Transformation" = c("Gdp_usd", "log(Gdp_usd)", "I(Gdp_usd/Population)")),
+                                   list("Covariate" = "Health_expend_usd",
+                                        "Transformation" = c("Health_expend_usd", "log(Health_expend_usd)", "I(Health_expend_usd/Population)")),
+                                   list("Covariate" = "Population_urb",
+                                        "Transformation" = c("Population_urb", "log(Population_urb)", "I(Population_urb/Population)")),
+                                   list("Covariate" = "Population_0_14",
+                                        "Transformation" = c("Population_0_14", "log(Population_0_14)", "I(Population_0_14/Population)")),
+                                   list("Covariate" = "Population_15_64",
+                                        "Transformation" = c("Population_15_64", "log(Population_15_64)", "I(Population_15_64/Population)")),
+                                   list("Covariate" = "Population_65_up",
+                                        "Transformation" = c("Population_65_up", "log(Population_65_up)", "I(Population_65_up/Population)"))),
+           primary_covariates = c("Area_sq_km", "Population", "Gdp_usd"),
+           secondary_covariates = c("Health_expend_usd", "Population_urb", 
+                                    "Population_0_14", "Population_15_64", "Population_65_up"),
            out_folder) {
+    
+    # Define exposures and covariates
+    exposures <- exposures_trans %>% map(., .f = ~.x$Exposure) %>% unlist
+    covariates <- covariates_trans %>% map(., .f = ~.x$Covariate) %>% unlist
+    
+    # Print warning and stop if transformations haven't been specified for all primary 
+    # and secondary convariates
+    if (all(!covariates %in% c(primary_covariates, secondary_covariates))) {
+      stop(cat("Transformations must be specified for ALL primary and secondary covariates",
+               "via the parameter covariate_trans.",
+               sep = "\n"))
+    }
     
     # Import unloaded files into the global environment
     Import_Unloaded_CSV_Files(filenames = c("Cases_deaths_data_europe",
                                             "summary_eur",
                                             "median_growth_factors"),
                               silent = TRUE)
-    
-    # Define exposures and covariates
-    exposures <- exposures_trans %>% map(., .f = ~.x$Exposure) %>% unlist
-    covariates <- covariates_trans %>% map(., .f = ~.x$Covariate) %>% unlist
     
     # Get data for all outcomes, exposures, and covariates for designated countries
     ## Exposures: Cases on lockdown dates
@@ -73,100 +99,140 @@ Analyse_Effects_Between_Country <-
       full_join(., data_covariates, by = "Country") %>%
       full_join(., data_length_lockdown, by = "Country") %>%
       full_join(., data_growth_factors, by = "Country") %>%
-      mutate(ID = rownames(.))
+      mutate(ID = as.integer(rownames(.)))
     
-    # Determine all possible combinations of covariate transformations
-    covariate_combinations <- covariates_trans %>% 
-      map(., .f = ~.x$Transformation) %>%
-      expand.grid %>%
-      unite(., col = "Combination", sep = ", ", remove = TRUE) %>%
-      pull(Combination)
+    # Create empty list for storing effects from best-fitting models 
+    # (both primary and secondary analyses)
+    effects_all_analyses <- list()
     
-    # Create grid with all combinations of exposure, outcome, and covariates,
-    # and define formula
-    grid <- expand_grid(Outcome = outcomes, 
-                        Exposure = map(.x = exposures_trans, .f = ~.x$Transformation) %>% unlist, 
-                        Covariates = c(NA, covariate_combinations)) %>%
-      mutate(Independent_vars = ifelse(!is.na(Covariates), 
-                                       paste0(Exposure, ", ", Covariates),
-                                       Exposure),
-             Formula = paste(Outcome, " ~ ", gsub(", ", " + ", Independent_vars))) %>%
-      select(-Independent_vars)
+    # Estimate effects from best-fitting models in both primary and secondary analyses
+    foreach(analysis = c("Unadjusted", "Primary", "Secondary")) %do% {
+      
+      # Specify covariates to use in analysis, 
+      # and determine all possible combinations of covariate transformations
+      if (analysis == "Unadjusted") {
+        
+        # Covariates and covariate combinations
+        analysis_covariates <- NA
+        covariate_combinations <- NA
+        
+      } else {
+        
+        # Covariates
+        if (analysis == "Primary") {
+          
+          analysis_covariates <- primary_covariates
+          
+        } else {  # (analysis == "Secondary")
+          
+          analysis_covariates <- c(primary_covariates, secondary_covariates)
+          # (if both total population and population subset by age are specified, 
+          # remove total population from list of all covariates)
+          if ("Population" %in% primary_covariates &
+              length(setdiff(c("Population_0_14", "Population_15_64", "Population_65_up"), 
+                             secondary_covariates)) == 0) {
+            analysis_covariates <- analysis_covariates[analysis_covariates != "Population"]
+          } 
+          
+        }
+        
+        # Covariate combinations
+        covariate_combinations <- covariates_trans %>%
+          keep(., .p = ~all(.x$Covariate %in% analysis_covariates)) %>%
+          map(., .f = ~.x$Transformation) %>%
+          expand.grid %>%
+          unite(., col = "Combination", sep = ", ", remove = TRUE) %>%
+          pull(Combination)
+        
+      }
+      
+      # Create grid with all combinations of exposure, outcome, and covariates,
+      # and define formula
+      grid <- expand_grid(Outcome = outcomes, 
+                          Exposure = map(.x = exposures_trans, .f = ~.x$Transformation) %>% unlist, 
+                          Covariates = covariate_combinations) %>%
+        mutate(Independent_vars = ifelse(!is.na(Covariates), 
+                                         paste0(Exposure, ", ", Covariates),
+                                         Exposure),
+               Formula = paste(Outcome, " ~ ", gsub(", ", " + ", Independent_vars))) %>%
+        select(-Independent_vars)
+      
+      # Evaluate each formula
+      models <- map(.x = grid$Formula, .f = ~as.formula(.x)) %>%
+        map(., .f = ~lm(.x, data = data_model))
+      
+      # Pull estimated effects and CI bounds from each formula
+      effects <- map_dfr(.x = models, 
+                         .f = ~tibble("Effect" = summary(.x)$coefficients[2, "Estimate"],
+                                      "CI_lower" = confint(.x)[2, 1],
+                                      "CI_upper" = confint(.x)[2, 2],
+                                      "R_squared" = summary(.x)$r.squared,
+                                      "BIC" = BIC(.x),
+                                      "N_countries" = length(summary(.x)$residuals))) %>% 
+        mutate(Leverage_points = "Included") %>%
+        bind_cols(grid, .) %>% 
+        select(-Formula)
+      
+      # Identify data points with high leverage
+      leverage <- map(.x = models, .f = ~tibble(ID = High_Leverage_Points(model = .x)))
+      
+      # Create vector of countries with high leverage
+      leverage_countries <- leverage %>%
+        map(., .f = ~left_join(.x, data_model, by = "ID")) %>%
+        map(., .f = ~pull(.x, Country)) %>%
+        map(., .f = ~paste(.x, collapse = ", "))
+      
+      # Re-run models without points of high leverage
+      models_no_leverage <- leverage %>%
+        map(., .f = ~anti_join(data_model, .x, by = "ID")) %>%
+        map2(.y = grid$Formula, .f = ~lm(.y, data = .x)) 
+      
+      # Pull estimated effects and CI bounds from each formula
+      effects_no_leverage <- map(.x = models_no_leverage, 
+                                 .f = ~tibble("Effect" = summary(.x)$coefficients[2, "Estimate"],
+                                              "CI_lower" = confint(.x)[2, 1],
+                                              "CI_upper" = confint(.x)[2, 2],
+                                              "R_squared" = summary(.x)$r.squared,
+                                              "BIC" = BIC(.x),
+                                              "N_countries" = length(summary(.x)$residuals))) %>% 
+        map2_dfr(., .y = leverage_countries, 
+                 .f = ~mutate(.x, Leverage_points_excluded = .y)) %>%
+        mutate(Leverage_points = "Excluded") %>%
+        relocate(Leverage_points, .before = Leverage_points_excluded) %>%
+        bind_cols(grid, .) %>% 
+        select(-Formula)
+      
+      # Bind all estimated effects together
+      all_effects <- bind_rows(effects, effects_no_leverage) %>%
+        arrange(Outcome, Exposure, Covariates)
+      
+      # Find best-fitting models for each combination of exposure and outcome,
+      # and bind with corresponding models without leverage points
+      best_effects <- map(.x = as.list(exposures),
+                          .f = ~filter(effects, str_detect(Exposure, .x))) %>%
+        map(., .f = ~group_by(., Outcome)) %>%
+        map_dfr(., .f = ~filter(., BIC == min(BIC))) %>%
+        split(., seq(nrow(.))) %>%
+        map(., .f = ~select(., c(Outcome, Exposure, Covariates))) %>%
+        map_dfr(., .f = ~left_join(., all_effects,
+                                   by = c("Outcome", "Exposure", "Covariates"))) %>%
+        ungroup %>%
+        arrange(Outcome) 
+      
+      # Save table of estimated effects to list
+      effects_all_analyses[[analysis]] <- best_effects
+      
+    }
     
-    # Evaluate each formula
-    models <- map(.x = grid$Formula, .f = ~as.formula(.x)) %>%
-      map(~lm(.x, data = data_model))
-    
-    # Pull estimated effects and CI bounds from each formula
-    effects <- map(.x = models, 
-                   .f = ~tibble("Effect" = summary(.x)$coefficients[2, "Estimate"],
-                                "CI_lower" = confint(.x)[2, 1],
-                                "CI_upper" = confint(.x)[2, 2],
-                                "R_squared" = summary(.x)$r.squared,
-                                "BIC" = BIC(.x),
-                                "N_countries" = length(summary(.x)$residuals))) %>% 
-      reduce(bind_rows) %>%
-      mutate(Leverage_points = "Included") %>%
-      bind_cols(grid, .) %>% 
-      select(-Formula)
-    
-    # Identify data points with high leverage
-    leverage <- map(.x = models, .f = ~car::influencePlot(.x)) %>%
-      map(.f = ~tibble(ID = (rownames(.x))))
-    
-    # Create vector of countries with high leverage
-    leverage_countries <- leverage %>%
-      map(., .f = ~left_join(.x, data_model, by = "ID")) %>%
-      map(., .f = ~pull(.x, Country)) %>%
-      map(., .f = ~paste(.x, collapse = ", "))
-    
-    # Re-run models without points of high leverage
-    models_no_leverage <- leverage %>%
-      map(., .f = ~anti_join(data_model, .x, by = "ID")) %>%
-      map2(.y = grid$Formula, .f = ~lm(.y, data = .x)) 
-    
-    # Pull estimated effects and CI bounds from each formula
-    effects_no_leverage <- map(.x = models_no_leverage, 
-                               .f = ~tibble("Effect" = summary(.x)$coefficients[2, "Estimate"],
-                                            "CI_lower" = confint(.x)[2, 1],
-                                            "CI_upper" = confint(.x)[2, 2],
-                                            "R_squared" = summary(.x)$r.squared,
-                                            "BIC" = BIC(.x),
-                                            "N_countries" = length(summary(.x)$residuals))) %>% 
-      map2(.y = leverage_countries, 
-           .f = ~mutate(.x, Leverage_points_excluded = .y)) %>%
-      reduce(bind_rows) %>%
-      mutate(Leverage_points = "Excluded") %>%
-      relocate(Leverage_points, .before = Leverage_points_excluded) %>%
-      bind_cols(grid, .) %>% select(-Formula)
-    
-    # Bind all estimated effects together
-    all_effects <- bind_rows(effects, effects_no_leverage) %>%
-      arrange(Outcome, Exposure, Covariates)
-    
-    # Find best-fitting (adjusted) models for each combination of exposure and outcome,
-    # and bind with corresponding unadjusted models and models without leverage points
-    best_effects <- map(.x = as.list(exposures),
-                        .f = ~filter(effects, str_detect(Exposure, .x))) %>%
-      map(., .f = ~filter(., !is.na(Covariates))) %>%
-      map(., .f = ~group_by(., Outcome)) %>%
-      map(., .f = ~filter(., BIC == min(BIC))) %>%
-      reduce(bind_rows) %>%
-      split(., seq(nrow(.))) %>%
-      map(., .f = ~select(., c(Outcome, Exposure, Covariates))) %>%
-      map(., .f = ~bind_rows(., tibble(Outcome = .x$Outcome,
-                                       Exposure = .x$Exposure,
-                                       Covariates = NA))) %>%
-      map(., .f = ~left_join(., all_effects,
-                             by = c("Outcome", "Exposure", "Covariates"))) %>%
-      reduce(bind_rows) %>%
+    # Bind effects from all analyses into single dataframe and label
+    effects_all_analyses <- bind_rows(effects_all_analyses, .id = "Analysis") %>%
       arrange(Outcome)
-    
-    # Save table of best estimated effects to designated folder
-    write_csv(best_effects, 
+     
+    # Save table of all estimated effects to designated folder
+    write_csv(effects_all_analyses, 
               file = paste0(out_folder, "effects_between_countries.csv"))
     
     # Return table of best estimated effects
-    return(best_effects)
+    return(effects_all_analyses)
     
   }

@@ -1,20 +1,23 @@
 #' Create figures of all within-country effects.
 #'
 #' @param exposures Vector of exposures to include in figure
-#' @param plots Vector of plots to include in figure (possible values = 
-#' c("plot_length_lockdown", "plot_growth_factor"))
+#' @param outcomes Vector of outcomes to include in figure
+#' @param analyses Vector of analyses to include in figure
 #' @param out_folder Folder to save combined figure in
 #'
-#' @return Named list containing specified \code{plots} and combined plot 
-#' ('plot_combined')
+#' @return Named list containing estimated effects from specified 
+#' \code{analyses} for specified \code{exposures} and \code{outcomes}, 
+#' and combined plot ('plot_combined')
 #'
 #' @examples
-#' Plot_Effects_Between_Country_All(plots = "plot_length_lockdown",
+#' Plot_Effects_Between_Country_All(outcomes = "Length_lockdown",
 #' out_folder = "./Output/Figures/")
 Plot_Effects_Between_Country_All <- function(exposures = c("Daily_cases_MA7",
                                                            "Cumulative_cases_beg"), 
-                                             plots = c("plot_length_lockdown",
-                                                       "plot_growth_factor"), 
+                                             outcomes = c("Length_lockdown",
+                                                          "Median_growth_factor_lockdown"), 
+                                             analyses = c("Unadjusted",
+                                                          "Primary", "Secondary"),
                                              out_folder) {
   
   # Create specified folder to save figures in, if it doesn't already exist
@@ -32,27 +35,26 @@ Plot_Effects_Between_Country_All <- function(exposures = c("Daily_cases_MA7",
   
   # Record number of specified exposures and plots
   n_exp <- length(exposures)
-  n_plots <- length(plots)
+  n_out <- length(outcomes)
   
-  # Filter between-country effects by specified exposures
+  # Filter between-country effects by specified exposures and analyses
   effects <- as.list(exposures) %>%
-    map(., .f = ~filter(effects_between_countries_formatted, str_detect(Exposure, .x))) %>%
-    bind_rows
+    map_dfr(., .f = ~filter(effects_between_countries_formatted, str_detect(Exposure, .x))) %>%
+    filter(Analysis %in% analyses)
   
   # Create empty list for storing plots
   plot_list <- list()
   
   # Plot length of lockdown and add to plot list
-  if ("plot_length_lockdown" %in% plots) {
+  if ("Length_lockdown" %in% outcomes) {
     plot_length_lockdown <- Plot_Effects_Between_Length_Lockdown(effects = effects)
     plot_list[["plot_length_lockdown"]] <- plot_length_lockdown
   } 
   
   # Plot growth factor under lockdown and add to plot list
-  if ("plot_growth_factor" %in% plots) {
+  if ("Median_growth_factor_lockdown" %in% outcomes) {
     plot_growth_factor <- Plot_Effects_Between_Growth_Factor(effects = effects)
     plot_list[["plot_growth_factor"]] <- plot_growth_factor
-    
   }
   
   # Combine all plots into single figure and save to specified folder,
@@ -60,14 +62,13 @@ Plot_Effects_Between_Country_All <- function(exposures = c("Daily_cases_MA7",
   plot_combined <- Plot_Combined(plotlist = plot_list, 
                                  height = 7, 
                                  width = 4*n_exp,
-                                 cols = n_plots, 
+                                 cols = n_out, 
                                  title = "Estimated between-country effects of lockdown timing",
                                  title_size = 20, 
                                  out_folder = out_folder,
                                  out_name = "Effects between countries.png",
                                  return = TRUE)
   plot_list[["plot_combined"]] <- plot_combined
-  
   
   # Return list of individual and combined plots
   return(plot_list)

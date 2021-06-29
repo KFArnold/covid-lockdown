@@ -102,6 +102,17 @@ exposure_labels <- c("Daily_cases_MA7" = "Daily cases\n(7-day moving average)",
                      "Cumulative_cases_beg" = "Cumulative cases", 
                      "log(Cumulative_cases_beg)" = "Cumulative cases,\nlogged")
 
+## Analysis aesthetics ---------------------------------------------------------
+
+# Analysis levels (defines ordering)
+analysis_levels <- c("Unadjusted", "Primary", "Secondary")
+
+# Create colour and shape kep for analysis
+color_brewer <- colorRampPalette(brewer.pal(n = 8, name = "Dark2"))
+analysis_aes <- tibble(Analysis = analysis_levels,
+                       Color = color_brewer(length(analysis_levels)),
+                       Shape = c(15, 16, 17))
+
 ## Leverage aesthetics ---------------------------------------------------------
 
 # Leverage levels (defines ordering)
@@ -110,13 +121,3 @@ leverage_levels <- c("Included", "Excluded")
 # Create key for leverage lables
 leverage_labels <- c("Included" = "All data points\nincluded",
                      "Excluded" = "Points of high\nleverage excluded")
-
-## Adjustment aesthetics -------------------------------------------------------
-
-# Adjustment levels (defines ordering)
-adjustment_levels <- c("Adjusted", "Unadjusted")
-
-# Create colour and shape key for effects
-adjustment_aes <- tibble(Effect = c("Unadjusted", "Adjusted"),
-                         Color = c("violetred", "forestgreen"),
-                         Shape = c(15, 16))
