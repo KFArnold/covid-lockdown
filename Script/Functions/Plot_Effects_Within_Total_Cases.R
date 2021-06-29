@@ -30,7 +30,7 @@ Plot_Effects_Within_Total_Cases <- function(effects, max_y) {
     guides(color = FALSE) +
     geom_hline(yintercept = 0, color = "gray20", lty = "dashed") +
     labs(title = "Effect on total cases",
-         y = "Percentage change compared to natural history (a , b)") +
+         y = "Percentage change compared to natural history") +
     geom_point(shape = 16, alpha = 0.6) +
     stat_summary(fun = median, shape = 18, size = 1.5) +
     EnvStats::stat_n_text(y.pos = 10, size = 3, color = "gray50") +
