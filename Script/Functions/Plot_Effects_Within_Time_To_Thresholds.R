@@ -22,8 +22,9 @@ Plot_Effects_Within_Time_To_Thresholds <- function(effects, max_y) {
                      color = Simulation)) +
     theme_light() +
     theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
+          plot.title = element_text(size = 10),
           axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5),
-          panel.background = element_rect(fill = "gray90"),
+          panel.background = element_rect(fill = "gray95"),
           panel.grid.major = element_line(color = "white"),
           strip.text = element_text(color = "gray20"),
           ggh4x.facet.nestline = element_line(color = "gray20", size = 0.2)) +

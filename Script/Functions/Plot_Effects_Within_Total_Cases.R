@@ -20,10 +20,11 @@ Plot_Effects_Within_Total_Cases <- function(effects, max_y) {
                      color = Simulation)) +
     theme_light() +
     theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
+          plot.title = element_text(size = 10),
           axis.title.x = element_blank(),
           axis.text.x = element_blank(),
           axis.ticks.x = element_blank(),
-          panel.background = element_rect(fill = "gray90"),
+          panel.background = element_rect(fill = "gray95"),
           panel.grid.major = element_line(color = "white"),
           strip.text = element_text(color = "gray20"),
           ggh4x.facet.nestline = element_line(color = "gray20", size = 0.2)) +
