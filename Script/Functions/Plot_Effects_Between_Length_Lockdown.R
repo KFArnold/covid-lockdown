@@ -40,9 +40,11 @@ Plot_Effects_Between_Length_Lockdown <- function(effects) {
                  scale = "free", nest_line = TRUE,
                  labeller = labeller(Exposure = exposure_labels,
                                      Leverage_points = leverage_labels)) +
-    scale_color_manual(values = analysis_aes$Color,
+    scale_color_manual(name = "Analysis:",
+                       values = analysis_aes$Color,
                        breaks = analysis_aes$Analysis) +
-    scale_shape_manual(values = analysis_aes$Shape,
+    scale_shape_manual(name = "Analysis:",
+                       values = analysis_aes$Shape,
                        breaks = analysis_aes$Analysis) +
     scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
     scale_y_continuous(limits = 1.05*c(-max_y, max_y))
