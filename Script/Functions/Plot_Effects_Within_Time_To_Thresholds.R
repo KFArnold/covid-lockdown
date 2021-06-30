@@ -22,15 +22,16 @@ Plot_Effects_Within_Time_To_Thresholds <- function(effects, max_y) {
                      color = Simulation)) +
     theme_light() +
     theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
+          plot.title = element_text(size = 10),
           axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5),
-          panel.background = element_rect(fill = "gray90"),
+          panel.background = element_rect(fill = "gray95"),
           panel.grid.major = element_line(color = "white"),
           strip.text = element_text(color = "gray20"),
           ggh4x.facet.nestline = element_line(color = "gray20", size = 0.2)) +
     guides(color = FALSE) +
     geom_hline(yintercept = 0, color = "gray20", lty = "dashed") +
     labs(title = "Effect on time to reach thresholds",
-         y = "Percentage change compared to natural history (a , b)") +
+         y = "Percentage change compared to natural history") +
     geom_point(shape = 16, alpha = 0.6) +
     stat_summary(fun = median, shape = 18, size = 1.5) +
     EnvStats::stat_n_text(y.pos = 10, size = 3, color = "gray50") +

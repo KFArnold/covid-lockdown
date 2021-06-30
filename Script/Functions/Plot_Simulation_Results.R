@@ -7,14 +7,15 @@
 #' @param thresholds Vector of thresholds to display on incident case figure
 #' @param out_folder Folder to save figure in
 #'
-#' @return Named list of 5 objects: 
+#' @return Named list of 6 objects: 
 #' (1) "plots_all_annotated": combined 3-panel figure (incident, cumulative,
 #' and cumulative vs incident), with \code{country} as title; 
 #' (2) "plots_two_annotated": combined 2-panel figure (incident and cumulative),
 #' two-panel figure (incident cases and cumulative cases only);
 #' (3) "plot_inc": incident cases, with \code{country} as title;
-#' (4) "plot_cum": cumulative cases, with \code{country} as title'; and
-#' (5) "plot_exp": cumulative vs incident cases, with \code{country} as title.
+#' (4) "plot_cum": cumulative cases, with \code{country} as title'; 
+#' (5) "plot_exp": cumulative vs incident cases, with \code{country} as title; and
+#' (6) "legend": legend 
 #'
 #' @examples
 Plot_Simulation_Results <- function(country, simulations, thresholds,
@@ -24,10 +25,16 @@ Plot_Simulation_Results <- function(country, simulations, thresholds,
   Create_Folder_If_None_Exists(folder = out_folder,
                                silent = TRUE)
   
+  # Import files containing observed case data and best knots, if not already loaded
+  Import_Unloaded_CSV_Files(filenames = c("Cases_deaths_data_europe", 
+                                          "knots_best"),
+                            silent = TRUE)
+  
   # Import formatted data
   data_formatted <- Format_Data_For_Plotting(filenames = c("thresholds_eur",
                                                            "summary_daily_cases_sim_all",
-                                                           "summary_cumulative_cases_end_sim_all"))
+                                                           "summary_cumulative_cases_end_sim_all"),
+                                             silent = TRUE)
   if (is.list(data_formatted)) { list2env(data_formatted, envir = environment()) }
   
   # Import aesthetic specifications
@@ -113,10 +120,10 @@ Plot_Simulation_Results <- function(country, simulations, thresholds,
   # Save combined plot to subfolder
   ggsave(paste0(out_folder, "/", country, ".png"), plot = plots_all_annotated, width = 6*3, height = 6)
   
-  # Combine only incident and cumulative cases in double panel with common legend 
-  # and country as title
-  plots_two <- ggarrange(plotlist = list(plot_inc, plot_cum), align = "h",
-                         common.legend = TRUE, legend = "bottom", nrow = 1, ncol = 2)
+  # Combine only incident and cumulative cases in double panel with country as title
+  plots_two <- ggarrange(plotlist = list(plot_inc + theme(legend.position = "none"), 
+                                         plot_cum + theme(legend.position = "none")), align = "h",
+                         nrow = 1, ncol = 2)
   plots_two_annotated <- annotate_figure(plots_two, top = text_grob(paste0(country),  size = 20),
                                          bottom = text_grob(" ", size = 20))
   
@@ -156,11 +163,15 @@ Plot_Simulation_Results <- function(country, simulations, thresholds,
                                           date_start = date_start, 
                                           date_T = date_T)
   
+  # Extract legend
+  legend <- get_legend(plot_inc)
+  
   # Return list combined plots
   return(list(plots_all_annotated = plots_all_annotated,
               plots_two_annotated = plots_two_annotated,
               plot_inc = plot_inc,
               plot_cum = plot_cum,
-              plot_exp = plot_exp))
+              plot_exp = plot_exp,
+              legend = legend))
   
 }

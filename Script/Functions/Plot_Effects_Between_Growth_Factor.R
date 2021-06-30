@@ -44,9 +44,11 @@ Plot_Effects_Between_Growth_Factor <- function(effects) {
     scale_x_discrete(labels = exposure_labels) +
     scale_y_continuous(limits = 1.05*c(-max_y, max_y),
                        labels = comma) +
-    scale_color_manual(values = analysis_aes$Color,
+    scale_color_manual(name = "Analysis:",
+                       values = analysis_aes$Color,
                        breaks = analysis_aes$Analysis) +
-    scale_shape_manual(values = analysis_aes$Shape,
+    scale_shape_manual(name = "Analysis:",
+                       values = analysis_aes$Shape,
                        breaks = analysis_aes$Analysis)
   
   # Return plot

@@ -43,7 +43,7 @@ Plot_Model_Fit <- function(countries,
     theme_light() +
     theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
           axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5),
-          panel.background = element_rect(fill = "gray90"),
+          panel.background = element_rect(fill = "gray95"),
           panel.grid.major = element_line(color = "white"),
           strip.text = element_text(color = "gray20")) +
     guides(color = FALSE) +

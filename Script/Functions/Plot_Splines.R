@@ -55,7 +55,7 @@ Plot_Splines <- function(country, out_folder) {
   y_max <- 1.2*y_max  # (add buffer)
   
   # Define color for fitted lines
-  color <- simulation_aes %>% filter(Simulation == "0,0") %>% pull(Color)
+  color <- simulation_aes %>% filter(Simulation == "Natural history") %>% pull(Color)
   
   # Plot observed cases
   plot <- ggplot(data = data_country,

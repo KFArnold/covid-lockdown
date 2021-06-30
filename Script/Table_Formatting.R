@@ -15,7 +15,7 @@ packrat::restore()
 
 # Load required packages
 library(tidyverse)
-library(ggpubr)
+library(ggpubr); library(RColorBrewer)
 library(lubridate)
 
 # Load all source functions from "./Script/Functions/" folder
@@ -43,7 +43,7 @@ Import_Unloaded_CSV_Files(filenames = c("Cases_deaths_data_europe",
                                         "knots_best",
                                         "effects_between_countries",
                                         "effects_within_countries_summary"),
-                          silent = TRUE)
+                          silent = FALSE)
 
 ## Create formatted tables -----------------------------------------------------
 
@@ -57,7 +57,7 @@ summary_dates <- Summary_Table_Important_Dates(countries = countries_eur,
 
 # Create and save formatted table of best knot dates
 countries <- knots_best %>% pull(Country) %>% unique %>% as.list
-#countries <- list("Greece", "Switzerland","Spain")
+#countries <- list("Greece", "Netherlands","Spain")
 summary_best_knots <- Summary_Table_Best_Knots(countries = countries,
                                                out_folder = folder_tables)
 

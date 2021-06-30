@@ -23,28 +23,31 @@ Summary_Tables_Model_Fit <- function(measures = c("Pois_dev_inc",
   Create_Folder_If_None_Exists(folder = out_folder, 
                                silent = TRUE)
   
-  # Import files containing model fit statistics
-  Import_Unloaded_CSV_Files(filenames = c("model_fit",
-                                          "model_fit_summary"),
-                            silent = TRUE)
+  # Import formatted files containing model fit statistics
+  data_formatted <- Format_Data_For_Plotting(filenames = c("model_fit",
+                                                           "model_fit_summary"),
+                                             silent = TRUE)
+  if (is.list(data_formatted)) {
+    list2env(data_formatted, envir = environment())
+  }
   
   # (1) Country-specific model fit statistics:
   # Filter table of country-specific model fit statistics by specified measures,
   # and with specified number of decimals.
   # Star values which are outliers
-  model_fit_filt <- model_fit %>%
+  model_fit_filt <- model_fit_formatted %>%
     filter(Measure %in% measures) %>%
     mutate(across(Value, 
                   ~formatC(round(., digits = n_decimals), 
                            format = "f", big.mark = ",", digits = n_decimals))) %>%
     mutate(Value = ifelse(Outlier, paste0("*", Value), Value)) %>%
-    arrange(Country, Measure, Type, Threshold) %>%
+    arrange(Country, Threshold, Measure, Type) %>%
     select(-c(Pct_Rank, Outlier)) 
   # Pivot wider and combine number and percent values into single column (pct in parentheses)
   model_fit_filt <- model_fit_filt %>%
     pivot_wider(names_from = Type, values_from = Value) %>%
     mutate(across(c(Measure, Threshold), as.character),
-           Threshold = str_replace_all(Threshold, "%", "pct")) %>%
+           Threshold = str_replace_all(Threshold, c("," = "", " " = "_"))) %>%
     unite(col = "Measure", c(Measure, Threshold), na.rm = TRUE, sep = "_") %>%
     pivot_wider(names_from = Measure, names_glue = "{Measure}_{.value}",
                 values_from = c(Number, Pct)) %>%
@@ -55,7 +58,7 @@ Summary_Tables_Model_Fit <- function(measures = c("Pois_dev_inc",
   # (2) Summary of model fit statistics:
   # Filter summary table of model fit statistics by specified measures,
   # and with specified number of decimals
-  model_fit_summary_filt <- model_fit_summary %>%
+  model_fit_summary_filt <- model_fit_summary_formatted %>%
     filter(Measure %in% measures) %>%
     mutate(across(c(Median, IQR), 
                   ~formatC(round(., digits = n_decimals), 

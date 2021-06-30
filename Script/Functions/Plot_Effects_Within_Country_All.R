@@ -81,7 +81,7 @@ Plot_Effects_Within_Country_All <- function(simulations,
                                  width = 1.4*n_sim,
                                  cols = n_plots, 
                                  title = "Estimated within-country effects of lockdown timing",
-                                 title_size = 20, 
+                                 title_size = 15, 
                                  out_folder = out_folder,
                                  out_name = name,
                                  return = TRUE)

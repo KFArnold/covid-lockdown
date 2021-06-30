@@ -32,7 +32,10 @@ Summary_Table_Descriptive_Statistics <- function(countries,
                                                                     c("Date_lockdown", "Cumulative_cases_beg"),
                                                                     c("Date_T", "Daily_cases_MA7"),
                                                                     c("Date_T", "Cumulative_cases_end")),
-                                                 covariates = c("Area_sq_km", "Population"),
+                                                 covariates = c("Area_sq_km", "Population",
+                                                                "Gdp_usd", "Health_expend_usd",
+                                                                "Population_0_14", "Population_15_64",
+                                                                "Population_65_up", "Population_urb"),
                                                  n_decimals = 0,
                                                  out_folder) {
   
@@ -86,7 +89,7 @@ Summary_Table_Descriptive_Statistics <- function(countries,
     facet_wrap(~ Variable, scales = "free") + 
     geom_density()
   density <- ggarrange(plotlist = list(density_raw, density_log), ncol = 2) %>%
-    annotate_figure(top = text_grob("Density plots", size = 20))
+    annotate_figure(top = text_grob("Density plots", size = 15))
   
   # Produce QQ-plots of raw and log-transformed variables
   qq_raw <- data_all %>% keep(is.numeric) %>% 
@@ -104,7 +107,7 @@ Summary_Table_Descriptive_Statistics <- function(countries,
     stat_qq_line() +
     facet_wrap(~ Variable, scales = "free") 
   qq <- ggarrange(plotlist = list(qq_raw, qq_log), ncol = 2) %>%
-    annotate_figure(top = text_grob("QQ plots", size = 20))
+    annotate_figure(top = text_grob("QQ plots", size = 15))
   
   # Create summary table with specicied numver of decimals
   summary <- data_all %>% 
@@ -112,8 +115,6 @@ Summary_Table_Descriptive_Statistics <- function(countries,
     group_by(Variable) %>% 
     summarise(across(Value, list(Min = ~min(., na.rm = TRUE),
                                  Max = ~max(., na.rm = TRUE),
-                                 Mean = ~mean(., na.rm = TRUE),
-                                 SD = ~sd(., na.rm = TRUE),
                                  Median = ~median(., na.rm = TRUE),
                                  IQR = ~IQR(., na.rm = TRUE),
                                  N = ~sum(!is.na(Value))),
@@ -125,9 +126,9 @@ Summary_Table_Descriptive_Statistics <- function(countries,
   # Save formatted table and density/QQ plots to specified folder
   write_csv(summary, paste0(out_folder, "descriptive_statistics.csv"))
   ggsave(paste0(out_folder, "descriptive_statistics_density.png"),
-         plot = density, width = 18, height = 9, limitsize = FALSE)
+         plot = density, width = 24, height = 11, limitsize = FALSE)
   ggsave(paste0(out_folder, "descriptive_statistics_qq.png"),
-         plot = qq, width = 18, height = 9, limitsize = FALSE)
+         plot = qq, width = 24, height = 11, limitsize = FALSE)
   
   # Return density plots, QQ plots, and summary table
   return(list(density = density,
