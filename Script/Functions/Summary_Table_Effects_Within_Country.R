@@ -20,21 +20,19 @@ Summary_Table_Effects_Within_Country <- function(outcomes = c("Length_lockdown",
   Create_Folder_If_None_Exists(folder = out_folder, 
                                silent = TRUE)
   
-  # Import file containing best knots
-  Import_Unloaded_CSV_Files(filenames = "effects_within_countries_summary",
-                            silent = TRUE)
-  
-  # Import aesthetic specifications
-  source("./Script/figure_aesthetics.R")
+  # Import formatted file containing within-country effects
+  data_formatted <- Format_Data_For_Plotting(filenames = c("effects_within_countries_summary"),
+                                             silent = TRUE)
+  if (is.list(data_formatted)) {
+    list2env(data_formatted, envir = environment())
+  }
   
   # Filter summary table containing within-country effects by specified outcomes, 
   # and with specified number of decimals
-  effects_formatted <- effects_within_countries_summary %>%
+  effects_formatted <- effects_within_countries_summary_formatted %>%
     mutate(across(contains("pct"), ~100*.x), 
            across(contains("pct"), 
-                  ~formatC(round(., digits = n_decimals), format = "f", digits = n_decimals)),
-           History = factor(History, levels = history_levels),
-           Simulation = factor(Simulation, levels = simulation_levels)) %>%
+                  ~formatC(round(., digits = n_decimals), format = "f", digits = n_decimals))) %>%
     arrange(Outcome, History, Simulation, Threshold) %>%
     filter(Outcome %in% outcomes) %>%
     select(where(~sum(!is.na(.x)) > 0))
