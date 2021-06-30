@@ -15,7 +15,7 @@ packrat::restore()
 
 # Load required packages
 library(tidyverse)
-library(ggpubr)
+library(ggpubr); library(RColorBrewer)
 library(lubridate)
 
 # Load all source functions from "./Script/Functions/" folder
