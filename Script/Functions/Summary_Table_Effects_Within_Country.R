@@ -24,12 +24,17 @@ Summary_Table_Effects_Within_Country <- function(outcomes = c("Length_lockdown",
   Import_Unloaded_CSV_Files(filenames = "effects_within_countries_summary",
                             silent = TRUE)
   
+  # Import aesthetic specifications
+  source("./Script/figure_aesthetics.R")
+  
   # Filter summary table containing within-country effects by specified outcomes, 
   # and with specified number of decimals
   effects_formatted <- effects_within_countries_summary %>%
     mutate(across(contains("pct"), ~100*.x), 
            across(contains("pct"), 
-                  ~formatC(round(., digits = n_decimals), format = "f", digits = n_decimals))) %>%
+                  ~formatC(round(., digits = n_decimals), format = "f", digits = n_decimals)),
+           History = factor(History, levels = history_levels),
+           Simulation = factor(Simulation, levels = simulation_levels)) %>%
     arrange(Outcome, History, Simulation, Threshold) %>%
     filter(Outcome %in% outcomes) %>%
     select(where(~sum(!is.na(.x)) > 0))
