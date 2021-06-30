@@ -13,7 +13,9 @@ Format_Data_For_Plotting <- function(filenames = c("summary_eur",
                                                    "summary_daily_cases_sim_all",
                                                    "summary_cumulative_cases_end_sim_all",
                                                    "model_fit",
+                                                   "model_fit_summary",
                                                    "effects_within_countries",
+                                                   "effects_within_countries_summary",
                                                    "effects_between_countries"),
                                      silent = FALSE) {
   
@@ -88,6 +90,12 @@ Format_Data_For_Plotting <- function(filenames = c("summary_eur",
              Threshold = factor(Threshold, levels = threshold_levels))
     list_formatted[["model_fit_formatted"]] <- model_fit_formatted
   }
+  if ("model_fit_summary_formatted" %in% filenames_formatted_missing) {
+    model_fit_summary_formatted <- model_fit_summary %>%
+      mutate(Measure = factor(Measure, levels = model_fit_levels),
+             Threshold = factor(Threshold, levels = threshold_levels))
+    list_formatted[["model_fit_summary_formatted"]] <- model_fit_summary_formatted
+  }
   if ("effects_within_countries_formatted" %in% filenames_formatted_missing) {
     effects_within_countries_formatted <- effects_within_countries %>% 
       mutate(Threshold = factor(Threshold, levels = threshold_levels),
@@ -95,6 +103,14 @@ Format_Data_For_Plotting <- function(filenames = c("summary_eur",
              History = factor(History, levels = history_levels))
     list_formatted[["effects_within_countries_formatted"]] <- 
       effects_within_countries_formatted
+  }
+  if ("effects_within_countries_summary_formatted" %in% filenames_formatted_missing) {
+    effects_within_countries_summary_formatted <- effects_within_countries_summary %>% 
+      mutate(Threshold = factor(Threshold, levels = threshold_levels),
+             Simulation = factor(Simulation, levels = simulation_levels),
+             History = factor(History, levels = history_levels))
+    list_formatted[["effects_within_countries_summary_formatted"]] <- 
+      effects_within_countries_summary_formatted
   }
   if ("effects_between_countries_formatted" %in% filenames_formatted_missing) {
     effects_between_countries_formatted <- effects_between_countries %>%
@@ -104,8 +120,6 @@ Format_Data_For_Plotting <- function(filenames = c("summary_eur",
     list_formatted[["effects_between_countries_formatted"]] <- 
       effects_between_countries_formatted
   }
-  
-  # no formatting required for knots_best, Cases_deaths_data_europe 
   
   # Return list of formatted files
   return(list_formatted)
