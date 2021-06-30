@@ -70,7 +70,7 @@ Analyse_Effects_Between_Country <-
     # Import unloaded files into the global environment
     Import_Unloaded_CSV_Files(filenames = c("Cases_deaths_data_europe",
                                             "summary_eur",
-                                            "median_growth_factors"),
+                                            "median_simulation_parameters"),
                               silent = TRUE)
     
     # Get data for all outcomes, exposures, and covariates for designated countries
@@ -88,11 +88,11 @@ Analyse_Effects_Between_Country <-
     data_length_lockdown <- summary_eur %>% 
       filter(Country %in% countries) %>% 
       select(Country, Length_lockdown)
-    data_growth_factors <- median_growth_factors %>% 
+    data_growth_factors <- median_simulation_parameters %>% 
       filter(Country %in% countries) %>% 
       group_by(Country) %>% 
       summarise(Median_growth_factor_lockdown = Median_growth_factor_3,
-                .groups = "keep") %>% ungroup
+                .groups = "drop")
     
     # Combine all data for modelling into single dataframe, remove individual datasets
     data_model <- data_cases %>% 

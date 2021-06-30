@@ -228,6 +228,11 @@ Hash: 92ccb2003fb6c8087b5b979b2ff00cdb
 Requires: DBI, R6, assertthat, dplyr, glue, lifecycle, purrr, rlang,
     tibble, tidyselect
 
+Package: deldir
+Source: CRAN
+Version: 0.2-10
+Hash: 55af2fff9f42caf5bb740ff080fd8c90
+
 Package: desc
 Source: CRAN
 Version: 1.3.0
@@ -368,6 +373,11 @@ Source: CRAN
 Version: 1.4.0
 Hash: 21e4ea62a77239a9fc736d5b01338163
 
+Package: goftest
+Source: CRAN
+Version: 1.2-2
+Hash: 3061924af824e2bd36018ca154f8ed27
+
 Package: gridExtra
 Source: CRAN
 Version: 2.3
@@ -492,6 +502,11 @@ Version: 1.1
 Hash: 1b6a18fd395589425e338a47b999099f
 Requires: mime, xfun
 
+Package: matrixStats
+Source: CRAN
+Version: 0.59.0
+Hash: 3e146d04cea7c027b3fc49647ff45647
+
 Package: mgcv
 Source: CRAN
 Version: 1.8-31
@@ -588,6 +603,11 @@ Source: CRAN
 Version: 1.8.6
 Hash: 0c83f38e28923acc988df91f1837f634
 Requires: Rcpp
+
+Package: polyclip
+Source: CRAN
+Version: 1.10-0
+Hash: 8291818c2ccc3848dd74ed475da58174
 
 Package: polynom
 Source: CRAN
@@ -759,6 +779,50 @@ Version: 1.4-1
 Hash: 26c48e048f5c25f602069fea2e8b70c5
 Requires: lattice
 
+Package: spatstat
+Source: CRAN
+Version: 2.2-0
+Hash: 29e18484ad98e4bfbd61515e0c1448c7
+Requires: spatstat.core, spatstat.data, spatstat.geom, spatstat.linnet,
+    spatstat.utils
+
+Package: spatstat.core
+Source: CRAN
+Version: 2.2-0
+Hash: 957c9c7c387f18577ab39310e7ff9aa6
+Requires: Matrix, abind, goftest, mgcv, nlme, spatstat.data,
+    spatstat.geom, spatstat.sparse, spatstat.utils, tensor
+
+Package: spatstat.data
+Source: CRAN
+Version: 2.1-0
+Hash: 9afb2b5be37d97a23d17a934975bc80d
+Requires: Matrix, spatstat.utils
+
+Package: spatstat.geom
+Source: CRAN
+Version: 2.2-0
+Hash: 73171eec38c4a47ed86eb1f69427c200
+Requires: deldir, polyclip, spatstat.data, spatstat.utils
+
+Package: spatstat.linnet
+Source: CRAN
+Version: 2.2-1
+Hash: 9cb7a8e27e47c0fc4c218bd5403e0d4f
+Requires: Matrix, spatstat.core, spatstat.data, spatstat.geom,
+    spatstat.utils
+
+Package: spatstat.sparse
+Source: CRAN
+Version: 2.0-0
+Hash: 9dcc820f064801a40fda59e1aa3a44db
+Requires: Matrix, abind, spatstat.utils, tensor
+
+Package: spatstat.utils
+Source: CRAN
+Version: 2.2-0
+Hash: 0a0cf0783b2654505984354ed6f1a510
+
 Package: statmod
 Source: CRAN
 Version: 1.4.34
@@ -779,6 +843,11 @@ Package: sys
 Source: CRAN
 Version: 3.3
 Hash: d5a4afad9298f42aae77f6389713a066
+
+Package: tensor
+Source: CRAN
+Version: 1.5
+Hash: 6a56cfa4bdf989a4b74b7ca542dfaeeb
 
 Package: testthat
 Source: CRAN

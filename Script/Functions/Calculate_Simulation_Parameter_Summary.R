@@ -1,19 +1,26 @@
-#' Calculate summary statistics  (median, Q1, Q3) for simulation parameters.
+#' Calculate median simulation parameters and summary statistics (median, Q1, Q3).
 #' 
 #' The parameters of interest are growth factors 1-3, and the lag periods between
 #' each intervention and its associted knot dates. Data is obtained from the
-#' 'knots_best.csv' file.
-#'
+#' 'knots_best.csv' file. The weighted median of each parameter is computed 
+#' within each country, and then overall summary statistics (i.e. across all 
+#' countries) are computed.
+#' 
 #' @param countries List of countries
-#' @param n_decimals Number of decimans to include in output (default = 3)
-#' @param out_folder Folder to save parameter summary table in
+#' @param n_decimals Number of decimals to include in output (default = 3)
+#' @param out_folder Folder to save parameter summary tables in
 #'
-#' @return Dataframe containing 5 columns: 
-#' (1) Parameter = description of parameter;
-#' (2) Median = median value of parameter across all \code{countries};
-#' (3) Q1 = value of first quartile;
-#' (4) Q3 = value of third quartile; and
-#' (5) N = number of (non-NA) values that were included in calculation.
+#' @return Two summary dataframes:
+#' (1) 'median_simulation_parameters': contains data pertaining to the weighted 
+#' median of each simulation parameter within each country. Table contains columns 
+#' for Country, Median_growth_factor_1, Median_growth_factor_2,  
+#' Median_growth_factor_3, Lag_1, and Lag_2.
+#' (2) 'simulation_parameter_summary': contains data pertaining to the median of 
+#' each simulation parameter across all \code{countries}. Table contains columns
+#' for Parameter, Median (i.e. median value of weighted Parameter across all 
+#' countries), and N (i.e. number of non-NA values included in calculation of Median).
+#' 
+#' Both summary dataframes are saved as .csv files to the designated output folder.
 #'
 #' @examples
 #' Calculate_Simulation_Parameter_Summary(countries = c("United Kingdom", 
@@ -35,24 +42,50 @@ Calculate_Simulation_Parameter_Summary <- function(countries,
     mutate(Lag_1 = Knot_date_1 - Date_first_restriction,
            Lag_2 = Knot_date_2 - Date_lockdown) 
   
-  # Summarise median, Q1, and Q3 of lags and growth factors,
-  # with designated number of decimals
-  summary <- knots_best_filt %>%
-    select(Lag_1, Lag_2, Growth_factor_1, Growth_factor_2, Growth_factor_3) %>%
-    mutate(across(.cols = everything(), as.double)) %>%
-    pivot_longer(cols = everything(), names_to = "Parameter", values_to = "Value") %>%
-    group_by(Parameter) %>%
-    summarise(Median = median(Value, na.rm = TRUE),
-              Q1 = quantile(Value, 0.25, na.rm = TRUE),
-              Q3 = quantile(Value, 0.75, na.rm = TRUE),
+  # Calculate weighted median lags and growth factors within each country
+  summary_within_countries <- knots_best_filt %>%
+    select(Country, Lag_1, Lag_2, Growth_factor_1, Growth_factor_2, 
+           Growth_factor_3, Prob_unequal) %>%
+    mutate(across(.cols = -Country, as.double)) %>%
+    pivot_longer(cols = -c(Country, Prob_unequal), 
+                 names_to = "Parameter", values_to = "Value") %>%
+    group_by(Country, Parameter) %>%
+    summarise(Median = weightedMedian(x = Value, 
+                                      w = Prob_unequal,
+                                      na.rm = TRUE),
               N = sum(!is.na(Value)),
+              .groups = "drop")
+  
+  # Summarise median, Q1, and Q3 of lags and growth factors across all countries,
+  # with designated number of decimals
+  simulation_parameter_summary <- summary_within_countries %>%
+    select(-Country) %>%
+    group_by(Parameter) %>%
+    summarise(Med = median(Median, na.rm = TRUE),
+              Q1 = quantile(Median, 0.25, na.rm = TRUE),
+              Q3 = quantile(Median, 0.75, na.rm = TRUE),
+              N = sum(N),
               .groups = "drop") %>%
+    rename(Median = Med) %>%
     mutate(across(where(is.double), ~round(., digits = n_decimals)))
   
-  # Save summary table to specified folder
-  write_csv(summary, paste0(out_folder, "simulation_parameter_summary.csv"))
+  # Create (wide) table of median weighted simulation parameters for each country
+  # with designated number of decimals
+  median_simulation_parameters <- summary_within_countries %>%
+    select(Country, Parameter, Median) %>%
+    pivot_wider(values_from = Median, names_from = Parameter) %>%
+    rename_with(.cols = -Country, .fn = ~paste0("Median_", .)) %>%
+    rename_with(.cols = everything(), .fn = ~str_to_sentence(.)) %>%
+    mutate(across(where(is.double), ~round(., digits = n_decimals)))
   
-  # Return summary table
-  return(summary)
+  # Save summary tables to specified folder
+  write_csv(median_simulation_parameters, 
+            paste0(out_folder, "median_simulation_parameters.csv"))
+  write_csv(simulation_parameter_summary, 
+            paste0(out_folder, "simulation_parameter_summary.csv"))
+  
+  # Return list of summary tables
+  return(list(median_simulation_parameters = median_simulation_parameters,
+              simulation_parameter_summary = simulation_parameter_summary))
   
 }
