@@ -18,7 +18,7 @@
 packrat::restore()
 
 # Load required packages
-library(tidyverse); library(magrittr); library(rlang)
+library(tidyverse); library(matrixStats); library(magrittr); library(rlang)
 library(lspline); library(forecast)
 library(foreach); library(doSNOW)
 library(RColorBrewer); library(scales); library(ggpubr); library(ggrepel); library(ggh4x)
@@ -81,20 +81,11 @@ write_csv(possible_days_counterfactual,
 # Specify countries to summarise parameters for
 countries <- countries_eur_lockdown[countries_eur_lockdown != "Russia"]
 
-# Calculate and save simulation parameter summaries
-simulation_parameter_summary <- 
+# Calculate and save simulation parameter summaries, and save to environment
+parameter_summaries <- 
   Calculate_Simulation_Parameter_Summary(countries = countries,
                                          out_folder = folder_output)
-
-# Calculate median growth factors for each country among best knots, and save
-median_growth_factors <- knots_best %>% 
-  group_by(Country) %>%
-  summarise(Median_growth_factor_1 = median(Growth_factor_1, na.rm = TRUE),
-            Median_growth_factor_2 = median(Growth_factor_2, na.rm = TRUE),
-            Median_growth_factor_3 = median(Growth_factor_3, na.rm = TRUE),
-            .groups = "keep") %>%
-  ungroup %T>%
-  write_csv(., file = paste0(folder_output, "median_growth_factors.csv"))
+list2env(parameter_summaries, envir = .GlobalEnv); rm(parameter_summaries)
 
 ## Plot fitted splines ---------------------------------------------------------
 
