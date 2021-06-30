@@ -195,9 +195,11 @@ figure_sim_results <- foreach(j = countries,
                           out = paste0(folder_figures, "Simulation results by country"))
 
 # Create combined figure of incident and cumulative cases for sample of countries
+# with common legend
 countries_sample <- list("Greece", "Netherlands", "Spain")
 index <- match(countries_sample, countries)
-index %>%
+common_legend <- figure_sim_results[[1]]$legend
+figure_sim_results_sample <- index %>%
   map(., .f = ~figure_sim_results[[.x]]) %>%
   map(., .f = ~.x$plots_two_annotated) %>%
   Plot_Combined(plotlist = .,
@@ -206,9 +208,13 @@ index %>%
                 labels = "AUTO",
                 title = " ",
                 title_size = 30,
-                out_folder = folder_figures,
-                out_name = "Simulation results (sample).png",
-                return = FALSE)
+                return = TRUE) %>%
+  gridExtra::grid.arrange(., common_legend, nrow = 2, 
+                          heights = c(6*length(countries_sample), 1)) 
+ggsave(filename = paste0(folder_figures, "Simulation results (sample).png"),
+       plot = figure_sim_results_sample, 
+       width = 6*2, height = 6*length(countries_sample) + 1, 
+       limitsize = FALSE)
 
 # MODEL FIT --------------------------------------------------------------------
 
