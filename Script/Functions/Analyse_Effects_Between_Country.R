@@ -142,6 +142,9 @@ Analyse_Effects_Between_Country <-
           map(., .f = ~.x$Transformation) %>%
           expand.grid %>%
           unite(., col = "Combination", sep = ", ", remove = TRUE) %>%
+          mutate(Combination = str_replace_all(string = Combination,
+                                               pattern = "I\\(Population_0_14/Population\\), I\\(Population_15_64/Population\\), I\\(Population_65_up/Population\\)", 
+                                               replacement = "I(Population_15_64/Population), I(Population_65_up/Population)")) %>%
           pull(Combination)
         
       }
