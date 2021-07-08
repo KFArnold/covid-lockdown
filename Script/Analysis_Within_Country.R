@@ -299,8 +299,7 @@ description <- "all simulations"
 # Create figure of within-country effects
 figure_effects_within_country <- 
   Plot_Effects_Within_Country_All(simulations = simulations, 
-                                  plots = c("plot_time_to_thresholds",
-                                            "plot_length_lockdown",
+                                  plots = c("plot_length_lockdown",
                                             "plot_total_cases"),
                                   description = description, 
                                   out_folder = folder_figures)
