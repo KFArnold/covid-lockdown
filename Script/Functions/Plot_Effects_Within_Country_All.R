@@ -75,7 +75,8 @@ Plot_Effects_Within_Country_All <- function(simulations,
   # Define name of figure to be saved
   name <- paste0("Effects within countries - ", description, ".png")
   
-  # Combine all plots into single figure and save to specified folder
+  # Combine all plots into single figure and save to specified folder,
+  # and add to plot list
   plot_combined <- Plot_Combined(plotlist = plot_list, 
                                  height = 7, 
                                  width = 1.4*n_sim,
@@ -85,12 +86,10 @@ Plot_Effects_Within_Country_All <- function(simulations,
                                  out_folder = out_folder,
                                  out_name = name,
                                  return = TRUE)
+  plot_list[["plot_combined"]] <- plot_combined
   
   # Return list of individual and combined plots
-  return(list(plot_time_to_thresholds = plot_time_to_thresholds,
-              plot_length_lockdown = plot_length_lockdown, 
-              plot_total_cases = plot_total_cases,
-              plot_combined = plot_combined))
+  return(plot_list)
   
 }
 
