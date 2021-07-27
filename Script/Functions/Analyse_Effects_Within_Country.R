@@ -43,10 +43,8 @@ Analyse_Effects_Within_Country <- function(country) {
   # histories compared to simulated natural history
   if (!is.na(date_lockdown)) {
     pct_change_length_lockdown <- 
-      Analyse_Pct_Change_Time_To_Threshold(country = country,
-                                           thresholds = "Lockdown eased") %>%
-      mutate(Outcome = "Length_lockdown",
-             Threshold = NA)
+      Analyse_Pct_Change_Length_Lockdown(country = country) %>%
+      mutate(Outcome = "Length_lockdown")
   } else {
     pct_change_length_lockdown <- tibble()
   }
