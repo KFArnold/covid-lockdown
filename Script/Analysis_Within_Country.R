@@ -303,3 +303,7 @@ figure_effects_within_country <-
                                             "plot_total_cases"),
                                   description = description, 
                                   out_folder = folder_figures)
+
+# Create figure of length of lockdown for all countries under all simulations
+figure_length_lockdown_sim <- Plot_Length_Lockdown_Sim(out_folder = folder_figures)
+
