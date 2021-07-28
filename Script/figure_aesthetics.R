@@ -29,12 +29,6 @@ simulation_levels <- c("Natural history",
 #simulation_levels <- c("0,0", "0,1", "0,3", "0,5", "0,7", 
 #                       "1,1", "3,3", "5,5", "7,7")  
 
-# Simulation labels
-simulation_levels <- c("Natural history",
-                       "Earliest possible lockdown",
-                       "Earlier intervention sequence (7,7)",
-                       "Earlier first restriction (7) and earliest possible lockdown")
-
 # Create function which labels simulation levels: 
 # removes text in parentheses for clarity
 Simulation_Labeller <- function(simulation_level) {
