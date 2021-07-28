@@ -52,7 +52,7 @@ Plot_Length_Lockdown_Sim <- function(out_folder) {
     scale_color_manual(values = simulation_aes$Color, 
                       breaks = simulation_aes$Simulation,
                       labels = simulation_aes$Label) +
-    scale_x_discrete(labels = function(x) str_wrap(x, width = 20))
+    scale_x_discrete(labels = str_wrap(simulation_aes$Label, width = 20))
     
   # Save plot to designated output folder
   ggsave(paste0(out_folder, "Length of lockdown.png"), plot = plot, width = 2*n_sim, height = 7)
