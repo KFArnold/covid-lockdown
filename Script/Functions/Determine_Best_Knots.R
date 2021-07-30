@@ -45,7 +45,7 @@ Determine_Best_Knots <- function(country,
                                           date_first_restriction = date_first_restriction,
                                           date_lockdown = date_lockdown,
                                           date_start = date_start,
-                                          window = c(2, 28))
+                                          window = c(5, 28))
   
   # Print warning and stop if there are no potential knot dates
   if (nrow(knot_dates) == 0) {
