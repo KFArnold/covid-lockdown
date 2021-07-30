@@ -9,8 +9,8 @@
 #' @param thresholds Vector of important case thresholds (possible values =
 #' c("1 case per 100,000", "1 case per 20,000", "1 case per 10,000", "Length_lockdown"))
 #'
-#' @return Dataframe containing 5 columns: Country, Simulation (e.g. "0,1"), 
-#' History (e.g. "Counterfactual history"), Pct_change, and Threshold
+#' @return Dataframe containing 6 columns: Country, History, Simulation, 
+#' Value (of days to threshold), Pct_change, and Threshold
 #'
 #' @examples
 #' Analyse_Pct_Change_Time_To_Threshold(country = "United Kingdom",
@@ -83,14 +83,15 @@ Analyse_Pct_Change_Time_To_Threshold <- function(country, thresholds) {
     mutate(Pct_change = 
              ((Days_since_lockdown - Days_since_lockdown_nh) / Days_since_lockdown_nh)) %>%
     full_join(thresholds_country, ., by = "Threshold_value") %>%
-    select(-c(contains("Days"), Threshold_value))
+    select(-c(Days_since_lockdown_nh, Threshold_value)) %>%
+    rename(Value = Days_since_lockdown)
   
   # Label dataframe with history and arrange by simulation
   pct_change_time_to_threshold <- pct_change_time_to_threshold %>%
     mutate(History = ifelse(Simulation == "Natural history", 
                             "Natural history",
                             "Counterfactual history")) %>%
-    relocate(Country, History, Simulation, Pct_change) %>%
+    relocate(Country, History, Simulation, Value, Pct_change) %>%
     arrange(Simulation)
   
   # Return dataframe

@@ -47,6 +47,8 @@ Plot_Daily_Cases_Sim <- function(country, title, labs = TRUE,
                  aes(x = Date, y = Daily_cases)) +
     theme_minimal() +
     theme(plot.margin = unit(c(1, 1, 1, 1), "cm"),
+          legend.title = element_text(size = 12),
+          legend.text = element_text(size = 11),
           legend.position = "bottom") +
     labs(title = title) +
     geom_col(data = filter(obs_data, In_range == FALSE), 
@@ -89,12 +91,12 @@ Plot_Daily_Cases_Sim <- function(country, title, labs = TRUE,
                        values = aesthetics$Color, 
                        limits = aesthetics$Simulation,
                        breaks = aesthetics$Simulation,
-                       labels = str_wrap(aesthetics$Label, width = 25)) +
+                       labels = str_wrap(aesthetics$Label, width = 27)) +
     scale_fill_manual(name = "Simulation:",
                       values = aesthetics$Color, 
                       limits = aesthetics$Simulation,
                       breaks = aesthetics$Simulation,
-                      labels = str_wrap(aesthetics$Label, width = 25))
+                      labels = str_wrap(aesthetics$Label, width = 27))
   
   # Return plot
   return(plot)

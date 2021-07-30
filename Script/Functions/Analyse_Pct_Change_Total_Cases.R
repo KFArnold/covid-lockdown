@@ -7,8 +7,8 @@
 #'
 #' @param country Country
 #'
-#' @return Dataframe containing 4 columns: Country, Simulation (e.g. "0,1"), 
-#' History (e.g. "Counterfactual history"), and Pct_change
+#' @return Dataframe containing 5 columns: Country, History, Simulation, 
+#' Value (of total cases), and Pct_change
 #'
 #' @examples
 #' Analyse_Pct_Change_Total_Cases(country = "United Kingdom")
@@ -40,7 +40,7 @@ Analyse_Pct_Change_Total_Cases <- function(country) {
   # Calculate percent change in total cases compared to natural history
   pct_change_total_cases <- total_cases_all %>%
     mutate(Pct_change = (Mean - total_cases_nh) / total_cases_nh) %>%
-    select(-Mean) %>%
+    rename(Value = Mean) %>%
     arrange(Simulation)
   
   # Return dataframe

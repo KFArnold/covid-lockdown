@@ -33,6 +33,7 @@ Execute_Within_Country_Analysis <- function(countries, out_folder) {
   # Calculate median percent change and quartiles across all countries
   # for each outcome in each simulation
   effects_within_country_summary <- effects_within_country %>%
+    select(-Value) %>%
     group_by(History, Simulation, Outcome, Threshold) %>%
     summarise(Median_pct_change = median(Pct_change, na.rm = TRUE),
               QR1_pct_change = quantile(Pct_change, 0.25, na.rm = TRUE),

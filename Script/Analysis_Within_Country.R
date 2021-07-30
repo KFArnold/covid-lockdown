@@ -183,7 +183,7 @@ figure_sim_results <- foreach(j = countries,
   Plot_Simulation_Results(country = j, 
                           simulations = simulations,
                           thresholds = thresholds,
-                          out = paste0(folder_figures, "Simulation results by country"))
+                          out_folder = paste0(folder_figures, "Simulation results by country"))
 
 # Create combined figure of incident and cumulative cases for sample of countries
 # with common legend
@@ -290,8 +290,11 @@ description <- "all simulations"
 # Create figure of within-country effects
 figure_effects_within_country <- 
   Plot_Effects_Within_Country_All(simulations = simulations, 
-                                  plots = c("plot_time_to_thresholds",
-                                            "plot_length_lockdown",
+                                  plots = c("plot_length_lockdown",
                                             "plot_total_cases"),
                                   description = description, 
                                   out_folder = folder_figures)
+
+# Create figure of length of lockdown for all countries under all simulations
+figure_length_lockdown_sim <- Plot_Length_Lockdown_Sim(out_folder = folder_figures)
+
