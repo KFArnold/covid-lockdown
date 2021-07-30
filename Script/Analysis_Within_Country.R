@@ -192,7 +192,7 @@ figure_sim_results <- foreach(j = countries,
   Plot_Simulation_Results(country = j, 
                           simulations = simulations,
                           thresholds = thresholds,
-                          out = paste0(folder_figures, "Simulation results by country"))
+                          out_folder = paste0(folder_figures, "Simulation results by country"))
 
 # Create combined figure of incident and cumulative cases for sample of countries
 # with common legend
