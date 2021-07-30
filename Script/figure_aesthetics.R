@@ -24,8 +24,8 @@ date_aes <- tibble(Date = date_levels,
 # Simulation levels (defines ordering)
 simulation_levels <- c("Natural history",
                        "Earliest possible lockdown",
-                       "Earlier intervention sequence (7,7)",
-                       "Earlier first restriction (7) and earliest possible lockdown")
+                       "Earlier intervention sequence (3,3)",
+                       "Earlier first restriction (3) and earliest possible lockdown")
 #simulation_levels <- c("0,0", "0,1", "0,3", "0,5", "0,7", 
 #                       "1,1", "3,3", "5,5", "7,7")  
 
