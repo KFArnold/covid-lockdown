@@ -30,10 +30,11 @@ simulation_levels <- c("Natural history",
 #                       "1,1", "3,3", "5,5", "7,7")  
 
 # Create function which labels simulation levels: 
-# removes text in parentheses for clarity
+# removes text in parentheses for clarity, and replaces 'and' with '&'
 Simulation_Labeller <- function(simulation_level) {
   simulation_level %>%
-    gsub(pattern = "\\s*\\([^\\)]+\\)", replacement = "", .)
+    gsub(pattern = "\\s*\\([^\\)]+\\)", replacement = "", .) %>%
+    gsub(pattern = "and", replacement = "&")
 }
 
 # Create color and label key for simulations
