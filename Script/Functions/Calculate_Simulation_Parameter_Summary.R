@@ -50,7 +50,7 @@ Calculate_Simulation_Parameter_Summary <- function(countries,
     pivot_longer(cols = -c(Country, Prob_unequal), 
                  names_to = "Parameter", values_to = "Value") %>%
     group_by(Country, Parameter) %>%
-    summarise(Median = weightedMedian(x = Value, 
+    summarise(Median = matrixStats::weightedMedian(x = Value, 
                                       w = Prob_unequal,
                                       na.rm = TRUE),
               N = sum(!is.na(Value)),
