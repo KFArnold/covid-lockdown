@@ -1,0 +1,13 @@
+# YAML 1.2
+---
+authors: 
+  -
+    family-names: Arnold
+    given-names: "Kellyn F"
+    orcid: "https://orcid.org/0000-0002-0911-5029"
+cff-version: "1.1.0"
+date-released: 2021-08-01
+message: "If you use this software, please cite it using these metadata."
+repository-code: "https://github.com/KFArnold/covid-lockdown"
+title: "Modelling the first wave of COVID-19 cases in Europe"
+...
