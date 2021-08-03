@@ -1,9 +1,9 @@
-cff-version: "1.1.0"
+cff-version: 1.1.0
 message: "If you use this software, please cite it using these metadata."
 authors: 
-  - family-names: Arnold
-    given-names: Kellyn
+  - family-names: "Arnold"
+    given-names: "Kellyn F"
     orcid: "https://orcid.org/0000-0002-0911-5029"
 title: "Modelling the first wave of COVID-19 cases in Europe"
 date-released: 2021-08-01
-repository-code: "https://github.com/KFArnold/covid-lockdown"
+url: "https://github.com/KFArnold/covid-lockdown"
