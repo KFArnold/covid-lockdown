@@ -272,7 +272,7 @@ Import_All_Simulated_Data(filenames = c("summary_daily_cases_sim",
 ## Estimate within-country effects ---------------------------------------------
 
 # Specify countries to include in analysis
-countries <- countries_eur[!countries_eur %in% c("Monaco", "Russia")]
+countries <- countries_eur_lockdown[countries_eur_lockdown != "Russia"]
 
 # Calculate within-country effects for all simulated countries
 effects_within_country_all <- Execute_Within_Country_Analysis(countries = countries,
