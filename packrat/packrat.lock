@@ -504,8 +504,8 @@ Requires: mime, xfun
 
 Package: matrixStats
 Source: CRAN
-Version: 0.59.0
-Hash: 3e146d04cea7c027b3fc49647ff45647
+Version: 0.60.0
+Hash: dcfd3f738280c8048d60c37afc33aec7
 
 Package: mgcv
 Source: CRAN
