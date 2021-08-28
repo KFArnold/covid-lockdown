@@ -9,7 +9,7 @@
 #' for each simulation, with median value highlighted.
 #'
 #' @examples
-Plot_Effects_Within_Time_To_Thresholds <- function(effects, max_y) {
+Plot_Effects_Within_Time_To_Threshold <- function(effects, max_y) {
   
   # Filter effects dataframe by outcome
   effects_outcome <- effects %>% filter(Outcome == "Time_to_threshold") %>%
