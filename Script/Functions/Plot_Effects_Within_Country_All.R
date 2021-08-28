@@ -1,21 +1,21 @@
 #' Create figures of all within-country effects.
 #'
 #' @param simulations Vector of simulations to include
-#' @param plots Vector of plots to create 
+#' @param outcomes Vector of outcomes to create 
 #' @param description Text description of figure for saving
 #' @param out_folder Folder to save combined figure in
 #'
-#' @return Named list containing each of specified \code{plots} and combined figure
-#' ('plot_combined'). The combined figure is also saved to the specified folder
-#' as 'Figure - Effects within countries - \code{description}.png'.
+#' @return Named list containing plots for each of specified \code{outcomes} 
+#' and combined figure ('plot_combined'). The combined figure is also saved to 
+#' the specified folder as 'Figure - Effects within countries - \code{description}.png'.
 #'
 #' @examples
 #' Plot_Effects_Within_Country_All(simulations = c("0,1", "0,3", "0,5", "0,7"),
 #' description = "earlier lockdown", out_folder = "./Output/Figures/")
 Plot_Effects_Within_Country_All <- function(simulations, 
-                                            plots = c("plot_time_to_thresholds",
-                                                      "plot_length_lockdown",
-                                                      "plot_total_cases"),
+                                            outcomes = c("Time_to_threshold",
+                                                         "Length_lockdown",
+                                                         "Total_cases"),
                                             description, 
                                             out_folder) {
   
@@ -34,12 +34,13 @@ Plot_Effects_Within_Country_All <- function(simulations,
   
   # Record number of specified simulations and plots
   n_sim <- length(simulations)
-  n_plots <- length(plots)
+  n_plots <- length(outcomes)
   
-  # Filter within-country effects dataframe by specified simulations, 
+  # Filter within-country effects dataframe by specified simulations & outcomes, 
   # and convert proportions to percentages
   effects <- effects_within_countries_formatted %>%
-    filter(Simulation %in% simulations) %>%
+    filter(Simulation %in% simulations,
+           Outcome %in% outcomes) %>%
     mutate(Pct_change = 100*Pct_change)
   
   # Calculate max value of percentage change across all outcomes, 
@@ -51,7 +52,7 @@ Plot_Effects_Within_Country_All <- function(simulations,
   plot_list <- list()
   
   # Plot length of lockdown and add to list, if specified
-  if ("plot_length_lockdown" %in% plots) {
+  if ("Length_lockdown" %in% outcomes) {
     plot_length_lockdown <- 
       Plot_Effects_Within_Length_Lockdown(effects = effects,
                                           max_y = max_pct_change)
@@ -59,14 +60,14 @@ Plot_Effects_Within_Country_All <- function(simulations,
   } 
   
   # Plot time to thresholds and add to list, if specified
-  if ("plot_time_to_thresholds" %in% plots) {
-    plot_time_to_thresholds <- Plot_Effects_Within_Time_To_Thresholds(effects = effects,
-                                                                      max_y = max_pct_change)
-    plot_list[["plot_time_to_thresholds"]] <- plot_time_to_thresholds
+  if ("Time_to_threshold" %in% outcomes) {
+    plot_time_to_threshold <- Plot_Effects_Within_Time_To_Threshold(effects = effects,
+                                                                    max_y = max_pct_change)
+    plot_list[["plot_time_to_threshold"]] <- plot_time_to_threshold
   } 
   
   # Plot total cases and add to list, if specified
-  if ("plot_total_cases" %in% plots) {
+  if ("Total_cases" %in% outcomes) {
     plot_total_cases <- Plot_Effects_Within_Total_Cases(effects = effects,
                                                         max_y = max_pct_change)
     plot_list[["plot_total_cases"]] <- plot_total_cases
