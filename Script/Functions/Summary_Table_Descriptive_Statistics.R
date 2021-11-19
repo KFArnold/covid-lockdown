@@ -1,4 +1,4 @@
-#' Create table of summary statistics (min, max, mean, SD, median, IQR) for 
+#' Create table of summary statistics (min, Q1, median, Q3, max, N) for 
 #' outcomes, cases, and covariates used in analysis.
 #' 
 #' Note that this function also produces density and QQ-plots of specified 
@@ -114,9 +114,10 @@ Summary_Table_Descriptive_Statistics <- function(countries,
     pivot_longer(cols = -Country, names_to = "Variable", values_to = "Value") %>%
     group_by(Variable) %>% 
     summarise(across(Value, list(Min = ~min(., na.rm = TRUE),
-                                 Max = ~max(., na.rm = TRUE),
+                                 Q1 = ~quantile(., 0.25, na.rm = TRUE),
                                  Median = ~median(., na.rm = TRUE),
-                                 IQR = ~IQR(., na.rm = TRUE),
+                                 Q3 = ~quantile(., 0.75, na.rm = TRUE),
+                                 Max = ~max(., na.rm = TRUE),
                                  N = ~sum(!is.na(Value))),
                      .names = "{fn}"),
               .groups = "keep") %>%
