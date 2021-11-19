@@ -13,7 +13,7 @@
 Summary_Table_Effects_Within_Country <- function(outcomes = c("Length_lockdown",
                                                               "Time_to_threshold",
                                                               "Total_cases"), 
-                                                 n_decimals = 2,
+                                                 n_decimals = 1,
                                                  out_folder) {
   
   # Create folder for saving output, if it doens't already exist
