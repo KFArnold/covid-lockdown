@@ -16,7 +16,7 @@ Summary_Table_Effects_Between_Country <- function(outcomes = c("Length_lockdown"
                                                                "Median_growth_factor_lockdown"),
                                                   leverage_points = c("Included",
                                                                       "Excluded"),
-                                                  n_decimals = 2,
+                                                  n_decimals = 1,
                                                   out_folder) {
   
   # Create folder for saving output, if it doens't already exist

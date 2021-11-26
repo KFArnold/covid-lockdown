@@ -18,7 +18,7 @@
 packrat::restore()
 
 # Load required packages
-library(tidyverse); library(matrixStats); library(magrittr); library(rlang)
+library(tidyverse); library(magrittr); library(rlang)
 library(lspline); library(forecast)
 library(foreach); library(doSNOW)
 library(RColorBrewer); library(scales); library(ggpubr); library(ggrepel); library(ggh4x)
@@ -141,17 +141,17 @@ simulations <- list(list(Simulation_type = "shift_intervention_sequence",
                          N_days_lockdown = 0,
                          Description = "Natural history"),
                     list(Simulation_type = "shift_intervention_sequence",
-                         N_days_first_restriction = 7,
-                         N_days_lockdown = 7,
-                         Description = "Earlier intervention sequence (7,7)"),
+                         N_days_first_restriction = 3,
+                         N_days_lockdown = 3,
+                         Description = "Earlier intervention sequence (3,3)"),
                     list(Simulation_type = "time_between_interventions",
                          N_days_first_restriction = 0,
                          Days_between_interventions = "min",
                          Description = "Earliest possible lockdown"),
                     list(Simulation_type = "time_between_interventions",
-                         N_days_first_restriction = 7,
+                         N_days_first_restriction = 3,
                          Days_between_interventions = "min",
-                         Description = "Earlier first restriction (7) and earliest possible lockdown"))
+                         Description = "Earlier first restriction (3) and earliest possible lockdown"))
 
 # Run all counterfactual simulations for all countries 
 # and save to sub-folder in output folder
@@ -172,9 +172,9 @@ list2env(summary_sim_all, .GlobalEnv)
 # Specify countries, simulations, and thresholds to plot
 countries <- countries_eur[!countries_eur %in% c("Monaco", "Russia")]
 simulations <- c("Natural history",
-                 "Earlier intervention sequence (7,7)",
+                 "Earlier intervention sequence (3,3)",
                  "Earliest possible lockdown",
-                 "Earlier first restriction (7) and earliest possible lockdown")
+                 "Earlier first restriction (3) and earliest possible lockdown")
 thresholds <- c("1 case per 100,000", "1 case per 20,000", "1 case per 10,000")
 
 # Create figures of simulation results and save to subfolder
@@ -272,7 +272,7 @@ Import_All_Simulated_Data(filenames = c("summary_daily_cases_sim",
 ## Estimate within-country effects ---------------------------------------------
 
 # Specify countries to include in analysis
-countries <- countries_eur[!countries_eur %in% c("Monaco", "Russia")]
+countries <- countries_eur_lockdown[countries_eur_lockdown != "Russia"]
 
 # Calculate within-country effects for all simulated countries
 effects_within_country_all <- Execute_Within_Country_Analysis(countries = countries,
@@ -282,16 +282,16 @@ list2env(effects_within_country_all, envir = .GlobalEnv); rm(effects_within_coun
 ## Plot within-country effects -------------------------------------------------
 
 # Specify simulations and descriptions to plot
-simulations <- c("Earlier intervention sequence (7,7)",
+simulations <- c("Earlier intervention sequence (3,3)",
                  "Earliest possible lockdown",
-                 "Earlier first restriction (7) and earliest possible lockdown")
+                 "Earlier first restriction (3) and earliest possible lockdown")
 description <- "all simulations"
 
 # Create figure of within-country effects
 figure_effects_within_country <- 
   Plot_Effects_Within_Country_All(simulations = simulations, 
-                                  plots = c("plot_length_lockdown",
-                                            "plot_total_cases"),
+                                  outcomes = c("Length_lockdown",
+                                               "Total_cases"),
                                   description = description, 
                                   out_folder = folder_figures)
 

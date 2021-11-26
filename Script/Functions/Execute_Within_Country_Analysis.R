@@ -8,9 +8,9 @@
 #' @param out_folder Where to save within-country effects
 #'
 #' @return Named list of two dataframes:
-#' (1) 'effects_within_country', which contains all within-country effects 
+#' (1) 'effects_within_countries', which contains all within-country effects 
 #' for all \code{countries} individually; and
-#' (2) 'effects_within_country_summary', which contains summary information 
+#' (2) 'effects_within_countries_summary', which contains summary information 
 #' for all within-country effects (i.e. Median, IQR, and N_countries).
 #'
 #' @examples
@@ -24,7 +24,7 @@ Execute_Within_Country_Analysis <- function(countries, out_folder) {
   
   # Calculate within-country effects for all designated countries,
   # and combine into single dataframe
-  effects_within_country <- foreach(j = countries,
+  effects_within_countries <- foreach(j = countries,
           .errorhandling = "pass") %do%
     Analyse_Effects_Within_Country(country = j) %>%
     bind_rows %>%
@@ -32,7 +32,7 @@ Execute_Within_Country_Analysis <- function(countries, out_folder) {
   
   # Calculate median percent change and quartiles across all countries
   # for each outcome in each simulation
-  effects_within_country_summary <- effects_within_country %>%
+  effects_within_countries_summary <- effects_within_countries %>%
     select(-Value) %>%
     group_by(History, Simulation, Outcome, Threshold) %>%
     summarise(Median_pct_change = median(Pct_change, na.rm = TRUE),
@@ -43,13 +43,13 @@ Execute_Within_Country_Analysis <- function(countries, out_folder) {
     ungroup
   
   # Save country-level and summary dataframes of within-country effects
-  write_csv(effects_within_country, 
+  write_csv(effects_within_countries, 
             paste0(out_folder, "effects_within_countries.csv"))
-  write_csv(effects_within_country_summary, 
+  write_csv(effects_within_countries_summary, 
             paste0(out_folder, "effects_within_countries_summary.csv"))
   
   # Return country-level and summary dataframes of within-country effects
-  return(list(effects_within_country = effects_within_country,
-              effects_within_country_summary = effects_within_country_summary))
+  return(list(effects_within_countries = effects_within_countries,
+              effects_within_countries_summary = effects_within_countries_summary))
   
 }

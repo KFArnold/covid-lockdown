@@ -20,7 +20,7 @@ Plot_Length_Lockdown_Sim <- function(out_folder) {
     list2env(data_formatted, envir = environment())
   }
   
-  # Filter formatted data by length of lockdown outcome, select rel
+  # Filter formatted data by length of lockdown outcome
   length_lockdown_data <- effects_within_countries_formatted %>%
     filter(Outcome == "Length_lockdown")
   
